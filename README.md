@@ -9,34 +9,100 @@
 
 ## Architecture
 
-This platform is a modular ROS2-based system for controlling autonomous drones. It is designed to be extensible and to support a variety of missions. The architecture is composed of the following modules:
-
-- **Communication:** Handles communication with the flight controller (e.g., PX4) via MAVROS. It translates high-level commands from the autonomy module into MAVLink messages and sends them to the flight controller. It also receives telemetry data from the flight controller and publishes it as ROS2 messages.
-- **Perception:** Processes sensor data from cameras, LiDAR, and other sensors. It uses NVIDIA Isaac ROS for GPU-accelerated perception, including visual SLAM and DNN-based object detection.
-- **Navigation:** Responsible for localization, mapping, and path planning. It uses the Nav2 stack for high-level navigation and path planning.
-- **Control:** Computes the control commands (e.g., attitude, velocity) required to follow the desired trajectory.
-- **Autonomy:** Contains the high-level mission logic. It uses a behavior tree to define the drone's behavior in different situations.
-- **Safety:** Monitors the drone's state and takes action to prevent accidents. It includes a failsafe system that can take over control of the drone in case of a software failure.
-- **Common:** Contains common data structures, utilities, and configuration files used by other modules.
-
-## Getting Started
-
-To get started with this platform, you will need to have ROS2 Humble and the NVIDIA Jetson Orin SDK installed. You will also need to have a flight controller (e.g., PX4) and a drone.
-
-To build the platform, clone this repository and then run the following commands:
-
-```bash
-colcon build
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    NVIDIA JETSON ORIN AGX/NX                    │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │              CUDA / TensorRT / cuDNN / ISAAC ROS          │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌───────────┐  │
+│  │  GPU Cores  │ │ DLA Engines │ │  Vision Acc │ │  Tensor   │  │
+│  │  (Ampere)   │ │   (2x DLA)  │ │    (PVA)    │ │   Cores   │  │
+│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └─────┬─────┘  │
+│         └───────────────┴───────────────┴───────────────┘       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│  PERCEPTION   │   │  NAVIGATION   │   │   CONTROL     │
+│ Camera/LiDAR  │   │ Planning/SLAM │   │  PID/MPC      │
+└───────┬───────┘   └───────┬───────┘   └───────┬───────┘
+        └───────────────────┼───────────────────┘
+                            ▼
+                   ┌───────────────┐
+                   │   AUTONOMY    │
+                   │ Mission/BT/SM │
+                   └───────┬───────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+│    SAFETY     │ │ COMMUNICATION │ │  PX4/Ardupilot│
+│ Failsafe/Geo  │ │ MAVLink/Telem │ │  Integration  │
+└───────────────┘ └───────────────┘ └───────────────┘
 ```
 
-## Usage
+## Supported Hardware
 
-To launch the platform, run the following command:
+| Variant            | GPU       | CPU        | Memory | Use Case               |
+|--------------------|-----------|------------|--------|------------------------|
+| Orin AGX 64GB      | 2048 CUDA | 12-core Arm| 64GB   | Full autonomy stack     |
+| Orin AGX 32GB      | 1792 CUDA | 8-core Arm | 32GB   | Standard deployment     |
+| Orin NX 16GB       | 1024 CUDA | 8-core Arm | 16GB   | Lightweight missions    |
+| Orin Nano 8GB      | 512 CUDA  | 6-core Arm | 8GB    | Basic perception        |
+
+## Quick Start
 
 ```bash
-ros2 launch drone_autonomy_platform platform.launch.py
+# Clone and enter
+git clone https://github.com/Darainer/drone_autonomy_platform.git
+cd drone_autonomy_platform
+
+# Start dev container
+docker compose -f docker/docker-compose.yml up -d dev
+docker compose exec dev bash
+
+# Build
+colcon build --symlink-install
+source install/setup.bash
 ```
 
-## Contributing
+## Project Structure
 
-Contributions are welcome! Please see the [contributing guidelines](CONTRIBUTING.md) for more information.
+```
+drone_autonomy_platform/
+├── src/
+│   ├── perception/      # Camera, LiDAR, sensor fusion (ISAAC ROS)
+│   ├── navigation/      # Path planning, mapping, localization
+│   ├── control/         # Flight control, trajectory tracking
+│   ├── autonomy/        # Mission management, behavior trees
+│   ├── communication/   # MAVLink, telemetry, GCS interface
+│   ├── safety/          # Failsafes, geofencing, emergency
+│   └── common/          # Shared utilities
+├── config/              # Vehicle, sensor, mission configs
+├── launch/              # ROS2 launch files
+├── docker/              # Development containers
+├── test/                # Unit, integration, simulation tests
+├── tools/               # Analysis, calibration, deployment
+└── docs/                # Documentation
+```
+
+## AI Agent Workforce
+
+| Agent         | Purpose                                         | Trigger          |
+|---------------|-------------------------------------------------|------------------|
+| Issue Triage  | Categorize & route issues                      | New issue        |
+| Safety Review | Analyze safety-critical code                    | PR to control/safety |
+| Test Generation| Generate test cases                             | Feature ready     |
+
+## Safety-Critical Development
+
+- DO-178C principles
+- Mandatory safety review for control/safety code
+- Simulation-first testing
+- Comprehensive failsafe mechanisms
+
+## License
+
+Apache 2.0 - see [LICENSE](LICENSE)

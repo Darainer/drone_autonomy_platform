@@ -1,0 +1,12 @@
+[project]
+name = "drone_autonomy_platform"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24.0", "opencv-python>=4.8.0", "PyYAML>=6.0"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]

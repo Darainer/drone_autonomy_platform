@@ -1,0 +1,13 @@
+ARG ROS_DISTRO=humble
+FROM nvcr.io/nvidia/isaac/ros:aarch64-ros2_humble-isaac_ros_dev
+
+RUN apt-get update && apt-get install -y \ 
+    build-essential cmake ninja-build ccache gdb \ 
+    libeigen3-dev libopencv-dev libpcl-dev \ 
+    python3-pip python3-colcon-common-extensions \ 
+    git vim tmux \ 
+    && rm -rf /var/lib/apt/lists/*
+
+ENV CCACHE_DIR=/ccache
+WORKDIR /ros2_ws/src/drone_autonomy_platform
+CMD ["/bin/bash"]
