@@ -1,0 +1,15 @@
+build/
+install/
+log/
+__pycache__/
+*.pyc
+*.so
+*.o
+.vscode/
+.idea/
+*.bag
+*.db3
+.env
+*.log
+flight_logs/
+.DS_Store
