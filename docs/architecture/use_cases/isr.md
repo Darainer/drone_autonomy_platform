@@ -1,65 +1,92 @@
 # Intelligence, Surveillance, and Reconnaissance (ISR)
 
-## Use Case Description
+## 1. Use Case Description
 
-Gathering information about enemy forces and terrain. This is the most common use case for military drones. An effective ISR drone can operate autonomously for extended periods, identify and track targets of interest, and provide a real-time stream of data to a ground control station.
+Intelligence, Surveillance, and Reconnaissance (ISR) is a critical military capability that involves collecting information about enemy forces and the operational environment. Drones are ideal platforms for ISR missions because they can operate for extended periods in hostile areas without risking human life. An effective ISR drone must be able to:
 
-## Perception Modules and Algorithms
+-   Autonomously navigate a pre-defined route or search pattern.
+-   Detect, identify, and track targets of interest.
+-   Collect and transmit high-quality imagery and other sensor data in real-time.
+-   Operate in a variety of weather conditions, day or night.
+-   Survive and operate in a GPS-denied or communications-degraded environment.
 
-A robust ISR capability requires a multi-sensor perception stack that can fuse data from different a variety of sensors to create a comprehensive understanding of the environment.
+## 2. Software Architecture
 
-### Camera-Based Perception
+The software architecture for an ISR drone is a complex, multi-layered system designed for reliability, autonomy, and security. The following diagram illustrates a typical architecture:
 
-| Functionality | Algorithms | Open-Source ROS2 Nodes |
-|---|---|---|
-| **Object Detection** | YOLOv8, Faster R-CNN, RetinaNet | [isaac_ros_yolov8](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_yolov8) |
-| **Object Tracking** | DeepSORT, ByteTrack | [isaac_ros_deepsort](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_object_tracking) |
-| **Semantic Segmentation** | U-Net, DeepLabv3+ | [isaac_ros_unet](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_unet) |
-| **Change Detection** | Siam-NestedUNet, BIT | [ros-change-detection](https://github.com/TUI-ProDrones/ros-change-detection) |
-| **Visual SLAM** | ORB-SLAM3, VINS-Fusion | [isaac_ros_visual_slam](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_visual_slam) |
+```
++---------------------------------------------------------------------------------+
+|                                 Ground Control Station (GCS)                    |
+|                                                                                 |
+|   +-----------------------+      +-----------------------+      +-----------------+
+|   |   Mission Planning    |----->|   Real-time Control   |----->|   Data Link     |
+|   +-----------------------+      +-----------------------+      +-----------------+
+|                                                                    ^
+|                                                                    | Encrypted
+|                                                                    | Datalink
+|                                                                    v
++---------------------------------------------------------------------------------+
+|                                 Drone Autonomy Platform                         |
+|                                                                                 |
+|   +-----------------------+      +-----------------------+      +-----------------+
+|   |   Communications      |<---->|   Mission Manager     |<---->|   Data Payloads |
+|   | (MAVLink/STANAG 4586) |      | (Behavior Tree/FSM)   |      | (EO/IR, SIGINT) |
+|   +-----------------------+      +-----------------------+      +-----------------+
+|             ^                               ^                            |
+|             |                               |                            |
+|   +-----------------------+      +-----------------------+      +-----------------+
+|   |   Flight Controller   |<---->|   Navigation & PNT    |<---->| Perception      |
+|   |   (PX4/ArduPilot)     |      | (Sensor Fusion/SLAM)  |      | (AI/ML Models)  |
+|   +-----------------------+      +-----------------------+      +-----------------+
+|                                                                                 |
++---------------------------------------------------------------------------------+
+```
 
-### LiDAR-Based Perception
+### 2.1. Key Components
 
-LiDAR provides accurate depth information, which is essential for 3D mapping and obstacle avoidance.
+-   **Ground Control Station (GCS):** The GCS is used for mission planning, real-time control, and data analysis. It communicates with the drone over a secure data link.
+-   **Drone Autonomy Platform:** This is the onboard software that runs on the drone's mission computer (e.g., NVIDIA Jetson Orin).
+    -   **Communications:** This module handles communication with the GCS and the flight controller. It uses standard protocols like MAVLink or STANAG 4586 to ensure interoperability.
+    -   **Mission Manager:** This is the "brain" of the drone. It executes the mission plan, which is typically defined as a behavior tree or finite state machine. It makes high-level decisions based on input from the other modules.
+    -   **Data Payloads:** This module manages the various sensor payloads, such as an electro-optical/infrared (EO/IR) camera or a signals intelligence (SIGINT) payload.
+    -   **Navigation & PNT (Positioning, Navigation, and Timing):** This module is responsible for determining the drone's position and orientation. It fuses data from multiple sensors, including GPS, an inertial measurement unit (IMU), and visual-inertial odometry (VIO), to provide a robust and accurate position estimate, even in GPS-denied environments.
+    -   **Perception:** This module processes the sensor data to create a comprehensive understanding of the environment. It uses AI/ML models to detect, classify, and track targets of interest.
+    -   **Flight Controller:** This is a dedicated microcontroller (e.g., PX4, ArduPilot) that is responsible for low-level flight control. It takes commands from the mission computer and translates them into motor commands.
 
-| Functionality | Algorithms | Open-Source ROS2 Nodes |
-|---|---|---|
-| **LiDAR Odometry and Mapping (LOAM)** | LOAM, LEGO-LOAM | [lio-sam-ros2](https://github.com/chao-qu/lio-sam-ros2) |
-| **3D Object Detection** | PointPillars, VoxelNet | [OpenPCDet](https://github.com/open-mmlab/OpenPCDet) |
-| **Obstacle Avoidance** | Voxel-based methods | [navigation2](https://github.com/ros-planning/navigation2) |
+## 3. Requirements
 
-### Other Sensors
+### 3.1. Functional Requirements
 
-| Sensor | Purpose |
+| ID | Requirement |
 |---|---|
-| **GPS/INS** | Provides accurate localization information. |
-| **Thermal Camera** | Allows for detection of heat signatures, which is useful for finding people and vehicles at night. |
-| **SIGINT/ELINT** | Can be used to detect and locate enemy communication and electronic systems. |
+| FR-1 | The system shall be able to plan and execute ISR missions. |
+| FR-2 | The system shall be able to detect, classify, and track targets of interest. |
+| FR-3 | The system shall be able to collect and transmit high-quality imagery and other sensor data in real-time. |
+| FR-4 | The system shall be able to operate in a GPS-denied environment for at least 10 minutes. |
+| FR-5 | The system shall be able to operate in a communications-degraded environment. |
+| FR-6 | The system shall use an encrypted data link for all communications. |
+| FR-7 | The system shall be interoperable with other systems via STANAG 4586. |
 
-## Decision Layer Logic (Behavior Tree)
+### 3.2. Non-Functional Requirements
 
-The decision layer for an ISR mission needs to be more sophisticated than a simple search pattern. It needs to be able to react to new information and dynamically re-task the drone.
+| ID | Requirement |
+|---|---|
+| NFR-1 | The system shall have a modular architecture that allows for easy integration of new sensors and capabilities. |
+| NFR-2 | The system shall be reliable, with a mean time between failures (MTBF) of at least 1000 hours. |
+| NFR-3 | The system shall be secure, with no known vulnerabilities. |
+| NFR-4 | The system shall be easy to use, with a user-friendly ground control station. |
+| NFR-5 | The system shall be developed in accordance with DO-178C or a similar safety-critical software development standard. |
 
-```
-(root)
-└── (selector)
-    ├── (sequence)
-    │   ├── (condition) Is there a high-priority target?
-    │   ├── (action) Fly to the target's last known location
-    │   ├── (action) Loiter over the target and gather data
-    │   └── (action) Transmit the data to the ground control station
-    ├── (sequence)
-    │   ├── (condition) Is there a new area of interest?
-    │   ├── (action) Generate a search pattern for the new area
-    │   ├── (action) Execute the search pattern
-    │   └── (action) Report any new targets of interest
-    └── (action) Return to base
-```
+## 4. Open-Source Software and Further Reading
 
-### Explanation
-
-This behavior tree defines a more realistic ISR mission.
-
-1.  **High-Priority Target:** The drone will first check if there is a high-priority target. If there is, it will fly to the target's last known location, loiter over the target to gather data, and then transmit the data to the ground control station.
-2.  **New Area of Interest:** If there are no high-priority targets, the drone will check if there is a new area of interest. If there is, it will generate a search pattern for the new area, execute the search pattern, and then report any new targets of interest.
-3.  **Return to Base:** If there are no high-priority targets and no new areas of interest, the drone will return to base.
+-   **PX4/ArduPilot:** Open-source flight controller software.
+    -   [https://px4.io/](https://px4.io/)
+    -   [https://ardupilot.org/](https://ardupilot.org/)
+-   **MAVLink:** A lightweight messaging protocol for communicating with drones.
+    -   [https://mavlink.io/en/](https://mavlink.io/en/)
+-   **STANAG 4586:** NATO standard for the control of unmanned systems.
+    -   [https://www.nato.int/cps/en/natohq/topics_156323.htm](https://www.nato.int/cps/en/natohq/topics_156323.htm)
+-   **Behavior Trees:** A common way to represent complex decision-making logic.
+    -   [https://github.com/BehaviorTree/BehaviorTree.CPP](https://github.com/BehaviorTree/BehaviorTree.CPP)
+-   **NVIDIA Isaac ROS:** A collection of hardware-accelerated packages for ROS2.
+    -   [https://github.com/NVIDIA-ISAAC-ROS](https://github.com/NVIDIA-ISAAC-ROS)
