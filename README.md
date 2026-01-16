@@ -1,139 +1,108 @@
-# 🚁 Drone Autonomy Platform
+# Drone Autonomy Platform
 
-[![CI Pipeline](https://github.com/Darainer/drone_autonomy_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Darainer/drone_autonomy_platform/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![CI](https://github.com/Darainer/drone_autonomy_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Darainer/drone_autonomy_platform/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![ROS2](https://img.shields.io/badge/ROS2-Humble-blue)](https://docs.ros.org/en/humble/)
+[![Platform](https://img.shields.io/badge/Platform-NVIDIA%20Orin-green)](https://developer.nvidia.com/embedded/jetson-orin)
 
-AI-powered drone autonomy development platform with Claude agent workforce for safety-critical UAV software development.
+> AI-powered drone autonomy platform optimized for NVIDIA Jetson Orin
 
-## 🏗️ Architecture
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DRONE AUTONOMY PLATFORM                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │ PERCEPTION  │  │ NAVIGATION  │  │  CONTROL    │  │  AUTONOMY   │        │
-│  │             │  │             │  │             │  │             │        │
-│  │ • Camera    │  │ • Planning  │  │ • Attitude  │  │ • Mission   │        │
-│  │ • LiDAR     │  │ • Mapping   │  │ • Position  │  │ • Behavior  │        │
-│  │ • Fusion    │  │ • Localize  │  │ • Trajectory│  │ • State     │        │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
-│                                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────┐         │
-│  │COMMUNICATION│  │   SAFETY    │  │          COMMON             │         │
-│  │             │  │             │  │                             │         │
-│  │ • MAVLink   │  │ • Failsafe  │  │ • Math  • Logging  • Config │         │
-│  │ • Telemetry │  │ • Geofence  │  │                             │         │
-│  └─────────────┘  └─────────────┘  └─────────────────────────────┘         │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    NVIDIA JETSON ORIN AGX/NX                    │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │              CUDA / TensorRT / cuDNN / ISAAC ROS          │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌───────────┐  │
+│  │  GPU Cores  │ │ DLA Engines │ │  Vision Acc │ │  Tensor   │  │
+│  │  (Ampere)   │ │   (2x DLA)  │ │    (PVA)    │ │   Cores   │  │
+│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └─────┬─────┘  │
+│         └───────────────┴───────────────┴───────────────┘       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│  PERCEPTION   │   │  NAVIGATION   │   │   CONTROL     │
+│ Camera/LiDAR  │   │ Planning/SLAM │   │  PID/MPC      │
+└───────┬───────┘   └───────┬───────┘   └───────┬───────┘
+        └───────────────────┼───────────────────┘
+                            ▼
+                   ┌───────────────┐
+                   │   AUTONOMY    │
+                   │ Mission/BT/SM │
+                   └───────┬───────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+│    SAFETY     │ │ COMMUNICATION │ │  PX4/Ardupilot│
+│ Failsafe/Geo  │ │ MAVLink/Telem │ │  Integration  │
+└───────────────┘ └───────────────┘ └───────────────┘
 ```
 
-## 🤖 AI Agent Workforce
+## Supported Hardware
 
-This platform is designed to work with an AI agent workforce:
+| Variant            | GPU       | CPU        | Memory | Use Case               |
+|--------------------|-----------|------------|--------|------------------------|
+| Orin AGX 64GB      | 2048 CUDA | 12-core Arm| 64GB   | Full autonomy stack     |
+| Orin AGX 32GB      | 1792 CUDA | 8-core Arm | 32GB   | Standard deployment     |
+| Orin NX 16GB       | 1024 CUDA | 8-core Arm | 16GB   | Lightweight missions    |
+| Orin Nano 8GB      | 512 CUDA  | 6-core Arm | 8GB    | Basic perception        |
 
-| Agent | Purpose |
-|-------|---------|
-| **Issue Triage** | Auto-categorize and route issues |
-| **Safety Review** | Analyze safety-critical code changes |
-| **Code Review** | Automated first-pass code review |
-| **Test Generation** | Generate test cases for edge scenarios |
-| **Documentation** | Keep docs synchronized with code |
-| **Compliance** | Verify regulatory compliance |
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Docker & Docker Compose
-- Git
-
-### Development Environment
+## Quick Start
 
 ```bash
-# Clone the repository
+# Clone and enter
 git clone https://github.com/Darainer/drone_autonomy_platform.git
 cd drone_autonomy_platform
 
-# Start development container
+# Start dev container
 docker compose -f docker/docker-compose.yml up -d dev
+docker compose exec dev bash
 
-# Enter the container
-docker compose -f docker/docker-compose.yml exec dev bash
-
-# Build the project
+# Build
 colcon build --symlink-install
+source install/setup.bash
 ```
 
-### Running Simulation
-
-```bash
-# Start simulation environment
-docker compose -f docker/docker-compose.yml up simulation
-```
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 drone_autonomy_platform/
-├── .github/                 # CI/CD, templates, agent configs
-├── src/                     # Source code modules
-│   ├── perception/          # Sensor processing
-│   ├── navigation/          # Path planning
-│   ├── control/             # Flight control
-│   ├── autonomy/            # Decision making
-│   ├── communication/       # GCS & telemetry
-│   ├── safety/              # Failsafes
-│   └── common/              # Shared utilities
-├── config/                  # Runtime configurations
-├── docker/                  # Container definitions
-├── docs/                    # Documentation
-├── launch/                  # ROS2 launch files
-├── msgs/                    # Message definitions
-├── test/                    # Test suites
-└── tools/                   # Developer utilities
+├── src/
+│   ├── perception/      # Camera, LiDAR, sensor fusion (ISAAC ROS)
+│   ├── navigation/      # Path planning, mapping, localization
+│   ├── control/         # Flight control, trajectory tracking
+│   ├── autonomy/        # Mission management, behavior trees
+│   ├── communication/   # MAVLink, telemetry, GCS interface
+│   ├── safety/          # Failsafes, geofencing, emergency
+│   └── common/          # Shared utilities
+├── config/              # Vehicle, sensor, mission configs
+├── launch/              # ROS2 launch files
+├── docker/              # Development containers
+├── test/                # Unit, integration, simulation tests
+├── tools/               # Analysis, calibration, deployment
+└── docs/                # Documentation
 ```
 
-## ����️ Safety-First Development
+## AI Agent Workforce
 
-This platform enforces safety-critical development practices:
+| Agent         | Purpose                                         | Trigger          |
+|---------------|-------------------------------------------------|------------------|
+| Issue Triage  | Categorize & route issues                      | New issue        |
+| Safety Review | Analyze safety-critical code                    | PR to control/safety |
+| Test Generation| Generate test cases                             | Feature ready     |
 
-- ⚠️ Safety-critical code requires additional review
-- 🧪 Comprehensive simulation testing before hardware
-- 📋 Safety checklists in all PRs
-- 🔒 Automated static analysis for safety issues
+## Safety-Critical Development
 
-## 🔧 Building
+- DO-178C principles
+- Mandatory safety review for control/safety code
+- Simulation-first testing
+- Comprehensive failsafe mechanisms
 
-```bash
-# Standard build
-colcon build
+## License
 
-# Build with tests
-colcon build --cmake-args -DBUILD_TESTING=ON
-
-# Build with safety checks enabled
-colcon build --cmake-args -DENABLE_SAFETY_CHECKS=ON
-
-# Run tests
-colcon test
-colcon test-result --verbose
-```
-
-## 📖 Documentation
-
-- [Architecture Overview](docs/architecture/README.md)
-- [Safety Procedures](docs/safety/README.md)
-- [API Reference](docs/api/README.md)
-- [Compliance Guide](docs/compliance/README.md)
-
-## 🤝 Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
-
-## 📄 License
-
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Apache 2.0 - see [LICENSE](LICENSE)
