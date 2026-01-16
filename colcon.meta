@@ -1,0 +1,1 @@
+{\n  "names": {\n    "drone_autonomy_platform": {\n      "cmake-args": [\n        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",\n        "-DBUILD_TESTING=ON",\n        "-DENABLE_SAFETY_CHECKS=ON"\n      ]\n    }\n  }\n}
