@@ -1,139 +1,42 @@
-# 🚁 Drone Autonomy Platform
+# Drone Autonomy Platform
 
-[![CI Pipeline](https://github.com/Darainer/drone_autonomy_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Darainer/drone_autonomy_platform/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![CI](https://github.com/Darainer/drone_autonomy_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/Darainer/drone_autonomy_platform/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![ROS2](https://img.shields.io/badge/ROS2-Humble-blue)](https://docs.ros.org/en/humble/)
+[![Platform](https://img.shields.io/badge/Platform-NVIDIA%20Orin-green)](https://developer.nvidia.com/embedded/jetson-orin)
 
-AI-powered drone autonomy development platform with Claude agent workforce for safety-critical UAV software development.
+> AI-powered drone autonomy platform optimized for NVIDIA Jetson Orin
 
-## 🏗️ Architecture
+## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DRONE AUTONOMY PLATFORM                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │ PERCEPTION  │  │ NAVIGATION  │  │  CONTROL    │  │  AUTONOMY   │        │
-│  │             │  │             │  │             │  │             │        │
-│  │ • Camera    │  │ • Planning  │  │ • Attitude  │  │ • Mission   │        │
-│  │ • LiDAR     │  │ • Mapping   │  │ • Position  │  │ • Behavior  │        │
-│  │ • Fusion    │  │ • Localize  │  │ • Trajectory│  │ • State     │        │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
-│                                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────┐         │
-│  │COMMUNICATION│  │   SAFETY    │  │          COMMON             │         │
-│  │             │  │             │  │                             │         │
-│  │ • MAVLink   │  │ • Failsafe  │  │ • Math  • Logging  • Config │         │
-│  │ • Telemetry │  │ • Geofence  │  │                             │         │
-│  └─────────────┘  └─────────────┘  └─────────────────────────────┘         │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+This platform is a modular ROS2-based system for controlling autonomous drones. It is designed to be extensible and to support a variety of missions. The architecture is composed of the following modules:
 
-## 🤖 AI Agent Workforce
+- **Communication:** Handles communication with the flight controller (e.g., PX4) via MAVROS. It translates high-level commands from the autonomy module into MAVLink messages and sends them to the flight controller. It also receives telemetry data from the flight controller and publishes it as ROS2 messages.
+- **Perception:** Processes sensor data from cameras, LiDAR, and other sensors. It uses NVIDIA Isaac ROS for GPU-accelerated perception, including visual SLAM and DNN-based object detection.
+- **Navigation:** Responsible for localization, mapping, and path planning. It uses the Nav2 stack for high-level navigation and path planning.
+- **Control:** Computes the control commands (e.g., attitude, velocity) required to follow the desired trajectory.
+- **Autonomy:** Contains the high-level mission logic. It uses a behavior tree to define the drone's behavior in different situations.
+- **Safety:** Monitors the drone's state and takes action to prevent accidents. It includes a failsafe system that can take over control of the drone in case of a software failure.
+- **Common:** Contains common data structures, utilities, and configuration files used by other modules.
 
-This platform is designed to work with an AI agent workforce:
+## Getting Started
 
-| Agent | Purpose |
-|-------|---------|
-| **Issue Triage** | Auto-categorize and route issues |
-| **Safety Review** | Analyze safety-critical code changes |
-| **Code Review** | Automated first-pass code review |
-| **Test Generation** | Generate test cases for edge scenarios |
-| **Documentation** | Keep docs synchronized with code |
-| **Compliance** | Verify regulatory compliance |
+To get started with this platform, you will need to have ROS2 Humble and the NVIDIA Jetson Orin SDK installed. You will also need to have a flight controller (e.g., PX4) and a drone.
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Docker & Docker Compose
-- Git
-
-### Development Environment
+To build the platform, clone this repository and then run the following commands:
 
 ```bash
-# Clone the repository
-git clone https://github.com/Darainer/drone_autonomy_platform.git
-cd drone_autonomy_platform
-
-# Start development container
-docker compose -f docker/docker-compose.yml up -d dev
-
-# Enter the container
-docker compose -f docker/docker-compose.yml exec dev bash
-
-# Build the project
-colcon build --symlink-install
-```
-
-### Running Simulation
-
-```bash
-# Start simulation environment
-docker compose -f docker/docker-compose.yml up simulation
-```
-
-## 📁 Project Structure
-
-```
-drone_autonomy_platform/
-├── .github/                 # CI/CD, templates, agent configs
-├── src/                     # Source code modules
-│   ├── perception/          # Sensor processing
-│   ├── navigation/          # Path planning
-│   ├── control/             # Flight control
-│   ├── autonomy/            # Decision making
-│   ├── communication/       # GCS & telemetry
-│   ├── safety/              # Failsafes
-│   └── common/              # Shared utilities
-├── config/                  # Runtime configurations
-├── docker/                  # Container definitions
-├── docs/                    # Documentation
-├── launch/                  # ROS2 launch files
-├── msgs/                    # Message definitions
-├── test/                    # Test suites
-└── tools/                   # Developer utilities
-```
-
-## ����️ Safety-First Development
-
-This platform enforces safety-critical development practices:
-
-- ⚠️ Safety-critical code requires additional review
-- 🧪 Comprehensive simulation testing before hardware
-- 📋 Safety checklists in all PRs
-- 🔒 Automated static analysis for safety issues
-
-## 🔧 Building
-
-```bash
-# Standard build
 colcon build
-
-# Build with tests
-colcon build --cmake-args -DBUILD_TESTING=ON
-
-# Build with safety checks enabled
-colcon build --cmake-args -DENABLE_SAFETY_CHECKS=ON
-
-# Run tests
-colcon test
-colcon test-result --verbose
 ```
 
-## 📖 Documentation
+## Usage
 
-- [Architecture Overview](docs/architecture/README.md)
-- [Safety Procedures](docs/safety/README.md)
-- [API Reference](docs/api/README.md)
-- [Compliance Guide](docs/compliance/README.md)
+To launch the platform, run the following command:
 
-## 🤝 Contributing
+```bash
+ros2 launch drone_autonomy_platform platform.launch.py
+```
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+## Contributing
 
-## 📄 License
-
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Contributions are welcome! Please see the [contributing guidelines](CONTRIBUTING.md) for more information.

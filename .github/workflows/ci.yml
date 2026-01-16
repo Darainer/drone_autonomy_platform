@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup ros
+        uses: ros-tooling/setup-ros@v0.4
+        with:
+          required-ros-distributions: humble
+      - name: setup platform
+        run: ./setup_platform.sh
+      - name: build and test
+        uses: ros-tooling/action-ros-ci@v0.2
+        with:
+          package-name: drone_autonomy_platform
+          target-ros2-distro: humble
