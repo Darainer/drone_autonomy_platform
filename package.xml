@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>drone_autonomy_platform</name>
+  <version>0.1.0</version>
+  <description>
+    AI-powered drone autonomy development platform with Claude agent workforce 
+    for safety-critical UAV software development. Optimized for NVIDIA Jetson Orin.
+  </description>
+  
+  <maintainer email="team@example.com">Drone Autonomy Team</maintainer>
+  <license>Apache-2.0</license>
+  
+  <url type="website">https://github.com/Darainer/drone_autonomy_platform</url>
+  <url type="repository">https://github.com/Darainer/drone_autonomy_platform.git</url>
+  <url type="bugtracker">https://github.com/Darainer/drone_autonomy_platform/issues</url>
+  
+  <author email="team@example.com">Drone Autonomy Team</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>image_transport</depend>
+  <depend>cv_bridge</depend>
+  <depend>pcl_conversions</depend>
+  <depend>pcl_ros</depend>
+  
+  <depend>nav2_core</depend>
+  <depend>nav2_common</depend>
+  <depend>nav2_msgs</depend>
+  
+  <depend>mavros</depend>
+  <depend>mavros_msgs</depend>
+  <depend>px4_msgs</depend>
+  
+  <depend>isaac_ros_common</depend>
+  <depend>isaac_ros_visual_slam</depend>
+  <depend>isaac_ros_apriltag</depend>
+  <depend>isaac_ros_dnn_inference</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>launch_testing</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>launch_testing_ros</test_depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+  
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
