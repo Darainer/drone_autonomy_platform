@@ -103,6 +103,42 @@ targets/
 - Resize/crop to 640×640 with context
 - Convert annotations to COCO JSON format
 
+#### 2.1.1 Dataset Licensing for Commercial Use
+
+> ⚠️ **Critical**: Academic-licensed datasets (VisDrone, DOTA, VEDAI, COWC) are suitable for research prototyping only. Commercial product deployment requires either separate licensing agreements or use of permissively-licensed alternatives.
+
+**Commercially-Viable Open Datasets (AWS Open Data / Permissive Licenses):**
+
+| Dataset | License | Images | Classes | Commercial Use | Notes |
+|---------|---------|--------|---------|----------------|-------|
+| **SpaceNet** | CC-BY-SA 4.0 | 100K+ | Buildings, roads, vehicles | ✅ Yes (with attribution) | High-res satellite, multiple challenges |
+| **LADI** | Open Government | 50K+ | Infrastructure, damage, vehicles | ✅ Yes | UAV perspective, disaster response |
+| **DeepForest** | MIT | 5K+ | Trees, birds | ✅ Yes | Limited class diversity |
+| **OpenAerialMap** | Varies (mostly CC-BY) | 100K+ | Unlabeled imagery | ✅ Check per-image | Requires annotation |
+| **RarePlanes** | Open | 50K+ | Aircraft | ✅ Yes | Real + synthetic satellite |
+
+**Datasets Requiring License Review:**
+
+| Dataset | License | Commercial Status | Action Required |
+|---------|---------|-------------------|-----------------|
+| **xView** | DIUx Terms | ⚠️ Review required | Contact NGA/DIUx for commercial terms |
+| **VisDrone** | Academic | ❌ Research only | Seek commercial license or replace |
+| **DOTA** | Academic | ❌ Research only | Seek commercial license or replace |
+
+**Recommended Dataset Strategy:**
+
+1. **Phase 2 Development**: Use VisDrone/DOTA for rapid prototyping and architecture validation
+2. **Phase 2 Production**: Transition to SpaceNet + LADI + xView (after license confirmation)
+3. **Phase 3**: Prioritize internal data collection to eliminate external licensing dependencies
+
+**Roboflow Universe Datasets (CC-BY/Apache licensed):**
+
+- Aerial Maritime Drone Dataset (~500 images) - boats, cars, docks, jetskis
+- Drone Aerial Highway Footage (~50 images) - vehicles from UAV perspective
+- Various aerial detection datasets - verify individual licenses before use
+
+**Synthetic Data Advantage**: Data generated via Isaac Sim/Unity is owned IP with no external licensing constraints - prioritize synthetic data expansion to reduce dependency on external datasets.
+
 #### 2.2 Synthetic Data Generation
 
 **Simulation Environment: NVIDIA Isaac Sim / Unity**
