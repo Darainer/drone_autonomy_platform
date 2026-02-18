@@ -7,6 +7,47 @@
 
 > AI-powered drone autonomy platform optimized for NVIDIA Jetson Orin
 
+# 🛸 Agri-Map Autonomous UAV
+
+An industrial-grade autonomous quadcopter designed for agricultural mapping and real-time crop analysis. This system leverages the **Pixhawk 6X** for flight stability and the **NVIDIA Jetson Orin Nano** for on-board Spatial AI and computer vision.
+
+---
+
+## 🏗 System Architecture
+
+### 1. Flight Control (The Pilot)
+* **Frame:** Tarot 650 Sport (Carbon Fiber)
+* **Autopilot:** Holybro Pixhawk 6X (v2A)
+* **Firmware:** ArduPilot (ArduCopter 4.5+)
+* **RC Link:** RadioMaster TX16S MKII (4-in-1) with R88 Receiver
+* **Telemetry:** SiK Telemetry Radio V3 (433MHz) for GCS/MAVLink
+
+### 2. Companion Computer (The Brain)
+* **Compute:** NVIDIA Jetson Orin Nano Developer Kit (JetPack 6.x)
+* **Primary Storage:** 1TB Lexar NM790 NVMe SSD (RootFS migrated)
+* **Boot Storage:** 128GB SanDisk Extreme A2 microSD
+* **Vision Hardware:** Luxonis OAK-D (Spatial AI / Stereo Depth)
+* **Data Bridge:** UAV-DEV USB2SERIAL (Telem 2 ↔ USB 3.1)
+
+### 3. Power System (6S)
+* **Battery:** SLS XTRON 10,000mAh 6S1P (22.2V)
+* **Power Splitter:** XT90-S Anti-Spark Parallel Y-Cable
+* **Regulation:** Matek UBEC Duo (12V/4A to Jetson | 5V/4A to Peripherals)
+* **Charging:** ISDT K4 Smart Duo + XT60-to-XT90 Adapters
+
+---
+
+## 💻 Software Environment
+
+### Containerization
+The system runs a containerized microservice architecture using **Docker** to ensure GPU-accelerated consistency across JetPack versions.
+
+* **ROS2 Humble:** Core robotics middleware.
+* **MAVROS:** Communication bridge between ArduPilot and ROS2.
+* **DepthAI:** Luxonis library for OAK-D VPU offloading.
+* **NVIDIA Isaac ROS:** Hardware-accelerated Visual SLAM and perception.
+
+
 ## Architecture
 
 ```
