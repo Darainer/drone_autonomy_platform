@@ -5,50 +5,114 @@
 [![ROS2](https://img.shields.io/badge/ROS2-Humble-blue)](https://docs.ros.org/en/humble/)
 [![Platform](https://img.shields.io/badge/Platform-NVIDIA%20Orin-green)](https://developer.nvidia.com/embedded/jetson-orin)
 
-> AI-powered drone autonomy platform optimized for NVIDIA Jetson Orin
+> AI-powered drone autonomy platform optimized for NVIDIA Jetson Orin — industrial-grade autonomous quadcopter designed for agricultural mapping, ISR, and real-time perception.
 
-# 🛸 Agri-Map Autonomous UAV
-
-An industrial-grade autonomous quadcopter designed for agricultural mapping and real-time crop analysis. This system leverages the **Pixhawk 6X** for flight stability and the **NVIDIA Jetson Orin Nano** for on-board Spatial AI and computer vision.
+This system leverages the **Pixhawk 6X** for flight stability and the **NVIDIA Jetson Orin** for on-board Spatial AI and computer vision.
 
 ---
 
-## 🏗 System Architecture
+## Hardware Configuration
 
-### 1. Flight Control (The Pilot)
-* **Frame:** Tarot 650 Sport (Carbon Fiber)
-* **Autopilot:** Holybro Pixhawk 6X (v2A)
-* **Firmware:** ArduPilot (ArduCopter 4.5+)
-* **RC Link:** RadioMaster TX16S MKII (4-in-1) with R88 Receiver
-* **Telemetry:** SiK Telemetry Radio V3 (433MHz) for GCS/MAVLink
+### Flight Control
 
-### 2. Companion Computer (The Brain)
-* **Compute:** NVIDIA Jetson Orin Nano Developer Kit (JetPack 6.x)
-* **Primary Storage:** 1TB Lexar NM790 NVMe SSD (RootFS migrated)
-* **Boot Storage:** 128GB SanDisk Extreme A2 microSD
-* **Vision Hardware:** Luxonis OAK-D (Spatial AI / Stereo Depth)
-* **Data Bridge:** UAV-DEV USB2SERIAL (Telem 2 ↔ USB 3.1)
+| Component | Specification |
+|-----------|---------------|
+| Frame | Tarot 650 Sport (Carbon Fiber) |
+| Autopilot | Holybro Pixhawk 6X (v2A) |
+| Firmware | ArduPilot (ArduCopter 4.5+) |
+| RC Link | RadioMaster TX16S MKII (4-in-1) + R88 Receiver |
+| Telemetry | SiK Telemetry Radio V3 (433MHz) |
 
-### 3. Power System (6S)
-* **Battery:** SLS XTRON 10,000mAh 6S1P (22.2V)
-* **Power Splitter:** XT90-S Anti-Spark Parallel Y-Cable
-* **Regulation:** Matek UBEC Duo (12V/4A to Jetson | 5V/4A to Peripherals)
-* **Charging:** ISDT K4 Smart Duo + XT60-to-XT90 Adapters
+### Companion Computer
+
+| Component | Specification |
+|-----------|---------------|
+| Compute | NVIDIA Jetson Orin Nano (JetPack 6.x) |
+| Primary Storage | 1TB Lexar NM790 NVMe SSD |
+| Boot Storage | 128GB SanDisk Extreme A2 microSD |
+| Vision | Luxonis OAK-D (Spatial AI / Stereo Depth) |
+| Data Bridge | UAV-DEV USB2SERIAL (Telem 2 ↔ USB 3.1) |
+
+### Power System (6S)
+
+| Component | Specification |
+|-----------|---------------|
+| Battery | SLS XTRON 10,000mAh 6S1P (22.2V) |
+| Power Splitter | XT90-S Anti-Spark Parallel Y-Cable |
+| Regulation | Matek UBEC Duo (12V/4A → Jetson, 5V/4A → Peripherals) |
+| Charging | ISDT K4 Smart Duo + XT60-to-XT90 Adapters |
 
 ---
 
-## 💻 Software Environment
+## Software Stack
 
-### Containerization
 The system runs a containerized microservice architecture using **Docker** to ensure GPU-accelerated consistency across JetPack versions.
 
-* **ROS2 Humble:** Core robotics middleware.
-* **MAVROS:** Communication bridge between ArduPilot and ROS2.
-* **DepthAI:** Luxonis library for OAK-D VPU offloading.
-* **NVIDIA Isaac ROS:** Hardware-accelerated Visual SLAM and perception.
+| Layer | Technology |
+|-------|------------|
+| Middleware | ROS2 Humble |
+| Flight Bridge | MAVROS (ArduPilot ↔ ROS2) |
+| Vision | DepthAI (OAK-D VPU offload) |
+| Perception | NVIDIA Isaac ROS (TensorRT accelerated) |
 
+---
 
-## Architecture
+## System Architecture
+
+### High-Level Overview
+
+```
+                              ┌─────────────────────────────────────┐
+                              │          GROUND STATION             │
+                              │  ┌─────────┐       ┌─────────────┐  │
+                              │  │   GCS   │       │  Telemetry  │  │
+                              │  │ Display │◄──────│   Receiver  │  │
+                              │  └─────────┘       └──────▲──────┘  │
+                              └───────────────────────────┼─────────┘
+                                                          │ MAVLink (433MHz)
+                              ┌───────────────────────────┼─────────┐
+                              │                    DRONE  │         │
+  ┌───────────────────────────┼───────────────────────────┼───────┐ │
+  │ COMPANION COMPUTER        │                           │       │ │
+  │ (Jetson Orin)             │                           │       │ │
+  │ ┌─────────────────────────┼───────────────────────────┼─────┐ │ │
+  │ │                    ROS2 │Humble                     │     │ │ │
+  │ │  ┌─────────┐  ┌─────────┴───┐  ┌───────────┐  ┌─────┴───┐ │ │ │
+  │ │  │Perception│  │ Navigation │  │  Control  │  │ Comms   │ │ │ │
+  │ │  │ (Isaac) │  │(SLAM/Plan) │  │ (Traj)    │  │(MAVLink)│ │ │ │
+  │ │  └────┬────┘  └─────┬──────┘  └─────┬─────┘  └────┬────┘ │ │ │
+  │ │       └─────────────┴───────────────┴─────────────┘      │ │ │
+  │ │                         │                                │ │ │
+  │ │  ┌──────────────────────┴──────────────────────────────┐ │ │ │
+  │ │  │               AUTONOMY (Mission/BT)                 │ │ │ │
+  │ │  └──────────────────────┬──────────────────────────────┘ │ │ │
+  │ │                         │                                │ │ │
+  │ │  ┌──────────────────────┴──────────────────────────────┐ │ │ │
+  │ │  │                SAFETY (Failsafe/Geo)                │ │ │ │
+  │ │  └─────────────────────────────────────────────────────┘ │ │ │
+  │ └──────────────────────────────────────────────────────────┘ │ │
+  │                            │ UART/USB                        │ │
+  └────────────────────────────┼─────────────────────────────────┘ │
+                               │                                   │
+  ┌────────────────────────────┼─────────────────────────────────┐ │
+  │ FLIGHT CONTROLLER          │                                 │ │
+  │ (Pixhawk 6X)               ▼                                 │ │
+  │  ┌─────────────────────────────────────────────────────────┐ │ │
+  │  │              ArduPilot (ArduCopter 4.5+)                │ │ │
+  │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────┐ │ │ │
+  │  │  │  EKF3   │  │  Mixer  │  │   PID   │  │ Failsafes   │ │ │ │
+  │  │  └─────────┘  └─────────┘  └─────────┘  └─────────────┘ │ │ │
+  │  └─────────────────────────────────────────────────────────┘ │ │
+  │                            │ PWM                             │ │
+  └────────────────────────────┼─────────────────────────────────┘ │
+                               ▼                                   │
+                    ┌─────────────────────┐                        │
+                    │   ESCs + Motors     │                        │
+                    └─────────────────────┘                        │
+                              └─────────────────────────────────────┘
+```
+
+### Compute Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -84,30 +148,128 @@ The system runs a containerized microservice architecture using **Docker** to en
 └───────────────┘ └───────────────┘ └───────────────┘
 ```
 
-## Supported Hardware
+### ROS2 Node Communication
 
-| Variant            | GPU       | CPU        | Memory | Use Case               |
-|--------------------|-----------|------------|--------|------------------------|
-| Orin AGX 64GB      | 2048 CUDA | 12-core Arm| 64GB   | Full autonomy stack     |
-| Orin AGX 32GB      | 1792 CUDA | 8-core Arm | 32GB   | Standard deployment     |
-| Orin NX 16GB       | 1024 CUDA | 8-core Arm | 16GB   | Lightweight missions    |
-| Orin Nano 8GB      | 512 CUDA  | 6-core Arm | 8GB    | Basic perception        |
+```
+                           ┌─────────────────────────────────────────┐
+   ┌───────────┐           │              /autonomy_node             │
+   │  OAK-D    │           │  ┌─────────────────────────────────┐   │
+   │  Camera   │           │  │      Mission State Machine      │   │
+   └─────┬─────┘           │  │      Behavior Tree Engine       │   │
+         │                 │  └─────────────────────────────────┘   │
+         ▼                 └──────────────┬──────────────────────────┘
+┌─────────────────┐                       │
+│/perception_node │        /mission ──────┘
+│ ┌─────────────┐ │        /mission_status
+│ │  RT-DETR    │ │                       │
+│ │  Detector   │ │                       ▼
+│ ├─────────────┤ │        ┌─────────────────────────────────────────┐
+│ │  Tracker    │ │        │            /navigation_node             │
+│ └─────────────┘ │        │  ┌─────────────────────────────────┐   │
+└────────┬────────┘        │  │    Visual SLAM  │  Path Planner │   │
+         │                 │  └─────────────────────────────────┘   │
+         │ /detections     └──────────────┬──────────────────────────┘
+         │ /depth_image                   │
+         │ /camera/image_raw              │ /trajectory
+         │                                │ /pose
+         ▼                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                          ROS2 DDS (Cyclone DDS)                     │
+└─────────────────────────────────────────────────────────────────────┘
+         │                                │
+         │ /sensor_data                   │ /attitude_cmd
+         │                                │ /velocity_cmd
+         ▼                                ▼
+┌─────────────────┐        ┌─────────────────────────────────────────┐
+│  /safety_node   │        │             /control_node               │
+│ ┌─────────────┐ │        │  ┌─────────────────────────────────┐   │
+│ │ Geofence    │ │        │  │  Trajectory Tracker  │   MPC    │   │
+│ │ Failsafe    │ │        │  └─────────────────────────────────┘   │
+│ │ Watchdog    │ │        └──────────────┬──────────────────────────┘
+│ └─────────────┘ │                       │
+└────────┬────────┘                       │ /mavros/setpoint_*
+         │                                ▼
+         │ /safety_status  ┌─────────────────────────────────────────┐
+         └────────────────▶│          /communication_node            │
+                           │  ┌─────────────────────────────────┐   │
+                           │  │   MAVROS   │   Telemetry Tx     │   │
+                           │  └─────────────────────────────────┘   │
+                           └──────────────┬──────────────────────────┘
+                                          │ MAVLink
+                                          ▼
+                                   ┌─────────────┐
+                                   │  Pixhawk 6X │
+                                   └─────────────┘
+```
+
+### Data Flow & Latency Budget
+
+End-to-end latency target: **≤250ms** (sensor to action)
+
+```
+┌───────────┐    ┌───────────┐    ┌───────────┐    ┌───────────┐    ┌───────────┐
+│  Camera   │───▶│   Image   │───▶│ Perception│───▶│ Decision  │───▶│  Control  │
+│  Capture  │    │Processing │    │ (RT-DETR) │    │  Making   │    │  Command  │
+└───────────┘    └───────────┘    └───────────┘    └───────────┘    └───────────┘
+     30ms            50ms             100ms            20ms             10ms
+              ◀───────────────────────────────────────────────────────────────▶
+                                    Total: 210ms
+```
+
+| Stage | Budget | Description |
+|-------|--------|-------------|
+| Camera | 30ms | Capture → MIPI-CSI bus |
+| Image Processing | 50ms | Debayer, color correction |
+| Perception | 100ms | RT-DETR inference (TensorRT) |
+| Decision | 20ms | Mission manager response |
+| Control | 10ms | Command generation |
+| Flight Controller | 10ms | PWM output |
+
+---
+
 
 ## Quick Start
 
+### Prerequisites
+
+- Docker with NVIDIA Container Toolkit
+- ROS2 Humble (for native builds)
+- NVIDIA Jetson Orin (deployment) or x86 with NVIDIA GPU (development)
+
+### Development Container (Recommended)
+
 ```bash
-# Clone and enter
+# Clone the repository
 git clone https://github.com/Darainer/drone_autonomy_platform.git
 cd drone_autonomy_platform
 
-# Start dev container
+# Start development container with GPU support
 docker compose -f docker/docker-compose.yml up -d dev
 docker compose exec dev bash
 
-# Build
+# Build inside container
 colcon build --symlink-install
 source install/setup.bash
+
+# Launch the platform
+ros2 launch launch/platform.launch.py
 ```
+
+### Native Build
+
+```bash
+# Install dependencies
+rosdep install --from-paths src --ignore-src -y
+
+# Build
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
+
+# Launch individual nodes
+ros2 launch src/perception/launch/perception.launch.py
+```
+
+---
 
 ## Project Structure
 
@@ -129,21 +291,29 @@ drone_autonomy_platform/
 └── docs/                # Documentation
 ```
 
+---
+
 ## AI Agent Workforce
 
-| Agent         | Purpose                                         | Trigger          |
-|---------------|-------------------------------------------------|------------------|
-| Issue Triage  | Categorize & route issues                      | New issue        |
-| Safety Review | Analyze safety-critical code                    | PR to control/safety |
-| Test Generation| Generate test cases                             | Feature ready     |
+| Agent | Purpose | Trigger |
+|-------|---------|---------|
+| Issue Triage | Categorize & route issues | New issue opened |
+| Safety Review | Analyze safety-critical code | PR to `control/` or `safety/` |
+| Test Generation | Generate test cases | Feature ready |
+
+---
 
 ## Safety-Critical Development
 
-- DO-178C principles
-- Mandatory safety review for control/safety code
-- Simulation-first testing
-- Comprehensive failsafe mechanisms
+This platform follows **DO-178C** principles for safety-critical avionics software:
+
+- Mandatory safety review for `control/` and `safety/` code changes
+- Simulation-first testing before hardware deployment
+- Comprehensive failsafe mechanisms (geofencing, return-to-home, motor cutoff)
+- Traceability from requirements to implementation
+
+---
 
 ## License
 
-Apache 2.0 - see [LICENSE](LICENSE)
+Apache 2.0 — see [LICENSE](LICENSE)
