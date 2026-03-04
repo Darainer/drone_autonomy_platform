@@ -51,9 +51,11 @@ The system runs a containerized microservice architecture using **Docker** to en
 | Layer | Technology |
 |-------|------------|
 | Middleware | ROS2 Humble |
-| Flight Bridge | MAVROS (ArduPilot ↔ ROS2) |
+| Flight Bridge | MAVROS (PX4 ↔ ROS2) |
 | Vision | DepthAI (OAK-D VPU offload) |
 | Perception | NVIDIA Isaac ROS (TensorRT accelerated) |
+| Telemetry | MAVLink (433MHz SiK Radio) |
+| Video Downlink | GStreamer + WiFi / WFB-ng ([details](docs/architecture/telemetry.md)) |
 
 ---
 
