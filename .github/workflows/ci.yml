@@ -7,9 +7,13 @@ on:
     branches: [ main ]
 
 jobs:
-  docker-build:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
         run: docker build -t drone_autonomy_platform .
+      - name: Run smoke test
+        run: |
+          docker run --rm drone_autonomy_platform \
+            bash /ws/src/drone_autonomy_platform/scripts/smoke_test.sh
