@@ -42,7 +42,7 @@ async def analyze_intent(description: str) -> dict:
     Orchestrator analyzes user intent and produces a structured plan.
     Returns JSON with steps, affected packages, safety classification.
     """
-    result = call_agent(
+    result = await call_agent(
         system_prompt=ORCHESTRATOR,
         user_message=f"""Analyze this request and create an execution plan:
 
@@ -87,7 +87,7 @@ async def run_domain_agent(agent_id: str, action: str, context: str) -> dict:
     system_prompt = get_prompt(agent_id)
     tools = TOOL_SETS.get(agent_id, DOMAIN_DEV_TOOLS)
 
-    result = call_agent(
+    result = await call_agent(
         system_prompt=system_prompt,
         user_message=f"""Perform this task in the workspace:
 
@@ -124,7 +124,7 @@ async def run_code_review(plan: dict, results: list) -> dict:
     safety_critical = plan.get("safety_critical", False)
     packages = plan.get("affected_packages", [])
 
-    result = call_agent(
+    result = await call_agent(
         system_prompt=CODE_REVIEW,
         user_message=f"""Review the changes made to these packages: {packages}
 
@@ -159,7 +159,7 @@ async def run_simulation(plan: dict) -> dict:
     """
     Run simulation tests relevant to the changes.
     """
-    result = call_agent(
+    result = await call_agent(
         system_prompt=get_prompt("sim-test"),
         user_message=f"""Run simulation tests for this plan:
 {json.dumps(plan, indent=2)}
@@ -183,7 +183,7 @@ async def run_deploy(version: str, packages: list | None, target: str) -> dict:
     """
     Cross-compile and deploy to target hardware.
     """
-    result = call_agent(
+    result = await call_agent(
         system_prompt=get_prompt("deploy"),
         user_message=f"""Deploy version {version} to {target}.
 Packages: {packages or 'all'}
@@ -210,7 +210,7 @@ async def update_docs(plan: dict, results: list) -> dict:
     """
     Update documentation based on changes made.
     """
-    result = call_agent(
+    result = await call_agent(
         system_prompt=get_prompt("infra"),
         user_message=f"""Update documentation for changes:
 

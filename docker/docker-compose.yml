@@ -3,6 +3,7 @@ services:
   # Your existing dev container — unchanged
   # ═══════════════════════════════════════════
   dev:
+    profiles: [hardware]
     build:
       context: ..
       dockerfile: docker/Dockerfile.dev
@@ -29,20 +30,33 @@ services:
   # ═══════════════════════════════════════════
   # Temporal Server — agent orchestration engine
   # ═══════════════════════════════════════════
+  temporal-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - temporal-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   temporal:
     image: temporalio/auto-setup:latest
     ports:
       - "7233:7233"
     environment:
-      - DB=sqlite
-    volumes:
-      - temporal-data:/var/lib/temporal
-    healthcheck:
-      test: ["CMD", "temporal", "operator", "cluster", "health"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=temporal-db
+    depends_on:
+      temporal-db:
+        condition: service_started
   temporal-ui:
     image: temporalio/ui:latest
     ports:
@@ -51,7 +65,7 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
     depends_on:
       temporal:
-        condition: service_healthy
+        condition: service_started
 
   # ═══════════════════════════════════════════
   # Agent Workers — all share the same workspace
@@ -68,7 +82,7 @@ services:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_healthy
+        condition: service_started
     command: python -m agents.orchestrator.worker
     restart: unless-stopped
 
@@ -84,7 +98,7 @@ services:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_healthy
+        condition: service_started
     command: python -m agents.ros2_worker.worker
     restart: unless-stopped
 
@@ -100,7 +114,7 @@ services:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_healthy
+        condition: service_started
     command: python -m agents.sim_worker.worker
     restart: unless-stopped
 
@@ -116,7 +130,7 @@ services:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_healthy
+        condition: service_started
     command: python -m agents.ml_worker.worker
     restart: unless-stopped
 
@@ -136,7 +150,7 @@ services:
       - ${HOME}/.ssh:/root/.ssh:ro
     depends_on:
       temporal:
-        condition: service_healthy
+        condition: service_started
     command: python -m agents.deploy_worker.worker
     restart: unless-stopped
 

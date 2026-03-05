@@ -5,28 +5,37 @@ system prompts and tool definitions.
 """
 
 import anthropic
+import asyncio
 import json
 import subprocess
 import os
 from pathlib import Path
-from typing import Any
 
-client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+_client: anthropic.AsyncAnthropic | None = None
+
+
+def _get_client() -> anthropic.AsyncAnthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.AsyncAnthropic()  # reads ANTHROPIC_API_KEY from env
+    return _client
+
 
 WORKSPACE = Path(os.environ.get("WORKSPACE", "/workspace"))
 
 
-def call_agent(
+async def call_agent(
     system_prompt: str,
     user_message: str,
     tools: list[dict] | None = None,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "claude-sonnet-4-6",
     max_tokens: int = 8192,
 ) -> dict:
     """
     Core LLM call used by all agent workers.
     Handles tool-use loops automatically.
     """
+    client = _get_client()
     messages = [{"role": "user", "content": user_message}]
 
     kwargs = dict(
@@ -38,7 +47,7 @@ def call_agent(
     if tools:
         kwargs["tools"] = tools
 
-    response = client.messages.create(**kwargs)
+    response = await client.messages.create(**kwargs)
 
     # Tool-use loop: Claude calls tools → we execute → feed back results
     while response.stop_reason == "tool_use":
@@ -48,7 +57,7 @@ def call_agent(
 
         tool_results = []
         for tb in tool_blocks:
-            result = execute_tool(tb.name, tb.input)
+            result = await asyncio.to_thread(execute_tool, tb.name, tb.input)
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": tb.id,
@@ -57,7 +66,7 @@ def call_agent(
 
         messages.append({"role": "user", "content": tool_results})
 
-        response = client.messages.create(**kwargs | {"messages": messages})
+        response = await client.messages.create(**kwargs | {"messages": messages})
 
     # Extract final text
     text = "\n".join(b.text for b in response.content if b.type == "text")
