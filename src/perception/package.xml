@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>perception</name>
+  <version>0.1.0</version>
+  <description>Perception node for the drone autonomy platform (requires NVIDIA Isaac ROS)</description>
+  <maintainer email="ryanjmatthews+drone_autonomy@gmail.com">Ryan</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>drone_autonomy_msgs</depend>
+  <!-- Requires NVIDIA Isaac ROS apt registry (Jetson target only) -->
+  <depend>isaac_ros_visual_slam_interfaces</depend>
+  <depend>isaac_ros_dnn_inference</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

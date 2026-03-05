@@ -9,6 +9,10 @@ find_package(drone_autonomy_msgs REQUIRED)
 add_executable(communication_node src/communication_node.cpp)
 ament_target_dependencies(communication_node rclcpp mavros_msgs drone_autonomy_msgs)
 
+install(TARGETS communication_node
+    DESTINATION lib/${PROJECT_NAME}
+)
+
 install(
     DIRECTORY launch
     DESTINATION share/${PROJECT_NAME}

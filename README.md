@@ -230,6 +230,13 @@ End-to-end latency target: **≤250ms** (sensor to action)
 ---
 
 
+## Requirements
+
+- Docker (tested on 20.10+)
+- Git
+
+No ROS2 local installation required — everything runs inside the container.
+
 ## Quick Start
 
 ### Prerequisites
@@ -241,16 +248,62 @@ End-to-end latency target: **≤250ms** (sensor to action)
 ### Development Container (Recommended)
 
 ```bash
-# Clone the repository
 git clone https://github.com/Darainer/drone_autonomy_platform.git
 cd drone_autonomy_platform
 
-# Start development container with GPU support
-docker compose -f docker/docker-compose.yml up -d dev
-docker compose exec dev bash
+# Build the image (first build ~5 min, cached rebuilds ~30s)
+docker build -t drone_autonomy_platform .
+```
 
-# Build inside container
-colcon build --symlink-install
+## Launch
+
+### Core platform (all nodes except perception)
+
+```bash
+docker run -it --rm drone_autonomy_platform \
+  ros2 launch /ws/src/drone_autonomy_platform/launch/platform_core.launch.py
+```
+
+### Full platform (requires NVIDIA Isaac ROS — Jetson only)
+
+```bash
+docker run -it --rm drone_autonomy_platform \
+  ros2 launch /ws/src/drone_autonomy_platform/launch/platform.launch.py
+```
+
+### Interactive shell
+
+```bash
+docker run -it --rm drone_autonomy_platform bash
+# Inside the container, ROS2 and the workspace are already sourced:
+ros2 node list
+ros2 topic list
+```
+
+### Smoke test
+
+Verifies all core nodes start and register with the ROS2 graph:
+
+```bash
+docker run --rm drone_autonomy_platform \
+  bash /ws/src/drone_autonomy_platform/scripts/smoke_test.sh
+```
+
+## Development
+
+Mount the source into a running container to iterate without rebuilding the image:
+
+```bash
+docker run -it --rm \
+  -v $(pwd):/ws/src/drone_autonomy_platform \
+  drone_autonomy_platform bash
+
+# Inside the container, rebuild after changes:
+cd /ws
+colcon build --merge-install \
+  --base-paths src/drone_autonomy_platform/msgs src/drone_autonomy_platform/src \
+  --packages-ignore common perception \
+  --cmake-args -DBUILD_TESTING=OFF
 source install/setup.bash
 
 # Launch the platform
@@ -277,44 +330,45 @@ ros2 launch src/perception/launch/perception.launch.py
 
 ```
 drone_autonomy_platform/
+├── Dockerfile               # Build environment (ros:humble base)
+├── msgs/                    # Custom ROS2 message definitions
 ├── src/
-│   ├── perception/      # Camera, LiDAR, sensor fusion (ISAAC ROS)
-│   ├── navigation/      # Path planning, mapping, localization
-│   ├── control/         # Flight control, trajectory tracking
-│   ├── autonomy/        # Mission management, behavior trees
-│   ├── communication/   # MAVLink, telemetry, GCS interface
-│   ├── safety/          # Failsafes, geofencing, emergency
-│   └── common/          # Shared utilities
-├── config/              # Vehicle, sensor, mission configs
-├── launch/              # ROS2 launch files
-├── docker/              # Development containers
-├── test/                # Unit, integration, simulation tests
-├── tools/               # Analysis, calibration, deployment
-└── docs/                # Documentation
+│   ├── autonomy/            # Mission management, behavior trees
+│   ├── communication/       # MAVLink, telemetry, GCS interface
+│   ├── control/             # Flight control, trajectory tracking
+│   ├── navigation/          # Path planning, mapping, localization
+│   ├── safety/              # Failsafes, geofencing, emergency
+│   ├── perception/          # Camera/LiDAR, sensor fusion (Isaac ROS — Jetson only)
+│   └── common/              # Shared headers
+├── launch/
+│   ├── platform_core.launch.py   # Core nodes (CI + non-Jetson)
+│   └── platform.launch.py        # Full stack including perception
+├── scripts/
+│   └── smoke_test.sh        # Node startup smoke test
+└── docs/                    # Architecture and standards documentation
 ```
 
----
+## Notes on `perception`
+
+The `perception` package depends on [NVIDIA Isaac ROS](https://github.com/NVIDIA-ISAAC-ROS) packages
+(`isaac_ros_visual_slam_interfaces`, `isaac_ros_dnn_inference`) which are only available via
+NVIDIA's Jetson apt registry. It is excluded from the standard Docker build and CI. To build it,
+add the Isaac ROS apt sources and remove `perception` from `--packages-ignore` in the Dockerfile.
 
 ## AI Agent Workforce
 
-| Agent | Purpose | Trigger |
-|-------|---------|---------|
-| Issue Triage | Categorize & route issues | New issue opened |
-| Safety Review | Analyze safety-critical code | PR to `control/` or `safety/` |
-| Test Generation | Generate test cases | Feature ready |
-
----
+| Agent          | Purpose                              | Trigger              |
+|----------------|--------------------------------------|----------------------|
+| Issue Triage   | Categorize & route issues            | New issue            |
+| Safety Review  | Analyze safety-critical code         | PR to control/safety |
+| Test Generation| Generate test cases                  | Feature ready        |
 
 ## Safety-Critical Development
 
-This platform follows **DO-178C** principles for safety-critical avionics software:
-
-- Mandatory safety review for `control/` and `safety/` code changes
-- Simulation-first testing before hardware deployment
-- Comprehensive failsafe mechanisms (geofencing, return-to-home, motor cutoff)
-- Traceability from requirements to implementation
-
----
+- DO-178C principles applied to safety and control code
+- Mandatory safety review for `src/control/` and `src/safety/`
+- Simulation-first testing policy
+- Comprehensive failsafe mechanisms
 
 ## License
 
