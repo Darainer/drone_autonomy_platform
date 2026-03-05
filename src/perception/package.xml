@@ -4,7 +4,7 @@
   <name>perception</name>
   <version>0.1.0</version>
   <description>Perception node for the drone autonomy platform (requires NVIDIA Isaac ROS)</description>
-  <maintainer email="team@example.com">Drone Autonomy Team</maintainer>
+  <maintainer email="ryanjmatthews+drone_autonomy@gmail.com">Ryan</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
