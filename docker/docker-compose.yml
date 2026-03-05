@@ -1,4 +1,7 @@
 services:
+  # ═══════════════════════════════════════════
+  # Your existing dev container — unchanged
+  # ═══════════════════════════════════════════
   dev:
     build:
       context: ..
@@ -22,3 +25,120 @@ services:
     command: /bin/bash
     tty: true
     stdin_open: true
+
+  # ═══════════════════════════════════════════
+  # Temporal Server — agent orchestration engine
+  # ═══════════════════════════════════════════
+  temporal:
+    image: temporalio/auto-setup:latest
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=sqlite
+    volumes:
+      - temporal-data:/var/lib/temporal
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    depends_on:
+      temporal:
+        condition: service_healthy
+
+  # ═══════════════════════════════════════════
+  # Agent Workers — all share the same workspace
+  # ═══════════════════════════════════════════
+  orchestrator:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.agents
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - WORKSPACE=/workspace
+    volumes:
+      - ..:/workspace
+    depends_on:
+      temporal:
+        condition: service_healthy
+    command: python -m agents.orchestrator.worker
+    restart: unless-stopped
+
+  ros2-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.agents
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - WORKSPACE=/workspace
+    volumes:
+      - ..:/workspace
+    depends_on:
+      temporal:
+        condition: service_healthy
+    command: python -m agents.ros2_worker.worker
+    restart: unless-stopped
+
+  sim-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.agents
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - WORKSPACE=/workspace
+    volumes:
+      - ..:/workspace
+    depends_on:
+      temporal:
+        condition: service_healthy
+    command: python -m agents.sim_worker.worker
+    restart: unless-stopped
+
+  ml-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.agents
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - WORKSPACE=/workspace
+    volumes:
+      - ..:/workspace
+    depends_on:
+      temporal:
+        condition: service_healthy
+    command: python -m agents.ml_worker.worker
+    restart: unless-stopped
+
+  deploy-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.agents
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - WORKSPACE=/workspace
+      - ORIN_HOST=${ORIN_HOST:-}
+      - ORIN_USER=${ORIN_USER:-jetson}
+    volumes:
+      - ..:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.ssh:/root/.ssh:ro
+    depends_on:
+      temporal:
+        condition: service_healthy
+    command: python -m agents.deploy_worker.worker
+    restart: unless-stopped
+
+volumes:
+  temporal-data:
