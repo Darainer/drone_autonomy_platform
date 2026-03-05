@@ -12,11 +12,13 @@ COPY . src/drone_autonomy_platform/
 
 # perception requires Isaac ROS (NVIDIA Jetson apt registry) and is excluded here.
 # drone_autonomy_platform (top-level) uses plain cmake add_subdirectory and is not a colcon package.
-# common is a header-only library with no dependents; skipped for now.
+# common is a header-only library with no dependents yet.
 RUN . /opt/ros/humble/setup.sh && \
     colcon build \
+        --merge-install \
         --packages-ignore drone_autonomy_platform common perception \
         --cmake-args -DBUILD_TESTING=OFF
 
-# Source the built workspace in every container invocation
-RUN sed -i 's|exec "\$@"|source /ws/install/setup.bash; exec "$@"|' /ros_entrypoint.sh
+# Overwrite the entrypoint to source both ROS2 and the built workspace
+RUN printf '#!/bin/bash\nset -e\nsource /opt/ros/humble/setup.bash\nsource /ws/install/setup.bash\nexec "$@"\n' \
+    > /ros_entrypoint.sh && chmod +x /ros_entrypoint.sh
