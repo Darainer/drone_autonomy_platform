@@ -17,3 +17,6 @@ RUN . /opt/ros/humble/setup.sh && \
     colcon build \
         --packages-ignore drone_autonomy_platform common perception \
         --cmake-args -DBUILD_TESTING=OFF
+
+# Source the built workspace in every container invocation
+RUN sed -i 's|exec "\$@"|source /ws/install/setup.bash; exec "$@"|' /ros_entrypoint.sh

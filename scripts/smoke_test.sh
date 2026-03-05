@@ -1,8 +1,7 @@
 #!/bin/bash
 set -e
 
-source /opt/ros/humble/setup.bash
-source /ws/install/setup.bash
+# ROS2 + workspace are sourced by the container entrypoint (/ros_entrypoint.sh)
 
 echo "=== Starting core platform ==="
 ros2 launch /ws/src/drone_autonomy_platform/launch/platform_core.launch.py &
