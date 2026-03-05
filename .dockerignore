@@ -1,0 +1,12 @@
+.git
+build/
+install/
+log/
+__pycache__/
+*.pyc
+*.bag
+*.db3
+*.log
+flight_logs/
+.env
+.DS_Store
