@@ -1,0 +1,24 @@
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    image: drone_autonomy_platform:dev
+    container_name: drone_autonomy_platform_dev
+    network_mode: host
+    ipc: host
+    privileged: true
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    volumes:
+      - ..:/ros2_ws/src/drone_autonomy_platform
+      - /dev/bus/usb:/dev/bus/usb
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - FCU_URL=/dev/ttyUSB0:921600
+      - ROS_DOMAIN_ID=1
+    command: /bin/bash
+    tty: true
+    stdin_open: true
