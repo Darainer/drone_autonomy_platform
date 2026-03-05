@@ -16,7 +16,8 @@ COPY . src/drone_autonomy_platform/
 RUN . /opt/ros/humble/setup.sh && \
     colcon build \
         --merge-install \
-        --packages-ignore drone_autonomy_platform common perception \
+        --base-paths src/drone_autonomy_platform/msgs src/drone_autonomy_platform/src \
+        --packages-ignore common perception \
         --cmake-args -DBUILD_TESTING=OFF
 
 # Overwrite the entrypoint to source both ROS2 and the built workspace

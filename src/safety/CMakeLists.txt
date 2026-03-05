@@ -9,6 +9,10 @@ find_package(mavros_msgs REQUIRED)
 add_executable(safety_node src/safety_node.cpp)
 ament_target_dependencies(safety_node rclcpp drone_autonomy_msgs mavros_msgs)
 
+install(TARGETS safety_node
+    DESTINATION lib/${PROJECT_NAME}
+)
+
 install(
     DIRECTORY launch
     DESTINATION share/${PROJECT_NAME}
