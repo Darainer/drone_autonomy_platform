@@ -1,0 +1,5 @@
+# Agent system dependencies
+# Install with: pip install -r agents/requirements.txt
+
+temporalio>=1.7.0
+anthropic>=0.39.0
