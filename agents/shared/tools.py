@@ -120,17 +120,59 @@ CHECK_MSG_DEFINITIONS = {
 }
 
 
+# ── Git Operations ───────────────────────────────
+
+GIT_BRANCH = {
+    "name": "git_branch",
+    "description": "Create and checkout a new git branch from current HEAD",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "branch_name": {
+                "type": "string",
+                "description": "Branch name to create (e.g. 'feature/add-gps-node')",
+            },
+        },
+        "required": ["branch_name"],
+    },
+}
+
+GIT_COMMIT = {
+    "name": "git_commit",
+    "description": "Stage all changes and create a git commit",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "message": {
+                "type": "string",
+                "description": "Commit message",
+            },
+        },
+        "required": ["message"],
+    },
+}
+
+GIT_PUSH = {
+    "name": "git_push",
+    "description": "Push the current branch to origin",
+    "input_schema": {
+        "type": "object",
+        "properties": {},
+    },
+}
+
+
 # ── Agent Tool Sets ──────────────────────────────
 # Each agent gets a curated subset of tools
 
-ORCHESTRATOR_TOOLS = [READ_FILE, LIST_DIRECTORY, RUN_COMMAND]
+ORCHESTRATOR_TOOLS = [READ_FILE, LIST_DIRECTORY, RUN_COMMAND, GIT_BRANCH]
 
-DOMAIN_DEV_TOOLS = [READ_FILE, WRITE_FILE, LIST_DIRECTORY, COLCON_BUILD, RUN_TESTS, CHECK_MSG_DEFINITIONS]
+DOMAIN_DEV_TOOLS = [READ_FILE, WRITE_FILE, LIST_DIRECTORY, COLCON_BUILD, RUN_TESTS, CHECK_MSG_DEFINITIONS, GIT_COMMIT]
 
-SIM_TOOLS = [READ_FILE, WRITE_FILE, LIST_DIRECTORY, RUN_COMMAND, COLCON_BUILD, RUN_TESTS]
+SIM_TOOLS = [READ_FILE, WRITE_FILE, LIST_DIRECTORY, RUN_COMMAND, COLCON_BUILD, RUN_TESTS, GIT_COMMIT]
 
-ML_TOOLS = [READ_FILE, WRITE_FILE, LIST_DIRECTORY, RUN_COMMAND]
+ML_TOOLS = [READ_FILE, WRITE_FILE, LIST_DIRECTORY, RUN_COMMAND, GIT_COMMIT]
 
 DEPLOY_TOOLS = [READ_FILE, LIST_DIRECTORY, RUN_COMMAND]
 
-REVIEW_TOOLS = [READ_FILE, LIST_DIRECTORY, RUN_COMMAND, RUN_TESTS]
+REVIEW_TOOLS = [READ_FILE, LIST_DIRECTORY, RUN_COMMAND, RUN_TESTS, GIT_PUSH]

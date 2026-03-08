@@ -13,4 +13,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY agents/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+RUN git config --global --add safe.directory /workspace
+
 WORKDIR /workspace

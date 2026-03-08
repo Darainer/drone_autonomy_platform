@@ -24,6 +24,7 @@ async def main():
         client,
         task_queue="ros2-dev",
         activities=[run_domain_agent],
+        max_concurrent_activities=1,
     )
 
     print("🏗️ ROS2 worker started. Listening on queue: ros2-dev")

@@ -23,6 +23,7 @@ async def main():
         client,
         task_queue="simulation",
         activities=[run_simulation],
+        max_concurrent_activities=1,
     )
 
     print("🧪 Simulation worker started. Listening on queue: simulation")
