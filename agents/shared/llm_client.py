@@ -7,19 +7,14 @@ system prompts and tool definitions.
 import anthropic
 import asyncio
 import json
+import logging
 import subprocess
 import os
 from pathlib import Path
 
-_client: anthropic.AsyncAnthropic | None = None
+logger = logging.getLogger(__name__)
 
-
-def _get_client() -> anthropic.AsyncAnthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.AsyncAnthropic()  # reads ANTHROPIC_API_KEY from env
-    return _client
-
+client = anthropic.AsyncAnthropic()
 
 WORKSPACE = Path(os.environ.get("WORKSPACE", "/workspace"))
 
@@ -29,55 +24,79 @@ async def call_agent(
     user_message: str,
     tools: list[dict] | None = None,
     model: str = "claude-sonnet-4-6",
-    max_tokens: int = 8192,
+    max_tokens: int = 4096,
+    **kwargs,
 ) -> dict:
-    """
-    Core LLM call used by all agent workers.
-    Handles tool-use loops automatically.
-    """
-    client = _get_client()
+    """Core LLM call. Raises immediately on any error."""
     messages = [{"role": "user", "content": user_message}]
 
-    kwargs = dict(
-        model=model,
-        max_tokens=max_tokens,
-        system=system_prompt,
-        messages=messages,
-    )
+    req = dict(model=model, max_tokens=max_tokens, system=system_prompt, messages=messages)
     if tools:
-        kwargs["tools"] = tools
+        req["tools"] = tools
 
-    response = await client.messages.create(**kwargs)
+    if os.environ.get("AGENT_MOCK") == "true":
+        print(f"[call_agent] MOCK: {user_message[:80]}", flush=True)
+        return _mock_response(system_prompt, user_message)
 
-    # Tool-use loop: Claude calls tools → we execute → feed back results
+    print(f"[call_agent] round 0 request: ~{len(json.dumps(req))} chars", flush=True)
+    response = await client.messages.create(**req)
+    print(f"[call_agent] round 0 done: input_tokens={response.usage.input_tokens} output_tokens={response.usage.output_tokens}", flush=True)
+
+    tool_round = 0
     while response.stop_reason == "tool_use":
         tool_blocks = [b for b in response.content if b.type == "tool_use"]
+        print(f"[call_agent] tool round {tool_round+1}: {[b.name for b in tool_blocks]}", flush=True)
 
         messages.append({"role": "assistant", "content": response.content})
 
-        tool_results = []
-        for tb in tool_blocks:
-            result = await asyncio.to_thread(execute_tool, tb.name, tb.input)
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": tb.id,
-                "content": json.dumps(result, default=str),
-            })
+        results = await asyncio.gather(*[
+            asyncio.to_thread(execute_tool, tb.name, tb.input)
+            for tb in tool_blocks
+        ])
+        messages.append({"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": tb.id, "content": json.dumps(r, default=str)}
+            for tb, r in zip(tool_blocks, results)
+        ]})
 
-        messages.append({"role": "user", "content": tool_results})
+        tool_round += 1
+        response = await client.messages.create(**req | {"messages": messages})
+        print(f"[call_agent] round {tool_round} done: input_tokens={response.usage.input_tokens}", flush=True)
 
-        response = await client.messages.create(**kwargs | {"messages": messages})
-
-    # Extract final text
     text = "\n".join(b.text for b in response.content if b.type == "text")
-
     return {
         "text": text,
-        "usage": {
-            "input_tokens": response.usage.input_tokens,
-            "output_tokens": response.usage.output_tokens,
-        },
+        "usage": {"input_tokens": response.usage.input_tokens, "output_tokens": response.usage.output_tokens},
     }
+
+
+def _mock_response(system_prompt: str, user_message: str) -> dict:
+    """Return a canned response based on which agent is being called."""
+    if "execution plan" in user_message or "JSON" in user_message:
+        # analyze_intent mock — return a minimal valid plan
+        text = """{
+  "summary": "Mock plan: write a README to launch/",
+  "safety_critical": false,
+  "affected_packages": [],
+  "steps": [
+    {"agent": "infra", "task_queue": "orchestrator", "action": "Write launch/README.md documenting available launch files", "depends_on": []}
+  ]
+}"""
+    elif "simulation" in user_message.lower() or "SITL" in user_message:
+        text = "Mock simulation: all tests passed. No regressions detected."
+    elif "review" in user_message.lower() or "DO-178C" in user_message:
+        text = "Mock review: pass. No issues found."
+    elif "deploy" in user_message.lower():
+        text = "Mock deploy: skipped in mock mode."
+    elif "documentation" in user_message.lower() or "docs" in user_message.lower():
+        text = "Mock docs update: complete."
+    else:
+        # domain agent mock — write a placeholder file
+        path = WORKSPACE / "launch" / "README.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# Launch Files\n\nMock output — replace with real agent run.\n")
+        text = f"Mock agent: wrote placeholder to {path}"
+
+    return {"text": text, "usage": {"input_tokens": 0, "output_tokens": 0}}
 
 
 def execute_tool(name: str, input_data: dict) -> dict:
@@ -92,6 +111,8 @@ def execute_tool(name: str, input_data: dict) -> dict:
                 if not path.exists():
                     return {"error": f"File not found: {input_data['path']}"}
                 content = path.read_text()
+                if len(content) > 6000:
+                    content = content[:6000] + f"\n... [truncated, {len(content)} total chars]"
                 return {"content": content, "path": str(path)}
 
             case "write_file":
@@ -168,6 +189,40 @@ def execute_tool(name: str, input_data: dict) -> dict:
                     for f in msgs_dir.rglob(f"*.{ext}"):
                         msgs[str(f.relative_to(WORKSPACE))] = f.read_text()
                 return {"definitions": msgs}
+
+            case "git_branch":
+                branch = input_data["branch_name"]
+                result = subprocess.run(
+                    f"git -C {WORKSPACE} checkout -b {branch}",
+                    shell=True, capture_output=True, text=True,
+                )
+                if result.returncode != 0:
+                    return {"error": result.stderr.strip()}
+                return {"branch": branch, "status": "created"}
+
+            case "git_commit":
+                msg = input_data["message"]
+                result = subprocess.run(
+                    f'git -C {WORKSPACE} add -A && git -C {WORKSPACE} -c user.name="drone-agent" -c user.email="agent@drone.local" commit -m "{msg}"',
+                    shell=True, capture_output=True, text=True,
+                )
+                if result.returncode != 0:
+                    return {"error": result.stderr.strip(), "stdout": result.stdout.strip()}
+                return {"status": "committed", "output": result.stdout.strip()}
+
+            case "git_push":
+                branch_result = subprocess.run(
+                    f"git -C {WORKSPACE} rev-parse --abbrev-ref HEAD",
+                    shell=True, capture_output=True, text=True,
+                )
+                branch = branch_result.stdout.strip()
+                result = subprocess.run(
+                    f"git -C {WORKSPACE} push -u origin {branch}",
+                    shell=True, capture_output=True, text=True,
+                )
+                if result.returncode != 0:
+                    return {"error": result.stderr.strip()}
+                return {"status": "pushed", "branch": branch}
 
             case _:
                 return {"error": f"Unknown tool: {name}"}

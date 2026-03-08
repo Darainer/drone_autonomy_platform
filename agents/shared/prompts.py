@@ -24,16 +24,31 @@ WORKSPACE STRUCTURE:
   launch/              - ROS2 launch files
   docker/              - development containers
 
+VALID AGENTS AND TASK QUEUES — use ONLY these exact values, no others:
+  agent "perception-dev"  → task_queue "ros2-dev"
+  agent "nav-dev"         → task_queue "ros2-dev"
+  agent "control-dev"     → task_queue "ros2-dev"
+  agent "autonomy-dev"    → task_queue "ros2-dev"
+  agent "comms-dev"       → task_queue "ros2-dev"
+  agent "safety-dev"      → task_queue "ros2-dev"
+  agent "infra"           → task_queue "orchestrator"
+  agent "sim-test"        → task_queue "simulation"
+  agent "ml-pipeline"     → task_queue "ml-pipeline"
+  agent "deploy"          → task_queue "deployment"
+  agent "code-review"     → task_queue "orchestrator"
+
 ROUTING RULES:
 - Changes to src/control/ or src/safety/ → SAFETY-CRITICAL path (extra review)
 - New message types → infra step first (msgs/), then domain agent
 - Cross-package features → decompose into per-package steps
 - Deploy requests → code-review gate before deploy
+- Documentation, launch files, CMakeLists, msgs/, READMEs → agent "infra", task_queue "orchestrator"
 
 Return your plan as JSON:
 {
   "summary": "Brief description of what will be done",
   "safety_critical": true/false,
+  "affected_packages": ["list of src/ package names"],
   "steps": [
     {"agent": "agent-id", "task_queue": "queue-name", "action": "what to do", "depends_on": []}
   ]

@@ -12,6 +12,7 @@ from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
     from agents.orchestrator.activities import (
+        create_feature_branch,
         analyze_intent,
         run_domain_agent,
         run_code_review,
@@ -22,9 +23,9 @@ with workflow.unsafe.imports_passed_through():
 
 
 retry_policy = RetryPolicy(
-    maximum_attempts=3,
-    initial_interval=timedelta(seconds=10),
-    backoff_coefficient=2.0,
+    maximum_attempts=5,
+    initial_interval=timedelta(seconds=90),
+    backoff_coefficient=1.5,
 )
 
 
@@ -54,11 +55,20 @@ class NewFeatureWorkflow:
 
     @workflow.run
     async def run(self, request: FeatureRequest) -> dict:
-        # 1. Orchestrator analyzes intent and creates a plan
+        # 1. Create a feature branch
+        branch_info = await workflow.execute_activity(
+            create_feature_branch,
+            args=[request.description],
+            start_to_close_timeout=timedelta(seconds=30),
+            task_queue="orchestrator",
+        )
+        workflow.logger.info(f"Branch: {branch_info['branch']}")
+
+        # 2. Orchestrator analyzes intent and creates a plan
         plan = await workflow.execute_activity(
             analyze_intent,
             args=[request.description],
-            start_to_close_timeout=timedelta(minutes=2),
+            start_to_close_timeout=timedelta(minutes=5),
             retry_policy=retry_policy,
             task_queue="orchestrator",
         )

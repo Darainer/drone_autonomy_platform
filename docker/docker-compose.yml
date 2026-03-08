@@ -78,6 +78,7 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - WORKSPACE=/workspace
+      - AGENT_MOCK=${AGENT_MOCK:-false}
     volumes:
       - ..:/workspace
     depends_on:
@@ -94,6 +95,7 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - WORKSPACE=/workspace
+      - AGENT_MOCK=${AGENT_MOCK:-false}
     volumes:
       - ..:/workspace
     depends_on:
@@ -110,6 +112,7 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - WORKSPACE=/workspace
+      - AGENT_MOCK=${AGENT_MOCK:-false}
     volumes:
       - ..:/workspace
     depends_on:
@@ -126,6 +129,7 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - WORKSPACE=/workspace
+      - AGENT_MOCK=${AGENT_MOCK:-false}
     volumes:
       - ..:/workspace
     depends_on:
@@ -142,6 +146,7 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - WORKSPACE=/workspace
+      - AGENT_MOCK=${AGENT_MOCK:-false}
       - ORIN_HOST=${ORIN_HOST:-}
       - ORIN_USER=${ORIN_USER:-jetson}
     volumes:

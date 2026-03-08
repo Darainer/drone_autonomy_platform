@@ -6,9 +6,12 @@ with the appropriate system prompt and tools for the task.
 """
 
 import json
+import subprocess
+import re
+from pathlib import Path
 from temporalio import activity
 
-from agents.shared.llm_client import call_agent
+from agents.shared.llm_client import call_agent, WORKSPACE
 from agents.shared.prompts import get_prompt, ORCHESTRATOR, CODE_REVIEW
 from agents.shared.tools import (
     ORCHESTRATOR_TOOLS,
@@ -37,6 +40,32 @@ TOOL_SETS = {
 
 
 @activity.defn
+async def create_feature_branch(description: str) -> dict:
+    """
+    Create a git feature branch for the workflow.
+    Branch name is derived from the feature description.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", description.lower())[:50].strip("-")
+    branch = f"feature/{slug}"
+
+    result = subprocess.run(
+        f"git -C {WORKSPACE} checkout -b {branch}",
+        shell=True, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        # Branch may already exist — try to check it out
+        result = subprocess.run(
+            f"git -C {WORKSPACE} checkout {branch}",
+            shell=True, capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to create/checkout branch {branch}: {result.stderr}")
+
+    activity.logger.info(f"On branch: {branch}")
+    return {"branch": branch}
+
+
+@activity.defn
 async def analyze_intent(description: str) -> dict:
     """
     Orchestrator analyzes user intent and produces a structured plan.
@@ -44,19 +73,22 @@ async def analyze_intent(description: str) -> dict:
     """
     result = await call_agent(
         system_prompt=ORCHESTRATOR,
-        user_message=f"""Analyze this request and create an execution plan:
+        user_message=f"""Analyze this request and return a JSON execution plan.
 
 REQUEST: {description}
 
-First, use list_directory to understand the current workspace structure.
-Then return a JSON plan with:
-- summary: what will be done
-- safety_critical: boolean (true if touching src/control/ or src/safety/)
-- affected_packages: list of package directories
-- steps: ordered list of agent tasks
+Return ONLY a JSON object — no prose, no markdown fences:
+{{
+  "summary": "one-line description of what will be done",
+  "safety_critical": false,
+  "affected_packages": [],
+  "steps": [
+    {{"agent": "agent-id", "task_queue": "queue-name", "action": "concise task description", "depends_on": []}}
+  ]
+}}
 
-Each step needs: agent (id), task_queue, action (description), depends_on (step indices)""",
-        tools=ORCHESTRATOR_TOOLS,
+Keep each step action under 2 sentences. Use only the valid agents and queues listed above.""",
+        tools=None,
     )
 
     # Parse the JSON plan from Claude's response
@@ -73,6 +105,23 @@ Each step needs: agent (id), task_queue, action (description), depends_on (step 
             "safety_critical": False,
             "steps": [{"agent": "perception-dev", "task_queue": "ros2-dev", "action": description}],
         }
+
+    # Enforce valid agents and task queues — correct any hallucinations
+    valid_agents = {
+        "perception-dev", "nav-dev", "control-dev", "autonomy-dev",
+        "comms-dev", "safety-dev", "infra", "code-review",
+        "sim-test", "ml-pipeline", "deploy",
+    }
+    agent_to_queue = {
+        "perception-dev": "ros2-dev", "nav-dev": "ros2-dev", "control-dev": "ros2-dev",
+        "autonomy-dev": "ros2-dev", "comms-dev": "ros2-dev", "safety-dev": "ros2-dev",
+        "infra": "orchestrator", "code-review": "orchestrator",
+        "sim-test": "simulation", "ml-pipeline": "ml-pipeline", "deploy": "deployment",
+    }
+    for step in plan.get("steps", []):
+        if step.get("agent") not in valid_agents:
+            step["agent"] = "infra"
+        step["task_queue"] = agent_to_queue[step["agent"]]
 
     activity.logger.info(f"Plan: {plan.get('summary', 'no summary')}")
     return plan

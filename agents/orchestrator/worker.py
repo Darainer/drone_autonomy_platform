@@ -16,6 +16,7 @@ from agents.orchestrator.workflows import (
     ModelUpdateWorkflow,
 )
 from agents.orchestrator.activities import (
+    create_feature_branch,
     analyze_intent,
     run_domain_agent,
     run_code_review,
@@ -41,10 +42,13 @@ async def main():
             ModelUpdateWorkflow,
         ],
         activities=[
+            create_feature_branch,
             analyze_intent,
+            run_domain_agent,
             run_code_review,
             update_docs,
         ],
+        max_concurrent_activities=2,
     )
 
     print("🎯 Orchestrator worker started. Listening on queue: orchestrator")
