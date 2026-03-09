@@ -5,7 +5,7 @@
 ```bash
 # Build with your host UID/GID — prevents root-owned files in the workspace
 cd docker
-UID=$(id -u) GID=$(id -g) docker compose build
+DOCKER_UID=$(id -u) DOCKER_GID=$(id -g) docker compose build
 docker compose up -d
 ```
 

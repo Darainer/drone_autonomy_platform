@@ -34,30 +34,27 @@ jobs:
         run: pip install -r agents/requirements.txt
 
       - name: Validate docker compose config
-        run: |
-          cd docker
-          UID=1000 GID=1000 docker compose config --quiet
+        run: docker compose -f docker/docker-compose.yml config --quiet
 
       - name: Run agent unit tests (mock mode — no API key required)
         env:
           AGENT_MOCK: "true"
           WORKSPACE: "/tmp/test-workspace"
-        run: |
-          pytest agents/tests/ -v --tb=short
+        run: pytest agents/tests/ -v --tb=short
 
       - name: Build agent Docker image
         run: |
-          cd docker
-          UID=1000 GID=1000 docker compose build orchestrator
+          DOCKER_UID=1000 DOCKER_GID=1000 docker compose -f docker/docker-compose.yml build orchestrator
 
       - name: Run mock end-to-end workflow
         run: |
-          cd docker
-          docker compose up -d temporal-db temporal
+          docker compose -f docker/docker-compose.yml up -d temporal-db temporal
           sleep 10
-          UID=1000 GID=1000 AGENT_MOCK=true docker compose up -d orchestrator ros2-worker sim-worker
+          DOCKER_UID=1000 DOCKER_GID=1000 AGENT_MOCK=true \
+            docker compose -f docker/docker-compose.yml up -d orchestrator ros2-worker sim-worker
           sleep 5
-          docker compose exec -T orchestrator python3 scripts/submit_task.py \
-            "Write a placeholder file to launch/ci-test.md" \
-            --plan '{"summary":"CI mock test","safety_critical":false,"affected_packages":[],"steps":[{"agent":"infra","task_queue":"orchestrator","action":"Write a placeholder file to launch/ci-test.md","depends_on":[]}]}'
-          docker compose down
+          docker compose -f docker/docker-compose.yml exec -T orchestrator \
+            python3 scripts/submit_task.py \
+              "Write a placeholder file to launch/ci-test.md" \
+              --plan '{"summary":"CI mock test","safety_critical":false,"affected_packages":[],"steps":[{"agent":"infra","task_queue":"orchestrator","action":"Write a placeholder file to launch/ci-test.md","depends_on":[]}]}'
+          docker compose -f docker/docker-compose.yml down

@@ -41,7 +41,7 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." >> docker/.env
 
 # 2. Build with your host UID/GID so file ownership is correct
 cd docker
-UID=$(id -u) GID=$(id -g) docker compose build
+DOCKER_UID=$(id -u) DOCKER_GID=$(id -g) docker compose build
 
 # 3. Start everything
 docker compose up -d

@@ -92,8 +92,8 @@ services:
     context: ..
     dockerfile: docker/Dockerfile.agents
     args:
-      UID: ${UID:-1000}
-      GID: ${GID:-1000}
+      UID: ${DOCKER_UID:-1000}
+      GID: ${DOCKER_GID:-1000}
 
   orchestrator:
     build:
