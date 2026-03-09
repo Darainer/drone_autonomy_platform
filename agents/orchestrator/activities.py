@@ -49,13 +49,13 @@ async def create_feature_branch(description: str) -> dict:
 
     create_result = subprocess.run(
         f"git -C {WORKSPACE} checkout -b {branch}",
-        shell=True, capture_output=True, text=True,
+        shell=True, capture_output=True, text=True, timeout=15,
     )
     if create_result.returncode != 0:
         # Branch may already exist — try to check it out
         checkout_result = subprocess.run(
             f"git -C {WORKSPACE} checkout {branch}",
-            shell=True, capture_output=True, text=True,
+            shell=True, capture_output=True, text=True, timeout=15,
         )
         if checkout_result.returncode != 0:
             # Detached HEAD (CI) or other git state — log and continue without branching
