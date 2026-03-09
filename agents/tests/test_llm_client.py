@@ -89,9 +89,9 @@ def test_mock_response_docs():
 
 def test_mock_response_domain_agent_writes_file(tmp_path, monkeypatch):
     monkeypatch.setattr("agents.shared.llm_client.WORKSPACE", tmp_path)
-    result = _mock_response("You are an infra agent.", "Perform this task in the workspace: write a config file")
+    result = _mock_response("You are an infra agent.", "Write a placeholder file to launch/ci-test.md")
     assert "mock" in result["text"].lower()
-    assert (tmp_path / "launch" / "README.md").exists()
+    assert (tmp_path / "launch" / "ci-test.md").exists()
 
 
 # ── execute_tool ─────────────────────────────────
