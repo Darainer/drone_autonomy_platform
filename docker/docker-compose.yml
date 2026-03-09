@@ -82,11 +82,11 @@ services:
       temporal-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "localhost:7233"]
+      test: ["CMD-SHELL", "echo > /dev/tcp/localhost/7233"]
       interval: 5s
       timeout: 5s
-      retries: 20
-      start_period: 10s
+      retries: 30
+      start_period: 15s
 
   temporal-ui:
     image: temporalio/ui:latest
