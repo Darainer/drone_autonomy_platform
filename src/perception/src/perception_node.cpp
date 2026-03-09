@@ -1,7 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include <isaac_ros_visual_slam_interfaces/msg/visual_slam_status.hpp>
-#include <isaac_ros_dnn_inference/msg/dnn_inference.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <vision_msgs/msg/detection2_d_array.hpp>
 #include <drone_autonomy_msgs/msg/sensor_data.hpp>
 
 class PerceptionNode : public rclcpp::Node
@@ -9,39 +9,60 @@ class PerceptionNode : public rclcpp::Node
 public:
     PerceptionNode() : Node("perception_node")
     {
-        sensor_data_publisher_ = this->create_publisher<drone_autonomy_msgs::msg::SensorData>("~/sensor_data", 10);
+        // Publishers
+        sensor_data_pub_ = this->create_publisher<drone_autonomy_msgs::msg::SensorData>(
+            "~/sensor_data", rclcpp::SensorDataQoS());
 
-        image_subscriber_ = this->create_subscription<sensor_msgs::msg::Image>(
-            "/camera/image_raw", 10, std::bind(&PerceptionNode::imageCallback, this, std::placeholders::_1));
+        // Subscribers — OAK-D publishes on /oak/rgb/image_raw by default
+        image_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+            "/oak/rgb/image_raw", rclcpp::SensorDataQoS(),
+            std::bind(&PerceptionNode::imageCallback, this, std::placeholders::_1));
 
-        visual_slam_status_subscriber_ = this->create_subscription<isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus>(
-            "/visual_slam/status", 10, std::bind(&PerceptionNode::visualSlamStatusCallback, this, std::placeholders::_1));
+        depth_sub_ = this->create_subscription<sensor_msgs::msg::Image>(
+            "/oak/stereo/image_raw", rclcpp::SensorDataQoS(),
+            std::bind(&PerceptionNode::depthCallback, this, std::placeholders::_1));
 
-        dnn_inference_subscriber_ = this->create_subscription<isaac_ros_dnn_inference::msg::DnnInference>(
-            "/dnn_inference", 10, std::bind(&PerceptionNode::dnnInferenceCallback, this, std::placeholders::_1));
+        detection_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
+            "/detections", 10,
+            std::bind(&PerceptionNode::detectionCallback, this, std::placeholders::_1));
+
+        RCLCPP_INFO(this->get_logger(), "Perception node started — waiting for OAK-D data");
     }
 
 private:
     void imageCallback(const sensor_msgs::msg::Image::SharedPtr msg)
     {
-        RCLCPP_INFO(this->get_logger(), "Received image");
-        // In a real application, you would do some processing on the image here
+        last_image_ = msg;
+        publishSensorData();
     }
 
-    void visualSlamStatusCallback(const isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus::SharedPtr msg)
+    void depthCallback(const sensor_msgs::msg::Image::SharedPtr msg)
     {
-        RCLCPP_INFO(this->get_logger(), "Received Visual SLAM status");
+        last_depth_ = msg;
+        RCLCPP_DEBUG(this->get_logger(), "Depth frame: %ux%u", msg->width, msg->height);
     }
 
-    void dnnInferenceCallback(const isaac_ros_dnn_inference::msg::DnnInference::SharedPtr msg)
+    void detectionCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg)
     {
-        RCLCPP_INFO(this->get_logger(), "Received DNN inference");
+        RCLCPP_INFO(this->get_logger(), "Detections: %zu objects", msg->detections.size());
     }
 
-    rclcpp::Publisher<drone_autonomy_msgs::msg::SensorData>::SharedPtr sensor_data_publisher_;
-    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscriber_;
-    rclcpp::Subscription<isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus>::SharedPtr visual_slam_status_subscriber_;
-    rclcpp::Subscription<isaac_ros_dnn_inference::msg::DnnInference>::SharedPtr dnn_inference_subscriber_;
+    void publishSensorData()
+    {
+        if (!last_image_) return;
+
+        auto sensor_msg = drone_autonomy_msgs::msg::SensorData();
+        sensor_msg.image = *last_image_;
+        sensor_data_pub_->publish(sensor_msg);
+    }
+
+    rclcpp::Publisher<drone_autonomy_msgs::msg::SensorData>::SharedPtr sensor_data_pub_;
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr depth_sub_;
+    rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr detection_sub_;
+
+    sensor_msgs::msg::Image::SharedPtr last_image_;
+    sensor_msgs::msg::Image::SharedPtr last_depth_;
 };
 
 int main(int argc, char * argv[])
