@@ -171,8 +171,8 @@ The system runs a containerized microservice architecture using **Docker** to en
 └────────┬────────┘        │  │    Visual SLAM  │  Path Planner │   │
          │                 │  └─────────────────────────────────┘   │
          │ /detections     └──────────────┬──────────────────────────┘
-         │ /depth_image                   │
-         │ /camera/image_raw              │ /trajectory
+         │ /oak/stereo/image_raw          │
+         │ /oak/rgb/image_raw             │ /trajectory
          │                                │ /pose
          ▼                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -302,7 +302,7 @@ docker run -it --rm \
 cd /ws
 colcon build --merge-install \
   --base-paths src/drone_autonomy_platform/msgs src/drone_autonomy_platform/src \
-  --packages-ignore common perception \
+  --packages-ignore common \
   --cmake-args -DBUILD_TESTING=OFF
 source install/setup.bash
 
@@ -350,10 +350,13 @@ drone_autonomy_platform/
 
 ## Notes on `perception`
 
-The `perception` package depends on [NVIDIA Isaac ROS](https://github.com/NVIDIA-ISAAC-ROS) packages
-(`isaac_ros_visual_slam_interfaces`, `isaac_ros_dnn_inference`) which are only available via
-NVIDIA's Jetson apt registry. It is excluded from the standard Docker build and CI. To build it,
-add the Isaac ROS apt sources and remove `perception` from `--packages-ignore` in the Dockerfile.
+The `perception_node` binary builds on x86 and is included in the standard Docker build and CI.
+The full RT-DETR inference pipeline and OAK-D camera driver are runtime-only dependencies
+(`exec_depend` in `package.xml`) that require NVIDIA Isaac ROS packages
+(`isaac_ros_dnn_image_encoder`, `isaac_ros_rtdetr`, `isaac_ros_tensor_rt`) and `depthai_ros_driver`,
+available only on Jetson via NVIDIA's apt registry. Use `platform.launch.py` on the Orin to
+launch the complete pipeline; `platform_core.launch.py` excludes perception for environments
+without these runtime dependencies.
 
 ## AI Agent Workforce
 

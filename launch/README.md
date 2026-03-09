@@ -118,8 +118,8 @@ ros2 launch launch/platform.launch.py
 
 The `perception` package depends on
 [NVIDIA Isaac ROS](https://github.com/NVIDIA-ISAAC-ROS) packages —
-specifically `isaac_ros_dnn_inference`, `isaac_ros_rtdetr`, and
-`isaac_ros_tensor_rt` — that are distributed exclusively through
+specifically `isaac_ros_dnn_image_encoder`, `isaac_ros_rtdetr`,
+`isaac_ros_tensor_rt`, and `isaac_ros_visual_slam` — that are distributed exclusively through
 **NVIDIA's Jetson-specific apt registry**
 (`repo.download.nvidia.com/jetson`).
 
@@ -136,14 +136,13 @@ that autonomy, communication, control, navigation, and safety can all be
 built, launched, and tested in any environment without Jetson hardware or
 the Isaac ROS apt source.
 
-To enable perception locally:
+To enable the full perception pipeline at runtime:
 
-1. Add the NVIDIA Jetson apt repository (see
-   [Isaac ROS Getting Started](https://nvidia-isaac-ros.github.io/getting_started/index.html)).
-2. Install the required Isaac ROS packages.
-3. Remove `perception` from `--packages-ignore` in the Dockerfile (or your
-   `colcon build` invocation).
-4. Use `platform.launch.py` instead of `platform_core.launch.py`.
+1. Build on Jetson with the Isaac ROS dev container (`docker/Dockerfile.dev`), which
+   includes `depthai_ros_driver` and the Isaac ROS apt sources.
+2. Generate the TensorRT engine (`rtdetr_l.plan`) on the target Jetson device
+   (see [`docs/architecture/perception_architecture.md`](../docs/architecture/perception_architecture.md)).
+3. Use `platform.launch.py` instead of `platform_core.launch.py`.
 
 For full details on the perception pipeline, model selection, and TensorRT
 engine generation see
