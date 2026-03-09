@@ -49,12 +49,18 @@ jobs:
       - name: Run mock end-to-end workflow
         run: |
           docker compose -f docker/docker-compose.yml up -d temporal-db temporal
-          sleep 10
+          docker compose -f docker/docker-compose.yml wait temporal || true
+
           DOCKER_UID=1000 DOCKER_GID=1000 AGENT_MOCK=true \
             docker compose -f docker/docker-compose.yml up -d orchestrator ros2-worker sim-worker
-          sleep 5
+
+          # Brief pause for workers to register with Temporal — no healthcheck possible for this
+          sleep 3
+
           docker compose -f docker/docker-compose.yml exec -T orchestrator \
             python3 scripts/submit_task.py \
               "Write a placeholder file to launch/ci-test.md" \
-              --plan '{"summary":"CI mock test","safety_critical":false,"affected_packages":[],"steps":[{"agent":"infra","task_queue":"orchestrator","action":"Write a placeholder file to launch/ci-test.md","depends_on":[]}]}'
+              --plan '{"summary":"CI mock test","safety_critical":false,"affected_packages":[],"steps":[{"agent":"infra","task_queue":"orchestrator","action":"Write a placeholder file to launch/ci-test.md","depends_on":[]}]}' \
+              --timeout 60
+
           docker compose -f docker/docker-compose.yml down

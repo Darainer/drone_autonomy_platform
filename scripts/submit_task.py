@@ -56,6 +56,7 @@ def main():
     parser.add_argument("description", help="Natural language task description")
     parser.add_argument("--plan", help="Path to pre-formed plan JSON file, or inline JSON string")
     parser.add_argument("--rework", default="", help="Feedback from a previous failed attempt")
+    parser.add_argument("--timeout", type=int, default=0, help="Seconds to wait for result (0 = no timeout)")
     args = parser.parse_args()
 
     plan = None
@@ -66,7 +67,11 @@ def main():
             with open(args.plan) as f:
                 plan = json.load(f)
 
-    result = asyncio.run(submit(args.description, plan, args.rework))
+    coro = submit(args.description, plan, args.rework)
+    if args.timeout:
+        result = asyncio.run(asyncio.wait_for(coro, timeout=args.timeout))
+    else:
+        result = asyncio.run(coro)
 
     print("\n" + "═" * 60)
     print("WORKFLOW RESULT")

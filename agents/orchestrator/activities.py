@@ -8,7 +8,6 @@ with the appropriate system prompt and tools for the task.
 import json
 import subprocess
 import re
-from pathlib import Path
 from temporalio import activity
 
 from agents.shared.llm_client import call_agent, WORKSPACE
@@ -48,18 +47,20 @@ async def create_feature_branch(description: str) -> dict:
     slug = re.sub(r"[^a-z0-9]+", "-", description.lower())[:50].strip("-")
     branch = f"feature/{slug}"
 
-    result = subprocess.run(
+    create_result = subprocess.run(
         f"git -C {WORKSPACE} checkout -b {branch}",
         shell=True, capture_output=True, text=True,
     )
-    if result.returncode != 0:
+    if create_result.returncode != 0:
         # Branch may already exist — try to check it out
-        result = subprocess.run(
+        checkout_result = subprocess.run(
             f"git -C {WORKSPACE} checkout {branch}",
             shell=True, capture_output=True, text=True,
         )
-        if result.returncode != 0:
-            raise RuntimeError(f"Failed to create/checkout branch {branch}: {result.stderr}")
+        if checkout_result.returncode != 0:
+            # Detached HEAD (CI) or other git state — log and continue without branching
+            activity.logger.warning(f"Could not create/checkout branch {branch}: {checkout_result.stderr.strip()}")
+            return {"branch": "detached", "warning": checkout_result.stderr.strip()}
 
     activity.logger.info(f"On branch: {branch}")
     return {"branch": branch}

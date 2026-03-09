@@ -80,7 +80,13 @@ services:
       - POSTGRES_SEEDS=temporal-db
     depends_on:
       temporal-db:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "localhost:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
 
   temporal-ui:
     image: temporalio/ui:latest
@@ -90,7 +96,7 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
 
   # ═══════════════════════════════════════════
   # Agent Workers — all share the same workspace
@@ -104,7 +110,7 @@ services:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     command: python -m agents.orchestrator.worker
     restart: unless-stopped
 
@@ -117,7 +123,7 @@ services:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     command: python -m agents.ros2_worker.worker
     restart: unless-stopped
 
@@ -130,7 +136,7 @@ services:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     command: python -m agents.sim_worker.worker
     restart: unless-stopped
 
@@ -143,7 +149,7 @@ services:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     command: python -m agents.ml_worker.worker
     restart: unless-stopped
 
@@ -160,7 +166,7 @@ services:
       - ${HOME}/.ssh:/home/agent/.ssh:ro
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     command: python -m agents.deploy_worker.worker
     restart: unless-stopped
 
