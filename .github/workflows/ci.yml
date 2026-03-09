@@ -54,12 +54,12 @@ jobs:
             docker compose -f docker/docker-compose.yml up -d orchestrator ros2-worker sim-worker
 
           # Brief pause for workers to register with Temporal — no healthcheck possible for this
-          sleep 3
+          sleep 8
 
           docker compose -f docker/docker-compose.yml exec -T orchestrator \
             python3 scripts/submit_task.py \
               "Write a placeholder file to launch/ci-test.md" \
               --plan '{"summary":"CI mock test","safety_critical":false,"affected_packages":[],"steps":[{"agent":"infra","task_queue":"orchestrator","action":"Write a placeholder file to launch/ci-test.md","depends_on":[]}]}' \
-              --timeout 30
+              --timeout 60
 
           docker compose -f docker/docker-compose.yml down
