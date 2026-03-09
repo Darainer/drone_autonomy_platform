@@ -8,5 +8,11 @@ def generate_launch_description():
             executable='safety_node',
             name='safety_node',
             output='screen'
-        )
+        ),
+        Node(
+            package='safety',
+            executable='battery_monitor',
+            name='battery_monitor',
+            output='screen'
+        ),
     ])

@@ -5,11 +5,17 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(drone_autonomy_msgs REQUIRED)
 find_package(mavros_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 add_executable(safety_node src/safety_node.cpp)
 ament_target_dependencies(safety_node rclcpp drone_autonomy_msgs mavros_msgs)
 
-install(TARGETS safety_node
+add_executable(battery_monitor src/battery_monitor.cpp)
+ament_target_dependencies(battery_monitor rclcpp sensor_msgs mavros_msgs)
+
+install(TARGETS
+    safety_node
+    battery_monitor
     DESTINATION lib/${PROJECT_NAME}
 )
 
