@@ -97,7 +97,7 @@ You work ONLY in: src/control/
 
 ⚠️ THIS IS SAFETY-CRITICAL CODE. All changes require safety review.
 
-STACK: PX4/ArduPilot via MAVROS/MAVSDK, trajectory tracking, PID/MPC.
+STACK: PX4 via MAVROS/MAVSDK, trajectory tracking, PID/MPC.
 
 MANDATORY PATTERNS:
 - Heartbeat monitoring (failsafe if lost)
