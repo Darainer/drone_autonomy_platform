@@ -1,6 +1,6 @@
 services:
   # ═══════════════════════════════════════════
-  # Your existing dev container — unchanged
+  # Development container — hardware integration
   # ═══════════════════════════════════════════
   dev:
     profiles: [hardware]
@@ -70,15 +70,36 @@ services:
   # ═══════════════════════════════════════════
   # Agent Workers — all share the same workspace
   # ═══════════════════════════════════════════
+  #
+  # LLM backend env vars (set in .env or shell):
+  #   LLM_BACKEND=anthropic        (default)
+  #   LLM_BACKEND=openai_compat    + LLM_BASE_URL + LLM_API_KEY + LLM_MODEL
+  #
+  #   Moonshot K2:  LLM_BASE_URL=https://api.moonshot.cn/v1  LLM_MODEL=kimi-k2
+  #   Ollama local: LLM_BASE_URL=http://host.docker.internal:11434/v1  LLM_MODEL=qwen2.5-coder:14b
+  #
+  x-agent-env: &agent-env
+    TEMPORAL_ADDRESS: temporal:7233
+    WORKSPACE: /workspace
+    AGENT_MOCK: ${AGENT_MOCK:-false}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    LLM_BACKEND: ${LLM_BACKEND:-anthropic}
+    LLM_BASE_URL: ${LLM_BASE_URL:-}
+    LLM_API_KEY: ${LLM_API_KEY:-}
+    LLM_MODEL: ${LLM_MODEL:-}
+
+  x-agent-build: &agent-build
+    context: ..
+    dockerfile: docker/Dockerfile.agents
+    args:
+      UID: ${UID:-1000}
+      GID: ${GID:-1000}
+
   orchestrator:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.agents
+      <<: *agent-build
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WORKSPACE=/workspace
-      - AGENT_MOCK=${AGENT_MOCK:-false}
+      <<: *agent-env
     volumes:
       - ..:/workspace
     depends_on:
@@ -89,13 +110,9 @@ services:
 
   ros2-worker:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.agents
+      <<: *agent-build
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WORKSPACE=/workspace
-      - AGENT_MOCK=${AGENT_MOCK:-false}
+      <<: *agent-env
     volumes:
       - ..:/workspace
     depends_on:
@@ -106,13 +123,9 @@ services:
 
   sim-worker:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.agents
+      <<: *agent-build
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WORKSPACE=/workspace
-      - AGENT_MOCK=${AGENT_MOCK:-false}
+      <<: *agent-env
     volumes:
       - ..:/workspace
     depends_on:
@@ -123,13 +136,9 @@ services:
 
   ml-worker:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.agents
+      <<: *agent-build
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WORKSPACE=/workspace
-      - AGENT_MOCK=${AGENT_MOCK:-false}
+      <<: *agent-env
     volumes:
       - ..:/workspace
     depends_on:
@@ -140,19 +149,15 @@ services:
 
   deploy-worker:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.agents
+      <<: *agent-build
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WORKSPACE=/workspace
-      - AGENT_MOCK=${AGENT_MOCK:-false}
-      - ORIN_HOST=${ORIN_HOST:-}
-      - ORIN_USER=${ORIN_USER:-jetson}
+      <<: *agent-env
+      ORIN_HOST: ${ORIN_HOST:-}
+      ORIN_USER: ${ORIN_USER:-jetson}
     volumes:
       - ..:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${HOME}/.ssh:/root/.ssh:ro
+      - ${HOME}/.ssh:/home/agent/.ssh:ro
     depends_on:
       temporal:
         condition: service_started

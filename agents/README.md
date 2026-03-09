@@ -1,172 +1,166 @@
-# Agent System — Setup Guide
+# Agent System
 
-Multi-agent orchestration for `drone_autonomy_platform` using Temporal + Claude API.
+Multi-agent orchestration for `drone_autonomy_platform` using Temporal + Claude API (or a local LLM via Ollama).
 
 ## Architecture
 
 ```
-Your request
-    ↓
-Orchestrator (Temporal workflow)
-    ↓ routes to...
+You describe a task to Claude Code
+    ↓  Claude Code forms a plan and calls scripts/task.sh
+Temporal Workflow (NewFeatureWorkflow)
+    ↓  routes steps to task queues
 ┌──────────────────────────────────────────────┐
-│  Domain Agents        Operations Agents      │
-│  · Perception Dev     · Sim & Test           │
-│  · Navigation Dev     · ML Pipeline          │
-│  · Control Dev ⚠️     · Deploy               │
-│  · Autonomy Dev       · Code Review          │
-│  · Comms Dev          · Infra & Interfaces   │
-│  · Safety Dev ⚠️                              │
+│  Domain Agents          Operations Agents    │
+│  · perception-dev       · sim-test           │
+│  · nav-dev              · ml-pipeline        │
+│  · control-dev  ⚠️      · deploy             │
+│  · autonomy-dev         · code-review        │
+│  · comms-dev            · infra              │
+│  · safety-dev   ⚠️                           │
 └──────────────────────────────────────────────┘
-    ↓ each agent calls...
-Claude API (with domain-specific prompts + tools)
-    ↓ tools execute against...
-Your workspace (read/write files, colcon build, run tests)
+    ↓  each agent calls...
+LLM backend (Anthropic API  or  local Ollama)
+    ↓  tools execute against...
+/workspace (read/write files, colcon build, run tests, git)
 ```
+
+⚠️ = safety-critical path (triggers DO-178C review + human approval gate)
 
 ## Prerequisites
 
 - Docker + Docker Compose V2
-- Anthropic API key ([console.anthropic.com](https://console.anthropic.com))
-- (Optional) NVIDIA GPU for ML pipeline worker
-- (Optional) SSH access to Orin Nano for deploy worker
+- One of:
+  - Anthropic API key ([console.anthropic.com](https://console.anthropic.com))
+  - Local Ollama instance (see `docker/local-agent/README.md`)
 
 ## Quick Start
 
-### Option A: Docker Compose (recommended)
-
 ```bash
-# 1. From the repo root, create .env
-cp .env.example .env
-# Edit .env → add your ANTHROPIC_API_KEY
+# 1. Set your API key
+echo "ANTHROPIC_API_KEY=sk-ant-..." >> docker/.env
 
-# 2. Start the agent system
-docker compose -f docker-compose.agents.yaml up -d
+# 2. Build with your host UID/GID so file ownership is correct
+cd docker
+UID=$(id -u) GID=$(id -g) docker compose build
 
-# 3. Verify everything is running
-docker compose -f docker-compose.agents.yaml ps
+# 3. Start everything
+docker compose up -d
 
 # 4. Open Temporal UI
 open http://localhost:8080
-
-# 5. Trigger your first workflow
-docker compose -f docker-compose.agents.yaml exec orchestrator \
-  python -m agents.cli feature "Add a basic camera node to src/perception"
 ```
 
-### Option B: Local development (no Docker)
+## Submitting Tasks
+
+Tasks are submitted from the host via `scripts/task.sh`, which runs inside the
+orchestrator container where all dependencies are installed.
 
 ```bash
-# 1. Install Temporal server locally
-# Option: brew install temporal  (macOS)
-# Option: Download from github.com/temporalio/cli/releases
-temporal server start-dev --ui-port 8080
+# Let Claude Code form the plan and call this:
+scripts/task.sh "Add a GPS health monitor node to the safety package"
 
-# 2. Install Python deps
-pip install -r agents/requirements.txt
+# With a pre-formed plan (skips the LLM analyze_intent call):
+scripts/task.sh "description" --plan '{"summary":"...","steps":[...]}'
 
-# 3. Set your API key
-export ANTHROPIC_API_KEY=sk-ant-api03-...
-
-# 4. Start workers (each in a separate terminal)
-python -m agents.orchestrator.worker     # Terminal 1
-python -m agents.ros2_worker.worker      # Terminal 2
-python -m agents.sim_worker.worker       # Terminal 3
-python -m agents.ml_worker.worker        # Terminal 4
-python -m agents.deploy_worker.worker    # Terminal 5
-
-# 5. Trigger a workflow
-python -m agents.cli feature "Add obstacle detection to perception pipeline"
+# Rework after a failed attempt:
+scripts/task.sh "description" --plan '...' --rework "tests failed: missing include"
 ```
 
-## CLI Commands
+Claude Code acts as the orchestrator — it analyzes your request, forms a plan,
+calls `task.sh`, reviews results, and resubmits with `--rework` if needed.
 
+## LLM Backends
+
+Set via env vars in `docker/.env` or your shell:
+
+| `LLM_BACKEND` | Required vars | Example model |
+|---|---|---|
+| `anthropic` (default) | `ANTHROPIC_API_KEY` | `claude-sonnet-4-6` |
+| `openai_compat` | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | `qwen2.5-coder:14b` (Ollama), `kimi-k2` (Moonshot) |
+
+**Local Ollama:**
 ```bash
-# Start a new feature workflow
-python -m agents.cli feature "Add landing zone detection using depth estimation"
+# Start Ollama first
+cd docker/local-agent && docker compose up -d
 
-# Deploy to Orin Nano
-python -m agents.cli deploy v0.3.0
-
-# Retrain and deploy an ML model
-python -m agents.cli model "Retrain YOLOv8 with new crop health dataset"
-
-# Approve a waiting workflow (after human review)
-python -m agents.cli approve feature-add-landing-zone-detection
-
-# Check workflow status
-python -m agents.cli status feature-add-landing-zone-detection
+# Then start agents pointing at it
+cd docker
+LLM_BACKEND=openai_compat \
+LLM_BASE_URL=http://localhost:11434/v1 \
+LLM_API_KEY=none \
+LLM_MODEL=qwen2.5-coder:14b \
+docker compose up -d
 ```
 
-## How It Works
-
-1. **You submit a request** via the CLI
-2. **Orchestrator** analyzes your intent, identifies affected packages, classifies safety-criticality
-3. **Domain agents** execute in sequence — each calls Claude with a domain-specific system prompt and tools to read/write files, build, and test
-4. **Human gates** pause the workflow before simulation runs, deploys, or safety-critical merges — you approve via CLI or Temporal UI
-5. **Results** are visible in Temporal UI with full execution history, retry logs, and timing
+**Mock mode** (no LLM calls — for testing Temporal routing):
+```bash
+AGENT_MOCK=true docker compose up -d
+```
 
 ## Task Queues
 
 | Queue | Worker | Agents |
-|-------|--------|--------|
-| `orchestrator` | orchestrator | Orchestrator, Code Review, Infra |
-| `ros2-dev` | ros2-worker | Perception, Navigation, Control, Autonomy, Comms, Safety |
-| `simulation` | sim-worker | Sim & Test |
-| `ml-pipeline` | ml-worker | ML Pipeline |
-| `deployment` | deploy-worker | Deploy |
+|---|---|---|
+| `orchestrator` | orchestrator | infra, code-review |
+| `ros2-dev` | ros2-worker | perception-dev, nav-dev, control-dev, autonomy-dev, comms-dev, safety-dev |
+| `simulation` | sim-worker | sim-test |
+| `ml-pipeline` | ml-worker | ml-pipeline |
+| `deployment` | deploy-worker | deploy |
 
-## Safety-Critical Paths
+## File Ownership
 
-Changes to `src/control/` or `src/safety/` automatically trigger:
-- Extended code review (DO-178C Level D checklist)
-- Mandatory human approval gate
-- 90% test coverage requirement
-- Extra logging and bounded-output checks
+The agent containers run as a non-root user matching your host `UID:GID` (baked
+in at build time via `--build-arg UID/GID`). All files written to `/workspace`
+are owned by you.
 
-## Files Added
+If you ever see root-owned files from a previous build:
+```bash
+sudo chown -R $(id -u):$(id -g) .
+```
+
+## Repository Layout
 
 ```
-drone_autonomy_platform/
-├── docker-compose.agents.yaml    # Agent infrastructure
-├── .env.example                  # API key template
-└── agents/
-    ├── cli.py                    # CLI entry point
-    ├── requirements.txt          # Python dependencies
-    ├── orchestrator/
-    │   ├── Dockerfile
-    │   ├── worker.py             # Main entry point
-    │   ├── workflows.py          # Temporal workflow definitions
-    │   └── activities.py         # Activity implementations
-    ├── ros2-worker/
-    │   ├── Dockerfile
-    │   └── worker.py
-    ├── sim-worker/
-    │   ├── Dockerfile
-    │   └── worker.py
-    ├── ml-worker/
-    │   ├── Dockerfile
-    │   └── worker.py
-    ├── deploy-worker/
-    │   ├── Dockerfile
-    │   └── worker.py
-    └── shared/
-        ├── llm_client.py         # Claude API wrapper + tool executor
-        ├── tools.py              # Tool definitions for function calling
-        └── prompts.py            # All agent system prompts
+agents/
+├── requirements.txt          # All Python deps (temporalio, anthropic, openai)
+├── orchestrator/
+│   ├── worker.py             # Registers workflows + activities on "orchestrator" queue
+│   ├── workflows.py          # NewFeatureWorkflow, DeployWorkflow, ModelUpdateWorkflow
+│   └── activities.py         # create_feature_branch, analyze_intent, run_domain_agent, ...
+├── ros2_worker/worker.py     # Listens on "ros2-dev" queue
+├── sim_worker/worker.py      # Listens on "simulation" queue
+├── ml_worker/worker.py       # Listens on "ml-pipeline" queue
+├── deploy_worker/worker.py   # Listens on "deployment" queue
+└── shared/
+    ├── llm_client.py         # call_agent() — Anthropic + OpenAI-compat backends, tool loop
+    ├── tools.py              # Tool definitions (read_file, write_file, colcon_build, git_*, ...)
+    └── prompts.py            # System prompts for each agent role
+
+docker/
+├── Dockerfile.agents         # Single image for all workers (non-root user)
+├── docker-compose.yml        # All services: Temporal, DB, UI, 5 workers
+└── local-agent/              # Ollama stack for local GPU inference
+    ├── Dockerfile
+    ├── docker-compose.yml
+    └── README.md
+
+scripts/
+├── task.sh                   # Host-side task submission (runs inside container)
+└── submit_task.py            # Called by task.sh via docker compose exec
+
+CLAUDE.md                     # Claude Code reference: plan schema, valid agents, rework loop
 ```
 
 ## Extending
 
-**Add a new agent:**
+**Add a new agent role:**
 1. Add system prompt to `agents/shared/prompts.py`
 2. Add tool set to `agents/shared/tools.py`
-3. Add routing in `agents/orchestrator/activities.py`
+3. Add routing entry in `agents/orchestrator/activities.py` → `TOOL_SETS`
+4. Add to `valid_agents` and `agent_to_queue` in `analyze_intent`
+5. Update `CLAUDE.md` agent table
 
 **Add a new tool:**
 1. Define schema in `agents/shared/tools.py`
-2. Implement execution in `agents/shared/llm_client.py` → `execute_tool()`
-
-**Add a new workflow:**
-1. Define in `agents/orchestrator/workflows.py`
-2. Add CLI command in `agents/cli.py`
+2. Implement in `agents/shared/llm_client.py` → `execute_tool()`
+3. Add to relevant agent tool sets in `tools.py`
