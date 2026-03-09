@@ -193,10 +193,10 @@ model.export(format="engine", half=True, device=0)
 ```
                     ┌─────────────────────────┐
                     │     Camera Driver       │
-                    │   (argus_camera_mono)   │
+                    │  (depthai_ros_driver)   │
                     └───────────┬─────────────┘
                                 │ sensor_msgs/Image
-                                │ /camera/image_raw
+                                │ /oak/rgb/image_raw
                                 ▼
                     ┌─────────────────────────┐
                     │   DnnImageEncoderNode   │
@@ -246,7 +246,7 @@ model.export(format="engine", half=True, device=0)
 
 | Topic | Message Type | Rate | Description |
 |-------|--------------|------|-------------|
-| `/camera/image_raw` | `sensor_msgs/Image` | 30 Hz | Raw RGB from camera |
+| `/oak/rgb/image_raw` | `sensor_msgs/Image` | 30 Hz | Raw RGB from OAK-D camera |
 | `/encoded_tensor` | `isaac_ros_tensor_list_interfaces/TensorList` | 30 Hz | Resized, normalized image tensor |
 | `/tensor_pub` | `isaac_ros_tensor_list_interfaces/TensorList` | 30 Hz | Preprocessed for RT-DETR |
 | `/tensor_output` | `isaac_ros_tensor_list_interfaces/TensorList` | 30 Hz | Raw inference output |
@@ -298,7 +298,7 @@ def generate_launch_description():
                     'image_stddev': [0.229, 0.224, 0.225],
                 }],
                 remappings=[
-                    ('image', '/camera/image_raw'),
+                    ('image', '/oak/rgb/image_raw'),
                     ('encoded_tensor', 'encoded_tensor'),
                 ]
             ),
@@ -465,7 +465,7 @@ Each tracked object includes:
 | Component | Specification | Notes |
 |-----------|---------------|-------|
 | **Compute** | NVIDIA Jetson AGX Orin 64GB | Primary platform |
-| **Camera** | MIPI-CSI, 1080p @ 30 Hz | GMSL2 supported |
+| **Camera** | Luxonis OAK-D, 1080p @ 30 Hz via USB 3.1 | Stereo depth + IMU |
 | **Power** | 30W mode recommended | Balance perf/thermal |
 
 ### Jetson Configuration
