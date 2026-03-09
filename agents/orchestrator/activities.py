@@ -44,6 +44,15 @@ async def create_feature_branch(description: str) -> dict:
     Create a git feature branch for the workflow.
     Branch name is derived from the feature description.
     """
+    # Check if we're in a detached HEAD state (e.g. CI shallow clone) — skip branching
+    head_check = subprocess.run(
+        f"git -C {WORKSPACE} symbolic-ref --quiet HEAD",
+        shell=True, capture_output=True, text=True, timeout=10,
+    )
+    if head_check.returncode != 0:
+        activity.logger.warning("Detached HEAD — skipping branch creation")
+        return {"branch": "detached"}
+
     slug = re.sub(r"[^a-z0-9]+", "-", description.lower())[:50].strip("-")
     branch = f"feature/{slug}"
 
@@ -58,7 +67,6 @@ async def create_feature_branch(description: str) -> dict:
             shell=True, capture_output=True, text=True, timeout=15,
         )
         if checkout_result.returncode != 0:
-            # Detached HEAD (CI) or other git state — log and continue without branching
             activity.logger.warning(f"Could not create/checkout branch {branch}: {checkout_result.stderr.strip()}")
             return {"branch": "detached", "warning": checkout_result.stderr.strip()}
 
