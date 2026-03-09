@@ -2,8 +2,14 @@
 
 Runs an [Ollama](https://ollama.com) server on your local GPU as a drop-in
 replacement for the Anthropic API.  The agent workers connect to it via the
-OpenAI-compatible endpoint Ollama exposes at `http://host.docker.internal:11434/v1`
-(use `localhost:11434` only when calling from the host directly).
+OpenAI-compatible endpoint Ollama exposes at port `11434`.
+
+> **Linux note:** `host.docker.internal` is not available on Linux Docker Engine.
+> Use the bridge gateway IP instead (typically `172.18.0.1`):
+> ```
+> LLM_BASE_URL=http://172.18.0.1:11434/v1
+> ```
+> Confirm your gateway: `docker inspect <container> | grep Gateway`
 
 ---
 
