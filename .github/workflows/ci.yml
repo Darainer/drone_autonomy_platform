@@ -60,6 +60,6 @@ jobs:
             python3 scripts/submit_task.py \
               "Write a placeholder file to launch/ci-test.md" \
               --plan '{"summary":"CI mock test","safety_critical":false,"affected_packages":[],"steps":[{"agent":"infra","task_queue":"orchestrator","action":"Write a placeholder file to launch/ci-test.md","depends_on":[]}]}' \
-              --timeout 60
+              --timeout 30
 
           docker compose -f docker/docker-compose.yml down

@@ -181,7 +181,7 @@ async def run_code_review(plan: dict, results: list) -> dict:
 Safety-critical: {safety_critical}
 
 Changes summary:
-{json.dumps([r.get('result', '')[:500] for r in results], indent=2)}
+{json.dumps([str(r.get('result', {}).get('result', ''))[:500] for r in results], indent=2)}
 
 Steps:
 1. Read the modified files

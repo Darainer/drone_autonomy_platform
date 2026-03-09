@@ -82,7 +82,7 @@ services:
       temporal-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "echo > /dev/tcp/localhost/7233"]
+      test: ["CMD-SHELL", "nc -z $(hostname -i) 7233"]
       interval: 5s
       timeout: 5s
       retries: 30
