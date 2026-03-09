@@ -1,3 +1,27 @@
+# LLM backend env vars (set in .env or shell):
+#   LLM_BACKEND=anthropic        (default)
+#   LLM_BACKEND=openai_compat    + LLM_BASE_URL + LLM_API_KEY + LLM_MODEL
+#
+#   Moonshot K2:  LLM_BASE_URL=https://api.moonshot.cn/v1  LLM_MODEL=kimi-k2
+#   Ollama local: LLM_BASE_URL=http://host.docker.internal:11434/v1  LLM_MODEL=qwen2.5-coder:14b
+
+x-agent-env: &agent-env
+  TEMPORAL_ADDRESS: temporal:7233
+  WORKSPACE: /workspace
+  AGENT_MOCK: ${AGENT_MOCK:-false}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  LLM_BACKEND: ${LLM_BACKEND:-anthropic}
+  LLM_BASE_URL: ${LLM_BASE_URL:-}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-}
+
+x-agent-build: &agent-build
+  context: ..
+  dockerfile: docker/Dockerfile.agents
+  args:
+    UID: ${DOCKER_UID:-1000}
+    GID: ${DOCKER_GID:-1000}
+
 services:
   # ═══════════════════════════════════════════
   # Development container — hardware integration
@@ -18,7 +42,7 @@ services:
       - ..:/ros2_ws/src/drone_autonomy_platform
       - /dev/bus/usb:/dev/bus/usb
     environment:
-      - DISPLAY=${DISPLAY}
+      - DISPLAY=${DISPLAY:-}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
       - FCU_URL=/dev/ttyUSB0:921600
@@ -57,6 +81,7 @@ services:
     depends_on:
       temporal-db:
         condition: service_started
+
   temporal-ui:
     image: temporalio/ui:latest
     ports:
@@ -70,31 +95,6 @@ services:
   # ═══════════════════════════════════════════
   # Agent Workers — all share the same workspace
   # ═══════════════════════════════════════════
-  #
-  # LLM backend env vars (set in .env or shell):
-  #   LLM_BACKEND=anthropic        (default)
-  #   LLM_BACKEND=openai_compat    + LLM_BASE_URL + LLM_API_KEY + LLM_MODEL
-  #
-  #   Moonshot K2:  LLM_BASE_URL=https://api.moonshot.cn/v1  LLM_MODEL=kimi-k2
-  #   Ollama local: LLM_BASE_URL=http://host.docker.internal:11434/v1  LLM_MODEL=qwen2.5-coder:14b
-  #
-  x-agent-env: &agent-env
-    TEMPORAL_ADDRESS: temporal:7233
-    WORKSPACE: /workspace
-    AGENT_MOCK: ${AGENT_MOCK:-false}
-    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-    LLM_BACKEND: ${LLM_BACKEND:-anthropic}
-    LLM_BASE_URL: ${LLM_BASE_URL:-}
-    LLM_API_KEY: ${LLM_API_KEY:-}
-    LLM_MODEL: ${LLM_MODEL:-}
-
-  x-agent-build: &agent-build
-    context: ..
-    dockerfile: docker/Dockerfile.agents
-    args:
-      UID: ${DOCKER_UID:-1000}
-      GID: ${DOCKER_GID:-1000}
-
   orchestrator:
     build:
       <<: *agent-build
