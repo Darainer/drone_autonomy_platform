@@ -48,8 +48,7 @@ jobs:
 
       - name: Run mock end-to-end workflow
         run: |
-          docker compose -f docker/docker-compose.yml up -d temporal-db temporal
-          docker compose -f docker/docker-compose.yml wait temporal || true
+          docker compose -f docker/docker-compose.yml up -d --wait temporal-db temporal
 
           DOCKER_UID=1000 DOCKER_GID=1000 AGENT_MOCK=true \
             docker compose -f docker/docker-compose.yml up -d orchestrator ros2-worker sim-worker
