@@ -32,7 +32,6 @@ TOOL_SETS = {
     "safety-dev": DOMAIN_DEV_TOOLS,
     "sim-test": SIM_TOOLS,
     "ml-pipeline": ML_TOOLS,
-    "deploy": DEPLOY_TOOLS,
     "code-review": REVIEW_TOOLS,
     "infra": DOMAIN_DEV_TOOLS,
 }
@@ -119,13 +118,13 @@ Keep each step action under 2 sentences. Use only the valid agents and queues li
     valid_agents = {
         "perception-dev", "nav-dev", "control-dev", "autonomy-dev",
         "comms-dev", "safety-dev", "infra", "code-review",
-        "sim-test", "ml-pipeline", "deploy",
+        "sim-test", "ml-pipeline",
     }
     agent_to_queue = {
         "perception-dev": "ros2-dev", "nav-dev": "ros2-dev", "control-dev": "ros2-dev",
         "autonomy-dev": "ros2-dev", "comms-dev": "ros2-dev", "safety-dev": "ros2-dev",
         "infra": "orchestrator", "code-review": "orchestrator",
-        "sim-test": "simulation", "ml-pipeline": "ml-pipeline", "deploy": "deployment",
+        "sim-test": "simulation", "ml-pipeline": "ml-pipeline",
     }
     for step in plan.get("steps", []):
         if step.get("agent") not in valid_agents:

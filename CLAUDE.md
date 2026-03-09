@@ -64,11 +64,11 @@ Steps execute in order. `depends_on` is informational only (not enforced by Temp
 | `code-review` | `orchestrator` | Review + lint only, no edits |
 | `sim-test` | `simulation` | SITL scenarios, unit tests |
 | `ml-pipeline` | `ml-pipeline` | Model training, export, TensorRT |
-| `deploy` | `deployment` | Cross-compile, push to Orin |
 
 **Rules:**
 - Docs, launch files, CMakeLists, READMEs → always `infra` on `orchestrator`
 - `src/control/` or `src/safety/` changes → set `safety_critical: true`
+- Do NOT use `deploy` as an agent in feature plans — deployment is a separate workflow triggered manually
 - New message types → add an `infra` step first to define the `.msg` file
 
 ---

@@ -64,6 +64,62 @@ def _to_openai_tools(tools: list[dict]) -> list[dict]:
     ]
 
 
+def _extract_inline_tool_calls(content: str) -> list[dict]:
+    """
+    Some local models (e.g. Ollama qwen2.5-coder) emit tool calls as JSON
+    in message content instead of the OpenAI tool_calls field. Extract them.
+    Handles both raw JSON and multiple ```json ... ``` fenced blocks in prose.
+    """
+    import re as _re
+    calls = []
+
+    def _try_parse(text: str) -> None:
+        text = text.strip()
+        if not text:
+            return
+        try:
+            obj = json.loads(text)
+            if isinstance(obj, dict) and "name" in obj and "arguments" in obj:
+                calls.append({"name": obj["name"], "arguments": obj["arguments"]})
+            elif isinstance(obj, list):
+                for item in obj:
+                    if isinstance(item, dict) and "name" in item and "arguments" in item:
+                        calls.append({"name": item["name"], "arguments": item["arguments"]})
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # First try fenced blocks (handles multiple ```json...``` blocks in prose)
+    fenced = _re.findall(r"```(?:json)?\s*([\s\S]*?)```", content)
+    if fenced:
+        for block in fenced:
+            _try_parse(block)
+        return calls
+
+    # No fences — scan for all bare JSON objects using raw_decode
+    decoder = json.JSONDecoder()
+    i = 0
+    found_any = False
+    while i < len(content):
+        # Skip to next '{'
+        j = content.find("{", i)
+        if j == -1:
+            break
+        try:
+            obj, end = decoder.raw_decode(content, j)
+            if isinstance(obj, dict) and "name" in obj and "arguments" in obj:
+                calls.append({"name": obj["name"], "arguments": obj["arguments"]})
+                found_any = True
+            i = j + end
+        except (json.JSONDecodeError, ValueError):
+            i = j + 1
+
+    # Last resort: whole content as one blob
+    if not found_any:
+        _try_parse(content)
+
+    return calls
+
+
 async def call_agent(
     system_prompt: str,
     user_message: str,
@@ -125,29 +181,50 @@ async def _call_openai_compat(system_prompt, user_message, tools, max_tokens) ->
     kwargs = dict(model=model, max_tokens=max_tokens, messages=messages)
     if tools:
         kwargs["tools"] = _to_openai_tools(tools)
-        kwargs["tool_choice"] = "auto"
+        kwargs["tool_choice"] = "required"
 
     print(f"[call_agent] openai_compat round 0 model={model}", flush=True)
     response = await client.chat.completions.create(**kwargs)
-    print(f"[call_agent] done: in={response.usage.prompt_tokens} out={response.usage.completion_tokens}", flush=True)
+    finish = response.choices[0].finish_reason
+    print(f"[call_agent] done: in={response.usage.prompt_tokens} out={response.usage.completion_tokens} finish={finish}", flush=True)
 
     tool_round = 0
-    while response.choices[0].finish_reason == "tool_calls":
+    while True:
         msg = response.choices[0].message
         tool_calls = msg.tool_calls or []
-        print(f"[call_agent] tool round {tool_round+1}: {[tc.function.name for tc in tool_calls]}", flush=True)
 
-        messages.append(msg)
-        results = await asyncio.gather(*[
-            asyncio.to_thread(execute_tool, tc.function.name, json.loads(tc.function.arguments))
+        # Some local models (Ollama) emit tool calls as JSON in content instead of tool_calls
+        if not tool_calls and msg.content:
+            tool_calls = _extract_inline_tool_calls(msg.content)
+
+        if not tool_calls:
+            break
+
+        print(f"[call_agent] tool round {tool_round+1}: {[tc['name'] if isinstance(tc, dict) else tc.function.name for tc in tool_calls]}", flush=True)
+
+        tool_results = await asyncio.gather(*[
+            asyncio.to_thread(
+                execute_tool,
+                tc["name"] if isinstance(tc, dict) else tc.function.name,
+                tc["arguments"] if isinstance(tc, dict) else json.loads(tc.function.arguments),
+            )
             for tc in tool_calls
         ])
-        for tc, r in zip(tool_calls, results):
-            messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(r, default=str)})
+
+        if msg.tool_calls:
+            messages.append(msg)
+            for tc, r in zip(tool_calls, tool_results):
+                messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(r, default=str)})
+        else:
+            # Inline tool call — feed result back as user message
+            messages.append({"role": "assistant", "content": msg.content})
+            for tc, r in zip(tool_calls, tool_results):
+                messages.append({"role": "user", "content": f"Tool result for {tc['name']}:\n{json.dumps(r, default=str)}"})
 
         tool_round += 1
-        response = await client.chat.completions.create(**kwargs | {"messages": messages})
-        print(f"[call_agent] round {tool_round}: in={response.usage.prompt_tokens}", flush=True)
+        response = await client.chat.completions.create(**kwargs | {"messages": messages, "tool_choice": "auto"})
+        finish = response.choices[0].finish_reason
+        print(f"[call_agent] round {tool_round}: in={response.usage.prompt_tokens} finish={finish}", flush=True)
 
     text = response.choices[0].message.content or ""
     return {"text": text, "usage": {"input_tokens": response.usage.prompt_tokens, "output_tokens": response.usage.completion_tokens}}
@@ -292,7 +369,7 @@ def execute_tool(name: str, input_data: dict) -> dict:
             case "git_commit":
                 msg = input_data["message"]
                 result = subprocess.run(
-                    f'git -C {WORKSPACE} add -A && git -C {WORKSPACE} -c user.name="drone-agent" -c user.email="agent@drone.local" commit -m "{msg}"',
+                    f'git -C {WORKSPACE} add -A && git -C {WORKSPACE} commit -m "{msg}"',
                     shell=True, capture_output=True, text=True,
                 )
                 if result.returncode != 0:
