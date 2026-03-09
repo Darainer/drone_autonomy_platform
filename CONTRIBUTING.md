@@ -2,8 +2,14 @@
 
 ## Setup
 
-See the [Quick Start](README.md#quick-start) in the README to build the Docker image.
-For iterative development, use the mounted-source workflow in [Development](README.md#development).
+```bash
+# Build with your host UID/GID — prevents root-owned files in the workspace
+cd docker
+DOCKER_UID=$(id -u) DOCKER_GID=$(id -g) docker compose build
+docker compose up -d
+```
+
+See `agents/README.md` for full agent system setup including local LLM backends.
 
 ## Safety-Critical Code Paths
 
@@ -12,6 +18,9 @@ Changes to the following packages require a safety review before merge:
 - `src/control/` — flight control algorithms
 - `src/safety/` — failsafe and emergency handling
 - `src/navigation/` — path planning
+
+The agent workflow automatically detects these paths and applies a DO-178C review
+checklist plus a mandatory human approval gate before any deploy.
 
 ## Pull Request Process
 
@@ -25,6 +34,9 @@ Changes to the following packages require a safety review before merge:
    ```
 4. Submit a PR with a description of what changed and why
 5. CI will build the image and run the smoke test automatically
+
+Agent-generated PRs are created automatically by the workflow — review the
+Temporal UI for execution history and per-step logs before merging.
 
 ## Adding a New Node
 

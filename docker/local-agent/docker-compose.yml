@@ -1,0 +1,20 @@
+services:
+  ollama:
+    build: .
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    # Pull model on first start only — weights persist in the ollama-models volume
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama show ${LLM_MODEL:-qwen2.5-coder:14b} > /dev/null 2>&1 || ollama pull ${LLM_MODEL:-qwen2.5-coder:14b} && wait"]
+
+volumes:
+  ollama-models:

@@ -9,7 +9,7 @@ __pycache__/
 .idea/
 *.bag
 *.db3
-.env
+*.env
 *.log
 flight_logs/
 .DS_Store

@@ -2,6 +2,15 @@
 Claude API client for agent workers.
 All agents call Claude through this wrapper with domain-specific
 system prompts and tool definitions.
+
+Backend is selected via LLM_BACKEND env var:
+  anthropic    (default) — Anthropic API
+  openai_compat          — OpenAI-compatible API (Moonshot K2, Ollama, etc.)
+
+For openai_compat also set:
+  LLM_BASE_URL  e.g. https://api.moonshot.cn/v1  or  http://localhost:11434/v1
+  LLM_API_KEY   your key (Ollama accepts any string)
+  LLM_MODEL     e.g. kimi-k2  or  qwen2.5-coder:14b
 """
 
 import anthropic
@@ -14,9 +23,45 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-client = anthropic.AsyncAnthropic()
-
 WORKSPACE = Path(os.environ.get("WORKSPACE", "/workspace"))
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "anthropic")
+
+# Lazy-init clients
+_anthropic_client: anthropic.AsyncAnthropic | None = None
+_openai_client = None
+
+
+def _get_anthropic():
+    global _anthropic_client
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.AsyncAnthropic()
+    return _anthropic_client
+
+
+def _get_openai():
+    global _openai_client
+    if _openai_client is None:
+        import openai
+        _openai_client = openai.AsyncOpenAI(
+            base_url=os.environ["LLM_BASE_URL"],
+            api_key=os.environ.get("LLM_API_KEY", "none"),
+        )
+    return _openai_client
+
+
+def _to_openai_tools(tools: list[dict]) -> list[dict]:
+    """Convert Anthropic tool schema → OpenAI function schema."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t["name"],
+                "description": t.get("description", ""),
+                "parameters": t.get("input_schema", {"type": "object", "properties": {}}),
+            },
+        }
+        for t in tools
+    ]
 
 
 async def call_agent(
@@ -27,20 +72,26 @@ async def call_agent(
     max_tokens: int = 4096,
     **kwargs,
 ) -> dict:
-    """Core LLM call. Raises immediately on any error."""
-    messages = [{"role": "user", "content": user_message}]
-
-    req = dict(model=model, max_tokens=max_tokens, system=system_prompt, messages=messages)
-    if tools:
-        req["tools"] = tools
-
+    """Core LLM call. Backend selected by LLM_BACKEND env var."""
     if os.environ.get("AGENT_MOCK") == "true":
         print(f"[call_agent] MOCK: {user_message[:80]}", flush=True)
         return _mock_response(system_prompt, user_message)
 
-    print(f"[call_agent] round 0 request: ~{len(json.dumps(req))} chars", flush=True)
+    if LLM_BACKEND == "openai_compat":
+        return await _call_openai_compat(system_prompt, user_message, tools, max_tokens)
+    return await _call_anthropic(system_prompt, user_message, tools, model, max_tokens)
+
+
+async def _call_anthropic(system_prompt, user_message, tools, model, max_tokens) -> dict:
+    client = _get_anthropic()
+    messages = [{"role": "user", "content": user_message}]
+    req = dict(model=model, max_tokens=max_tokens, system=system_prompt, messages=messages)
+    if tools:
+        req["tools"] = tools
+
+    print(f"[call_agent] anthropic round 0: ~{len(json.dumps(req))} chars", flush=True)
     response = await client.messages.create(**req)
-    print(f"[call_agent] round 0 done: input_tokens={response.usage.input_tokens} output_tokens={response.usage.output_tokens}", flush=True)
+    print(f"[call_agent] done: in={response.usage.input_tokens} out={response.usage.output_tokens}", flush=True)
 
     tool_round = 0
     while response.stop_reason == "tool_use":
@@ -48,10 +99,8 @@ async def call_agent(
         print(f"[call_agent] tool round {tool_round+1}: {[b.name for b in tool_blocks]}", flush=True)
 
         messages.append({"role": "assistant", "content": response.content})
-
         results = await asyncio.gather(*[
-            asyncio.to_thread(execute_tool, tb.name, tb.input)
-            for tb in tool_blocks
+            asyncio.to_thread(execute_tool, tb.name, tb.input) for tb in tool_blocks
         ])
         messages.append({"role": "user", "content": [
             {"type": "tool_result", "tool_use_id": tb.id, "content": json.dumps(r, default=str)}
@@ -60,13 +109,48 @@ async def call_agent(
 
         tool_round += 1
         response = await client.messages.create(**req | {"messages": messages})
-        print(f"[call_agent] round {tool_round} done: input_tokens={response.usage.input_tokens}", flush=True)
+        print(f"[call_agent] round {tool_round}: in={response.usage.input_tokens}", flush=True)
 
     text = "\n".join(b.text for b in response.content if b.type == "text")
-    return {
-        "text": text,
-        "usage": {"input_tokens": response.usage.input_tokens, "output_tokens": response.usage.output_tokens},
-    }
+    return {"text": text, "usage": {"input_tokens": response.usage.input_tokens, "output_tokens": response.usage.output_tokens}}
+
+
+async def _call_openai_compat(system_prompt, user_message, tools, max_tokens) -> dict:
+    client = _get_openai()
+    model = os.environ.get("LLM_MODEL", "kimi-k2")
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
+    kwargs = dict(model=model, max_tokens=max_tokens, messages=messages)
+    if tools:
+        kwargs["tools"] = _to_openai_tools(tools)
+        kwargs["tool_choice"] = "auto"
+
+    print(f"[call_agent] openai_compat round 0 model={model}", flush=True)
+    response = await client.chat.completions.create(**kwargs)
+    print(f"[call_agent] done: in={response.usage.prompt_tokens} out={response.usage.completion_tokens}", flush=True)
+
+    tool_round = 0
+    while response.choices[0].finish_reason == "tool_calls":
+        msg = response.choices[0].message
+        tool_calls = msg.tool_calls or []
+        print(f"[call_agent] tool round {tool_round+1}: {[tc.function.name for tc in tool_calls]}", flush=True)
+
+        messages.append(msg)
+        results = await asyncio.gather(*[
+            asyncio.to_thread(execute_tool, tc.function.name, json.loads(tc.function.arguments))
+            for tc in tool_calls
+        ])
+        for tc, r in zip(tool_calls, results):
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(r, default=str)})
+
+        tool_round += 1
+        response = await client.chat.completions.create(**kwargs | {"messages": messages})
+        print(f"[call_agent] round {tool_round}: in={response.usage.prompt_tokens}", flush=True)
+
+    text = response.choices[0].message.content or ""
+    return {"text": text, "usage": {"input_tokens": response.usage.prompt_tokens, "output_tokens": response.usage.completion_tokens}}
 
 
 def _mock_response(system_prompt: str, user_message: str) -> dict:
@@ -89,12 +173,17 @@ def _mock_response(system_prompt: str, user_message: str) -> dict:
         text = "Mock deploy: skipped in mock mode."
     elif "documentation" in user_message.lower() or "docs" in user_message.lower():
         text = "Mock docs update: complete."
-    else:
-        # domain agent mock — write a placeholder file
-        path = WORKSPACE / "launch" / "README.md"
+    elif "write" in user_message.lower() or "create" in user_message.lower():
+        # agent-actions mock — write a real file so the test can verify it
+        import re as _re
+        match = _re.search(r"[\w/.-]+\.(?:md|txt|py|yaml|yml)", user_message)
+        rel_path = match.group(0) if match else "ci-test.md"
+        path = WORKSPACE / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("# Launch Files\n\nMock output — replace with real agent run.\n")
-        text = f"Mock agent: wrote placeholder to {path}"
+        path.write_text(f"# Mock output\n\nGenerated by mock agent.\n")
+        text = f"Mock agent: wrote {path}"
+    else:
+        text = "Mock agent: task complete."
 
     return {"text": text, "usage": {"input_tokens": 0, "output_tokens": 0}}
 

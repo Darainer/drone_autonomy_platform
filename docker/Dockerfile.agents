@@ -9,10 +9,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Python deps
+# Python deps installed as root so they're available to any runtime user
 COPY agents/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-RUN git config --global --add safe.directory /workspace
+# Create a non-root user matching the host UID/GID at build time.
+# Defaults to 1000:1000 — override with: docker compose build --build-arg UID=$(id -u) --build-arg GID=$(id -g)
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g ${GID} agent && useradd -u ${UID} -g ${GID} -m agent
+RUN git config --system --add safe.directory /workspace
 
+USER agent
 WORKDIR /workspace

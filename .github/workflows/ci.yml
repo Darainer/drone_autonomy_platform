@@ -7,13 +7,101 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  # ── 1. ROS2 Docker build ──────────────────────
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build Docker image
+      - name: Build ROS2 Docker image
         run: docker build -t drone_autonomy_platform .
-      - name: Run smoke test
+
+  # ── 2. Agent smoke test ───────────────────────
+  #    Proves Temporal + worker plumbing works end-to-end in mock mode.
+  #    No LLM calls, no filesystem assertions — just workflow machinery.
+  agent-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install agent dependencies
+        run: pip install -r agents/requirements.txt
+
+      - name: Validate docker compose config
+        run: docker compose -f docker/docker-compose.yml config --quiet
+
+      - name: Run agent unit tests
+        env:
+          AGENT_MOCK: "true"
+          WORKSPACE: "/tmp/test-workspace"
+        run: pytest agents/tests/ -v --tb=short
+
+      - name: Build agent Docker image
         run: |
-          docker run --rm drone_autonomy_platform \
-            bash /ws/src/drone_autonomy_platform/scripts/smoke_test.sh
+          DOCKER_UID=$(id -u) DOCKER_GID=$(id -g) \
+            docker compose -f docker/docker-compose.yml build orchestrator
+
+      - name: Smoke test — workflow runs end-to-end
+        run: |
+          docker compose -f docker/docker-compose.yml up -d --wait temporal-db temporal
+
+          DOCKER_UID=$(id -u) DOCKER_GID=$(id -g) AGENT_MOCK=true \
+            docker compose -f docker/docker-compose.yml up -d orchestrator ros2-worker sim-worker
+
+          # Wait for workers to register with Temporal
+          sleep 8
+
+          docker compose -f docker/docker-compose.yml exec -T orchestrator \
+            python3 scripts/submit_task.py \
+              "Smoke test task" \
+              --plan '{"summary":"smoke test","safety_critical":false,"affected_packages":[],"steps":[{"agent":"infra","task_queue":"orchestrator","action":"Smoke test task","depends_on":[]}]}' \
+              --timeout 60 || {
+            echo "--- orchestrator logs ---"
+            docker compose -f docker/docker-compose.yml logs orchestrator
+            docker compose -f docker/docker-compose.yml down
+            exit 1
+          }
+
+          docker compose -f docker/docker-compose.yml down
+
+  # ── 3. Agent action tests ─────────────────────
+  #    Same workflow as smoke, but verifies real filesystem output.
+  #    Fails independently so you know if plumbing works but I/O doesn't.
+  agent-actions:
+    runs-on: ubuntu-latest
+    needs: agent-smoke
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build agent Docker image
+        run: |
+          DOCKER_UID=$(id -u) DOCKER_GID=$(id -g) \
+            docker compose -f docker/docker-compose.yml build orchestrator
+
+      - name: Write action — workflow creates a file
+        run: |
+          docker compose -f docker/docker-compose.yml up -d --wait temporal-db temporal
+
+          DOCKER_UID=$(id -u) DOCKER_GID=$(id -g) AGENT_MOCK=true \
+            docker compose -f docker/docker-compose.yml up -d orchestrator ros2-worker sim-worker
+
+          sleep 8
+
+          docker compose -f docker/docker-compose.yml exec -T orchestrator \
+            python3 scripts/submit_task.py \
+              "Write a placeholder file to launch/ci-test.md" \
+              --plan '{"summary":"write action test","safety_critical":false,"affected_packages":[],"steps":[{"agent":"infra","task_queue":"orchestrator","action":"Write a placeholder file to launch/ci-test.md","depends_on":[]}]}' \
+              --timeout 60 || {
+            echo "--- orchestrator logs ---"
+            docker compose -f docker/docker-compose.yml logs orchestrator
+            docker compose -f docker/docker-compose.yml down
+            exit 1
+          }
+
+          docker compose -f docker/docker-compose.yml down
+
+          test -f launch/ci-test.md || { echo "ERROR: launch/ci-test.md was not created"; exit 1; }

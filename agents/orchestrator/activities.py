@@ -8,7 +8,6 @@ with the appropriate system prompt and tools for the task.
 import json
 import subprocess
 import re
-from pathlib import Path
 from temporalio import activity
 
 from agents.shared.llm_client import call_agent, WORKSPACE
@@ -45,21 +44,31 @@ async def create_feature_branch(description: str) -> dict:
     Create a git feature branch for the workflow.
     Branch name is derived from the feature description.
     """
+    # Check if we're in a detached HEAD state (e.g. CI shallow clone) — skip branching
+    head_check = subprocess.run(
+        f"git -C {WORKSPACE} symbolic-ref --quiet HEAD",
+        shell=True, capture_output=True, text=True, timeout=10,
+    )
+    if head_check.returncode != 0:
+        activity.logger.warning("Detached HEAD — skipping branch creation")
+        return {"branch": "detached"}
+
     slug = re.sub(r"[^a-z0-9]+", "-", description.lower())[:50].strip("-")
     branch = f"feature/{slug}"
 
-    result = subprocess.run(
+    create_result = subprocess.run(
         f"git -C {WORKSPACE} checkout -b {branch}",
-        shell=True, capture_output=True, text=True,
+        shell=True, capture_output=True, text=True, timeout=15,
     )
-    if result.returncode != 0:
+    if create_result.returncode != 0:
         # Branch may already exist — try to check it out
-        result = subprocess.run(
+        checkout_result = subprocess.run(
             f"git -C {WORKSPACE} checkout {branch}",
-            shell=True, capture_output=True, text=True,
+            shell=True, capture_output=True, text=True, timeout=15,
         )
-        if result.returncode != 0:
-            raise RuntimeError(f"Failed to create/checkout branch {branch}: {result.stderr}")
+        if checkout_result.returncode != 0:
+            activity.logger.warning(f"Could not create/checkout branch {branch}: {checkout_result.stderr.strip()}")
+            return {"branch": "detached", "warning": checkout_result.stderr.strip()}
 
     activity.logger.info(f"On branch: {branch}")
     return {"branch": branch}
@@ -180,7 +189,7 @@ async def run_code_review(plan: dict, results: list) -> dict:
 Safety-critical: {safety_critical}
 
 Changes summary:
-{json.dumps([r.get('result', '')[:500] for r in results], indent=2)}
+{json.dumps([str(r.get('result', {}).get('result', ''))[:500] for r in results], indent=2)}
 
 Steps:
 1. Read the modified files

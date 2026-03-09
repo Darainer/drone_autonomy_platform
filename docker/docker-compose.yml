@@ -1,6 +1,30 @@
+# LLM backend env vars (set in .env or shell):
+#   LLM_BACKEND=anthropic        (default)
+#   LLM_BACKEND=openai_compat    + LLM_BASE_URL + LLM_API_KEY + LLM_MODEL
+#
+#   Moonshot K2:  LLM_BASE_URL=https://api.moonshot.cn/v1  LLM_MODEL=kimi-k2
+#   Ollama local: LLM_BASE_URL=http://host.docker.internal:11434/v1  LLM_MODEL=qwen2.5-coder:14b
+
+x-agent-env: &agent-env
+  TEMPORAL_ADDRESS: temporal:7233
+  WORKSPACE: /workspace
+  AGENT_MOCK: ${AGENT_MOCK:-false}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  LLM_BACKEND: ${LLM_BACKEND:-anthropic}
+  LLM_BASE_URL: ${LLM_BASE_URL:-}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-}
+
+x-agent-build: &agent-build
+  context: ..
+  dockerfile: docker/Dockerfile.agents
+  args:
+    UID: ${DOCKER_UID:-1000}
+    GID: ${DOCKER_GID:-1000}
+
 services:
   # ═══════════════════════════════════════════
-  # Your existing dev container — unchanged
+  # Development container — hardware integration
   # ═══════════════════════════════════════════
   dev:
     profiles: [hardware]
@@ -18,7 +42,7 @@ services:
       - ..:/ros2_ws/src/drone_autonomy_platform
       - /dev/bus/usb:/dev/bus/usb
     environment:
-      - DISPLAY=${DISPLAY}
+      - DISPLAY=${DISPLAY:-}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
       - FCU_URL=/dev/ttyUSB0:921600
@@ -56,7 +80,14 @@ services:
       - POSTGRES_SEEDS=temporal-db
     depends_on:
       temporal-db:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z $(hostname -i) 7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
   temporal-ui:
     image: temporalio/ui:latest
     ports:
@@ -65,97 +96,77 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
 
   # ═══════════════════════════════════════════
   # Agent Workers — all share the same workspace
   # ═══════════════════════════════════════════
   orchestrator:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.agents
+      <<: *agent-build
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WORKSPACE=/workspace
-      - AGENT_MOCK=${AGENT_MOCK:-false}
+      <<: *agent-env
     volumes:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     command: python -m agents.orchestrator.worker
     restart: unless-stopped
 
   ros2-worker:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.agents
+      <<: *agent-build
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WORKSPACE=/workspace
-      - AGENT_MOCK=${AGENT_MOCK:-false}
+      <<: *agent-env
     volumes:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     command: python -m agents.ros2_worker.worker
     restart: unless-stopped
 
   sim-worker:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.agents
+      <<: *agent-build
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WORKSPACE=/workspace
-      - AGENT_MOCK=${AGENT_MOCK:-false}
+      <<: *agent-env
     volumes:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     command: python -m agents.sim_worker.worker
     restart: unless-stopped
 
   ml-worker:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.agents
+      <<: *agent-build
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WORKSPACE=/workspace
-      - AGENT_MOCK=${AGENT_MOCK:-false}
+      <<: *agent-env
     volumes:
       - ..:/workspace
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     command: python -m agents.ml_worker.worker
     restart: unless-stopped
 
   deploy-worker:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.agents
+      <<: *agent-build
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - WORKSPACE=/workspace
-      - AGENT_MOCK=${AGENT_MOCK:-false}
-      - ORIN_HOST=${ORIN_HOST:-}
-      - ORIN_USER=${ORIN_USER:-jetson}
+      <<: *agent-env
+      ORIN_HOST: ${ORIN_HOST:-}
+      ORIN_USER: ${ORIN_USER:-jetson}
     volumes:
       - ..:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${HOME}/.ssh:/root/.ssh:ro
+      - ${HOME}/.ssh:/home/agent/.ssh:ro
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     command: python -m agents.deploy_worker.worker
     restart: unless-stopped
 

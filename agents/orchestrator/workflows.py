@@ -33,6 +33,8 @@ retry_policy = RetryPolicy(
 class FeatureRequest:
     description: str
     auto_approve: bool = False  # Skip human gates (for testing only)
+    plan: dict | None = None    # Pre-formed plan from Claude Code — skips analyze_intent
+    rework_context: str = ""    # Feedback from a previous failed attempt
 
 
 @dataclass
@@ -64,14 +66,21 @@ class NewFeatureWorkflow:
         )
         workflow.logger.info(f"Branch: {branch_info['branch']}")
 
-        # 2. Orchestrator analyzes intent and creates a plan
-        plan = await workflow.execute_activity(
-            analyze_intent,
-            args=[request.description],
-            start_to_close_timeout=timedelta(minutes=5),
-            retry_policy=retry_policy,
-            task_queue="orchestrator",
-        )
+        # 2. Use pre-formed plan from Claude Code, or have the LLM analyze intent
+        if request.plan:
+            plan = request.plan
+            workflow.logger.info(f"Using pre-formed plan: {plan.get('summary', '')}")
+        else:
+            description = request.description
+            if request.rework_context:
+                description += f"\n\nREWORK CONTEXT (previous attempt failed):\n{request.rework_context}"
+            plan = await workflow.execute_activity(
+                analyze_intent,
+                args=[description],
+                start_to_close_timeout=timedelta(minutes=5),
+                retry_policy=retry_policy,
+                task_queue="orchestrator",
+            )
 
         workflow.logger.info(f"Plan: {plan['summary']} ({len(plan['steps'])} steps)")
 
