@@ -74,6 +74,10 @@ ENV CCACHE_DIR=/ccache
 ENV FCU_URL=/dev/ttyUSB0:921600
 ENV ROS_DOMAIN_ID=1
 
+# Isaac ROS GXF shared libraries (needed by VSLAM, TensorRT nodes at runtime)
+ENV GXF_LIB=/opt/ros/humble/share/isaac_ros_gxf/gxf/lib
+ENV LD_LIBRARY_PATH=${GXF_LIB}/std:${GXF_LIB}/cuda:${GXF_LIB}/serialization:${GXF_LIB}/multimedia:${GXF_LIB}:${LD_LIBRARY_PATH}
+
 # Build the workspace (msgs + src packages, skipping common)
 WORKDIR /ros2_ws
 COPY . /tmp/drone_autonomy_platform_build/
