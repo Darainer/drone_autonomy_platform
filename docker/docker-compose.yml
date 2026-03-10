@@ -28,15 +28,37 @@ x-agent-build: &agent-build
 
 services:
   # ═══════════════════════════════════════════
-  # Development container — hardware integration
+  # Development container — x86 workstation
   # ═══════════════════════════════════════════
   dev:
-    profiles: [hardware]
+    profiles: [dev]
     build:
       context: ..
       dockerfile: docker/Dockerfile.dev
     image: drone_autonomy_platform:dev
     container_name: drone_autonomy_platform_dev
+    network_mode: host
+    ipc: host
+    volumes:
+      - ..:/ros2_ws/src/drone_autonomy_platform
+    environment:
+      - DISPLAY=${DISPLAY:-}
+      - ROS_DOMAIN_ID=1
+    command: /bin/bash
+    tty: true
+    stdin_open: true
+
+  # ═══════════════════════════════════════════
+  # Development container — Jetson Orin (hardware)
+  # ═══════════════════════════════════════════
+  orin:
+    profiles: [hardware]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.orin
+    image: drone_autonomy_platform:orin
+    container_name: drone_autonomy_platform_orin
+    runtime: nvidia
     network_mode: host
     ipc: host
     privileged: true
@@ -45,12 +67,15 @@ services:
     volumes:
       - ..:/ros2_ws/src/drone_autonomy_platform
       - /dev/bus/usb:/dev/bus/usb
+      - ~/.claude:/home/dev/.claude
+      - orin-models:/home/dev/models
     environment:
       - DISPLAY=${DISPLAY:-}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
       - FCU_URL=/dev/ttyUSB0:921600
       - ROS_DOMAIN_ID=1
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     command: /bin/bash
     tty: true
     stdin_open: true
@@ -176,3 +201,4 @@ services:
 
 volumes:
   temporal-data:
+  orin-models:

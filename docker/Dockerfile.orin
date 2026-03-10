@@ -1,0 +1,128 @@
+FROM nvcr.io/nvidia/isaac/ros:aarch64-ros2_humble_77e6a678c2058abf96bedcb8f7dd4330
+
+# Fix stale repo metadata in base image:
+# - Remove unused yarn repo (missing GPG key)
+# - Accept Isaac ROS release-3 Origin/Label change (NVIDIA repo backend migration,
+#   same pattern as nvidia-docker#1349 — GPG signature still verified)
+RUN rm -f /etc/apt/sources.list.d/yarn.list && \
+    apt-get update \
+        -o Acquire::AllowReleaseInfoChange::Origin=true \
+        -o Acquire::AllowReleaseInfoChange::Label=true \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build tools
+RUN apt-get update && apt-get install -y \
+    build-essential cmake ninja-build ccache gdb \
+    libeigen3-dev libopencv-dev libpcl-dev \
+    python3-pip python3-colcon-common-extensions \
+    git vim tmux wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# MAVROS
+RUN apt-get update && apt-get install -y \
+    python3-vcstool \
+    python3-rosinstall-generator \
+    python3-osrf-pycommon \
+    ros-humble-tf-transformations \
+    ros-humble-mavros \
+    ros-humble-mavros-msgs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Isaac ROS perception pipeline (RT-DETR + TensorRT + VSLAM)
+RUN apt-get update && apt-get install -y \
+    ros-humble-isaac-ros-nitros \
+    ros-humble-isaac-ros-dnn-image-encoder \
+    ros-humble-isaac-ros-rtdetr \
+    ros-humble-isaac-ros-tensor-rt \
+    ros-humble-isaac-ros-visual-slam \
+    && rm -rf /var/lib/apt/lists/*
+
+# OAK-D / DepthAI
+RUN apt-get update && apt-get install -y \
+    ros-humble-depthai-ros \
+    libusb-1.0-0-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink && \
+    pip3 install transforms3d 2>/dev/null || true
+
+# Node.js + Claude Code
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g @anthropic-ai/claude-code && \
+    rm -rf /var/lib/apt/lists/*
+
+# Geographiclib datasets (MAVROS dependency)
+RUN wget https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh && \
+    chmod +x install_geographiclib_datasets.sh && \
+    ./install_geographiclib_datasets.sh && \
+    rm install_geographiclib_datasets.sh
+
+# External ROS2 packages (mavrospy, motion_capture_tracking)
+WORKDIR /ros2_ws/src
+RUN git clone -b ros2 https://github.com/bandofpv/mavrospy.git && \
+    git clone --recurse-submodules https://github.com/IMRCLab/motion_capture_tracking.git
+
+# Create non-root user matching host UID/GID (override at build time if needed)
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g ${GID} dev 2>/dev/null || true && \
+    useradd -u ${UID} -g ${GID} -m -s /bin/bash dev && \
+    echo "source /opt/ros/humble/setup.bash" >> /home/dev/.bashrc
+
+ENV CCACHE_DIR=/ccache
+ENV FCU_URL=/dev/ttyUSB0:921600
+ENV ROS_DOMAIN_ID=1
+
+# Isaac ROS GXF shared libraries (needed by VSLAM, TensorRT nodes at runtime)
+ENV GXF_LIB=/opt/ros/humble/share/isaac_ros_gxf/gxf/lib
+ENV LD_LIBRARY_PATH=${GXF_LIB}/std:${GXF_LIB}/cuda:${GXF_LIB}/serialization:${GXF_LIB}/multimedia:${GXF_LIB}:${LD_LIBRARY_PATH}
+
+# Download SyntheticaDETR ONNX model (NVIDIA NGC, Apache 2.0)
+# TensorRT engine must be built on target GPU: scripts/build_tensorrt_engine.sh
+ENV MODELS_DIR=/home/dev/models
+RUN mkdir -p ${MODELS_DIR} && \
+    wget -q -O ${MODELS_DIR}/sdetr_grasp.onnx \
+        "https://api.ngc.nvidia.com/v2/models/nvidia/isaac/synthetica_detr/versions/1.0.0_onnx/files/sdetr_grasp.onnx" && \
+    chown -R ${UID}:${GID} ${MODELS_DIR}
+
+# Build the workspace (msgs + src packages, skipping common)
+WORKDIR /ros2_ws
+COPY . /tmp/drone_autonomy_platform_build/
+RUN . /opt/ros/humble/setup.sh && \
+    colcon build \
+        --merge-install \
+        --base-paths /tmp/drone_autonomy_platform_build/msgs /tmp/drone_autonomy_platform_build/src \
+        --packages-ignore common \
+        --cmake-args -DBUILD_TESTING=OFF && \
+    rm -rf /tmp/drone_autonomy_platform_build
+
+# Entrypoint: source ROS2/workspace, set GXF paths, build TensorRT on first run
+RUN cat <<'ENTRYPOINT_EOF' > /ros_entrypoint.sh
+#!/bin/bash
+set -e
+
+# Source ROS2 base
+source /opt/ros/humble/setup.bash
+
+# Source workspace overlay if built
+[ -f /ros2_ws/install/setup.bash ] && source /ros2_ws/install/setup.bash
+
+# Isaac ROS GXF shared libraries (needed by VSLAM, TensorRT nodes)
+export GXF_LIB=/opt/ros/humble/share/isaac_ros_gxf/gxf/lib
+export LD_LIBRARY_PATH="${GXF_LIB}/std:${GXF_LIB}/cuda:${GXF_LIB}/serialization:${GXF_LIB}/multimedia:${GXF_LIB}:${LD_LIBRARY_PATH}"
+
+# Build TensorRT engine on first run if ONNX exists but .plan does not
+if [ -f /home/dev/models/sdetr_grasp.onnx ] && [ ! -f /home/dev/models/sdetr_grasp.plan ]; then
+    echo "[entrypoint] Building TensorRT engine (first run, ~10-15 min)..."
+    /ros2_ws/src/drone_autonomy_platform/scripts/build_tensorrt_engine.sh || true
+fi
+
+exec "$@"
+ENTRYPOINT_EOF
+RUN chmod +x /ros_entrypoint.sh
+
+USER dev
+WORKDIR /ros2_ws/src/drone_autonomy_platform
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["/bin/bash"]

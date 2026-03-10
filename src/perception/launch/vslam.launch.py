@@ -7,7 +7,7 @@ def generate_launch_description():
         # Isaac ROS cuVSLAM — stereo visual odometry
         Node(
             package='isaac_ros_visual_slam',
-            executable='visual_slam_node',
+            executable='isaac_ros_visual_slam',
             name='visual_slam',
             output='screen',
             parameters=[{

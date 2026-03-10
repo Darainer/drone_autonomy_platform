@@ -1,5 +1,4 @@
-ARG ROS_DISTRO=humble
-FROM nvcr.io/nvidia/isaac/ros:aarch64-ros2_humble-isaac_ros_dev
+FROM ros:humble
 
 RUN apt-get update && apt-get install -y \
     build-essential cmake ninja-build ccache gdb \
@@ -41,5 +40,22 @@ ENV CCACHE_DIR=/ccache
 ENV FCU_URL=/dev/ttyUSB0:921600
 ENV ROS_DOMAIN_ID=1
 
+WORKDIR /ros2_ws
+
+# Build the workspace (msgs + src packages, skipping common)
+COPY . /tmp/drone_autonomy_platform_build/
+RUN . /opt/ros/humble/setup.sh && \
+    colcon build \
+        --merge-install \
+        --base-paths /tmp/drone_autonomy_platform_build/msgs /tmp/drone_autonomy_platform_build/src \
+        --packages-ignore common \
+        --cmake-args -DBUILD_TESTING=OFF && \
+    rm -rf /tmp/drone_autonomy_platform_build
+
+# Source ROS2 and workspace in entrypoint
+RUN printf '#!/bin/bash\nset -e\nsource /opt/ros/humble/setup.bash\n[ -f /ros2_ws/install/setup.bash ] && source /ros2_ws/install/setup.bash\nexec "$@"\n' \
+    > /ros_entrypoint.sh && chmod +x /ros_entrypoint.sh
+
 WORKDIR /ros2_ws/src/drone_autonomy_platform
+ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["/bin/bash"]
