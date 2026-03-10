@@ -1,5 +1,16 @@
-FROM ros:humble
+FROM nvcr.io/nvidia/isaac/ros:aarch64-ros2_humble_77e6a678c2058abf96bedcb8f7dd4330
 
+# Fix stale repo metadata in base image:
+# - Remove unused yarn repo (missing GPG key)
+# - Accept Isaac ROS release-3 Origin/Label change (NVIDIA repo backend migration,
+#   same pattern as nvidia-docker#1349 — GPG signature still verified)
+RUN rm -f /etc/apt/sources.list.d/yarn.list && \
+    apt-get update \
+        -o Acquire::AllowReleaseInfoChange::Origin=true \
+        -o Acquire::AllowReleaseInfoChange::Label=true \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build tools
 RUN apt-get update && apt-get install -y \
     build-essential cmake ninja-build ccache gdb \
     libeigen3-dev libopencv-dev libpcl-dev \
@@ -7,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     git vim tmux wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Install MAVROS and Python dependencies based on VSLAM-UAV example
+# MAVROS
 RUN apt-get update && apt-get install -y \
     python3-vcstool \
     python3-rosinstall-generator \
@@ -17,32 +28,54 @@ RUN apt-get update && apt-get install -y \
     ros-humble-mavros-msgs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install OAK-D / DepthAI dependencies
+# Isaac ROS perception pipeline (RT-DETR + TensorRT + VSLAM)
+RUN apt-get update && apt-get install -y \
+    ros-humble-isaac-ros-nitros \
+    ros-humble-isaac-ros-dnn-image-encoder \
+    ros-humble-isaac-ros-rtdetr \
+    ros-humble-isaac-ros-tensor-rt \
+    ros-humble-isaac-ros-visual-slam \
+    && rm -rf /var/lib/apt/lists/*
+
+# OAK-D / DepthAI
 RUN apt-get update && apt-get install -y \
     ros-humble-depthai-ros \
     libusb-1.0-0-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink transforms3d
+RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink && \
+    pip3 install transforms3d 2>/dev/null || true
 
-# Install geographiclib datasets (MAVROS dependency)
+# Node.js + Claude Code
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g @anthropic-ai/claude-code && \
+    rm -rf /var/lib/apt/lists/*
+
+# Geographiclib datasets (MAVROS dependency)
 RUN wget https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh && \
     chmod +x install_geographiclib_datasets.sh && \
     ./install_geographiclib_datasets.sh && \
     rm install_geographiclib_datasets.sh
 
-# Clone external components (mavrospy, motion_capture_tracking)
+# External ROS2 packages (mavrospy, motion_capture_tracking)
 WORKDIR /ros2_ws/src
 RUN git clone -b ros2 https://github.com/bandofpv/mavrospy.git && \
     git clone --recurse-submodules https://github.com/IMRCLab/motion_capture_tracking.git
+
+# Create non-root user matching host UID/GID (override at build time if needed)
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g ${GID} dev 2>/dev/null || true && \
+    useradd -u ${UID} -g ${GID} -m -s /bin/bash dev && \
+    echo "source /opt/ros/humble/setup.bash" >> /home/dev/.bashrc
 
 ENV CCACHE_DIR=/ccache
 ENV FCU_URL=/dev/ttyUSB0:921600
 ENV ROS_DOMAIN_ID=1
 
-WORKDIR /ros2_ws
-
 # Build the workspace (msgs + src packages, skipping common)
+WORKDIR /ros2_ws
 COPY . /tmp/drone_autonomy_platform_build/
 RUN . /opt/ros/humble/setup.sh && \
     colcon build \
@@ -56,6 +89,7 @@ RUN . /opt/ros/humble/setup.sh && \
 RUN printf '#!/bin/bash\nset -e\nsource /opt/ros/humble/setup.bash\n[ -f /ros2_ws/install/setup.bash ] && source /ros2_ws/install/setup.bash\nexec "$@"\n' \
     > /ros_entrypoint.sh && chmod +x /ros_entrypoint.sh
 
+USER dev
 WORKDIR /ros2_ws/src/drone_autonomy_platform
 ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["/bin/bash"]
