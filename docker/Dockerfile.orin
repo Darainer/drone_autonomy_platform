@@ -97,9 +97,30 @@ RUN . /opt/ros/humble/setup.sh && \
         --cmake-args -DBUILD_TESTING=OFF && \
     rm -rf /tmp/drone_autonomy_platform_build
 
-# Source ROS2 and workspace in entrypoint
-RUN printf '#!/bin/bash\nset -e\nsource /opt/ros/humble/setup.bash\n[ -f /ros2_ws/install/setup.bash ] && source /ros2_ws/install/setup.bash\nexec "$@"\n' \
-    > /ros_entrypoint.sh && chmod +x /ros_entrypoint.sh
+# Entrypoint: source ROS2/workspace, set GXF paths, build TensorRT on first run
+RUN cat <<'ENTRYPOINT_EOF' > /ros_entrypoint.sh
+#!/bin/bash
+set -e
+
+# Source ROS2 base
+source /opt/ros/humble/setup.bash
+
+# Source workspace overlay if built
+[ -f /ros2_ws/install/setup.bash ] && source /ros2_ws/install/setup.bash
+
+# Isaac ROS GXF shared libraries (needed by VSLAM, TensorRT nodes)
+export GXF_LIB=/opt/ros/humble/share/isaac_ros_gxf/gxf/lib
+export LD_LIBRARY_PATH="${GXF_LIB}/std:${GXF_LIB}/cuda:${GXF_LIB}/serialization:${GXF_LIB}/multimedia:${GXF_LIB}:${LD_LIBRARY_PATH}"
+
+# Build TensorRT engine on first run if ONNX exists but .plan does not
+if [ -f /home/dev/models/sdetr_grasp.onnx ] && [ ! -f /home/dev/models/sdetr_grasp.plan ]; then
+    echo "[entrypoint] Building TensorRT engine (first run, ~10-15 min)..."
+    /ros2_ws/src/drone_autonomy_platform/scripts/build_tensorrt_engine.sh || true
+fi
+
+exec "$@"
+ENTRYPOINT_EOF
+RUN chmod +x /ros_entrypoint.sh
 
 USER dev
 WORKDIR /ros2_ws/src/drone_autonomy_platform

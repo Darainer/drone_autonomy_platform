@@ -1,6 +1,9 @@
 #!/bin/bash
 # Build TensorRT engine from the SyntheticaDETR ONNX model.
 # Must be run on the target GPU (Jetson Orin). Takes ~10-15 minutes.
+#
+# trtexec is provided by the libnvinfer-bin package, pre-installed in the
+# NVIDIA Isaac ROS base image (nvcr.io/nvidia/isaac/ros).
 set -e
 
 MODELS_DIR="${MODELS_DIR:-/home/dev/models}"
@@ -22,7 +25,7 @@ if [ -f "${ENGINE_FILE}" ]; then
 fi
 
 echo "Building TensorRT engine from ${ONNX_FILE}..."
-echo "This will take ~10-15 minutes on Jetson AGX Orin."
+echo "This will take ~10-15 minutes on Jetson Orin Nano (faster on AGX Orin)."
 
 "${TRTEXEC}" \
     --onnx="${ONNX_FILE}" \
