@@ -78,6 +78,14 @@ ENV ROS_DOMAIN_ID=1
 ENV GXF_LIB=/opt/ros/humble/share/isaac_ros_gxf/gxf/lib
 ENV LD_LIBRARY_PATH=${GXF_LIB}/std:${GXF_LIB}/cuda:${GXF_LIB}/serialization:${GXF_LIB}/multimedia:${GXF_LIB}:${LD_LIBRARY_PATH}
 
+# Download SyntheticaDETR ONNX model (NVIDIA NGC, Apache 2.0)
+# TensorRT engine must be built on target GPU: scripts/build_tensorrt_engine.sh
+ENV MODELS_DIR=/home/dev/models
+RUN mkdir -p ${MODELS_DIR} && \
+    wget -q -O ${MODELS_DIR}/sdetr_grasp.onnx \
+        "https://api.ngc.nvidia.com/v2/models/nvidia/isaac/synthetica_detr/versions/1.0.0_onnx/files/sdetr_grasp.onnx" && \
+    chown -R ${UID}:${GID} ${MODELS_DIR}
+
 # Build the workspace (msgs + src packages, skipping common)
 WORKDIR /ros2_ws
 COPY . /tmp/drone_autonomy_platform_build/

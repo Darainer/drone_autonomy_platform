@@ -14,7 +14,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'model_path',
-            default_value='/workspaces/isaac_ros-dev/models/rtdetr_l.plan',
+            default_value='/home/dev/models/sdetr_grasp.plan',
             description='Path to TensorRT engine file',
         ),
         DeclareLaunchArgument(
