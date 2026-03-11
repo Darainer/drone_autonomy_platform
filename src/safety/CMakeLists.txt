@@ -24,4 +24,22 @@ install(
     DESTINATION share/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+
+    ament_add_gtest(test_battery_monitor
+        test/test_battery_monitor.cpp
+    )
+    ament_target_dependencies(test_battery_monitor
+        rclcpp sensor_msgs mavros_msgs
+    )
+
+    ament_add_gtest(test_safety_node
+        test/test_safety_node.cpp
+    )
+    ament_target_dependencies(test_safety_node
+        rclcpp mavros_msgs
+    )
+endif()
+
 ament_package()

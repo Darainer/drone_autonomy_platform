@@ -18,4 +18,15 @@ install(
     DESTINATION share/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+
+    ament_add_gtest(test_navigation_node
+        test/test_navigation_node.cpp
+    )
+    ament_target_dependencies(test_navigation_node
+        rclcpp drone_autonomy_msgs
+    )
+endif()
+
 ament_package()
