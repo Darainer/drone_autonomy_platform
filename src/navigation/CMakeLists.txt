@@ -25,7 +25,7 @@ if(BUILD_TESTING)
         test/test_navigation_node.cpp
     )
     ament_target_dependencies(test_navigation_node
-        rclcpp drone_autonomy_msgs
+        rclcpp nav2_core drone_autonomy_msgs
     )
 endif()
 
