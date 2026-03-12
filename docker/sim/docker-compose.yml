@@ -1,0 +1,78 @@
+# docker/sim/docker-compose.yml
+#
+# Full SITL simulation stack:
+#   sim      — PX4 SITL + ROS2 platform nodes + mavrospy
+#   isaacros — Isaac ROS VSLAM pipeline (inherits isaac_ros_common image)
+#
+# Isaac Sim 4.2 runs on the HOST (not in a container) because it requires
+# direct GPU access and a display server.  The sim container and the host
+# share the same ROS_DOMAIN_ID so topics flow between them.
+#
+# Usage:
+#   1. Start Isaac Sim on the host (see agents/sim_scenarios/basic_mission.py)
+#   2. docker compose -f docker/sim/docker-compose.yml up
+#   3. (Optional) Attach QGroundControl to udp://:14550 on the host
+
+version: "3.9"
+
+x-ros-env: &ros-env
+  ROS_DOMAIN_ID: "42"
+  CYCLONEDDS_URI: ""  # use default DDS transport
+
+services:
+
+  # ── Platform nodes + mavrospy ───────────────────────────────────────────────
+  sim:
+    build:
+      context: ../..
+      dockerfile: docker/sim/Dockerfile
+    image: drone-autonomy-platform-sim:latest
+    runtime: nvidia
+    environment:
+      <<: *ros-env
+      DISPLAY: "${DISPLAY:-:0}"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+      # Point at host Isaac Sim install (bind-mounted below)
+      ISAACSIM_PATH: /isaac-sim
+      PX4_SRC: /opt/px4
+      # FCU URL: PX4 SITL exposes MAVLink on UDP 14580
+      FCU_URL: "udp://:14540@localhost:14580"
+    volumes:
+      # Isaac Sim host install (read-only in this container)
+      - "${ISAACSIM_PATH:-${HOME}/isaacsim}:/isaac-sim:ro"
+      # Pegasus Simulator source (for editable install in entrypoint)
+      - "${HOME}/PegasusSimulator:/opt/PegasusSimulator:ro"
+      # Platform source (hot-reload without rebuild)
+      - ../../src:/ws/src
+      # X11 socket for any GUI debugging
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    network_mode: host
+    ipc: host
+    privileged: false
+    command: >
+      bash -c "
+        source /opt/ros/humble/setup.bash &&
+        source /ws/install/setup.bash &&
+        ros2 launch /opt/mavrospy/mavrospy.launch.py
+      "
+
+  # ── Isaac ROS VSLAM pipeline ──────────────────────────────────────────────
+  # Uses the isaac_ros_common dev container (built separately via run_dev.sh).
+  # Runs the VSLAM pipeline that bridges Isaac Sim camera → /visual_slam/...
+  isaacros:
+    image: ros2_humble  # built by isaac_ros_common/scripts/run_dev.sh
+    runtime: nvidia
+    environment:
+      <<: *ros-env
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+    volumes:
+      - "${ISAAC_ROS_WS:-${HOME}/workspaces/isaac_ros-dev}:/workspaces/isaac_ros-dev"
+      - ../../src:/ws/src
+    network_mode: host
+    ipc: host
+    working_dir: /workspaces/isaac_ros-dev/VSLAM-UAV/sim
+    command: bash ./isaac_ros_vslam.sh
+    profiles:
+      - vslam  # start only when --profile vslam is passed
