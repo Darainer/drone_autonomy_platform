@@ -28,7 +28,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'model_path',
-            default_value='/home/dev/models/sdetr_grasp.plan',
+            default_value='/home/dev/models/rtdetr_coco.plan',
             description='Path to TensorRT engine file',
         ),
 

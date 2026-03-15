@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build TensorRT engine from the SyntheticaDETR ONNX model.
+# Build TensorRT engine from the RT-DETR-R50 COCO ONNX model.
 # Must be run on the target GPU (Jetson Orin). Takes ~10-15 minutes.
 #
 # trtexec is provided by the libnvinfer-bin package, pre-installed in the
@@ -7,14 +7,14 @@
 set -e
 
 MODELS_DIR="${MODELS_DIR:-/home/dev/models}"
-ONNX_FILE="${MODELS_DIR}/sdetr_grasp.onnx"
-ENGINE_FILE="${MODELS_DIR}/sdetr_grasp.plan"
+ONNX_FILE="${MODELS_DIR}/rtdetr_coco.onnx"
+ENGINE_FILE="${MODELS_DIR}/rtdetr_coco.plan"
 TRTEXEC="${TENSORRT_COMMAND:-/usr/src/tensorrt/bin/trtexec}"
 
 if [ ! -f "${ONNX_FILE}" ]; then
     echo "ERROR: ONNX model not found at ${ONNX_FILE}"
-    echo "Re-build the Docker image or download manually:"
-    echo "  wget -O ${ONNX_FILE} https://api.ngc.nvidia.com/v2/models/nvidia/isaac/synthetica_detr/versions/1.0.0_onnx/files/sdetr_grasp.onnx"
+    echo "Re-build the Docker image or run manually:"
+    echo "  scripts/export_rtdetr_onnx.sh"
     exit 1
 fi
 

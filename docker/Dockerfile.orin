@@ -80,17 +80,16 @@ ENV ROS_DOMAIN_ID=1
 ENV GXF_LIB=/opt/ros/humble/share/isaac_ros_gxf/gxf/lib
 ENV LD_LIBRARY_PATH=${GXF_LIB}/std:${GXF_LIB}/cuda:${GXF_LIB}/serialization:${GXF_LIB}/multimedia:${GXF_LIB}:${LD_LIBRARY_PATH}
 
-# Download SyntheticaDETR ONNX model (NVIDIA NGC, Apache 2.0)
-# TensorRT engine must be built on target GPU: scripts/build_tensorrt_engine.sh
-ENV MODELS_DIR=/home/dev/models
-RUN mkdir -p ${MODELS_DIR} && \
-    wget -q -O ${MODELS_DIR}/sdetr_grasp.onnx \
-        "https://api.ngc.nvidia.com/v2/models/nvidia/isaac/synthetica_detr/versions/1.0.0_onnx/files/sdetr_grasp.onnx" && \
-    chown -R ${UID}:${GID} ${MODELS_DIR}
-
 # Build the workspace (msgs + src packages, skipping common)
 WORKDIR /ros2_ws
 COPY . /tmp/drone_autonomy_platform_build/
+
+# Export RT-DETR-R50 COCO ONNX (lyuwenyu/RT-DETR, Apache 2.0)
+# TensorRT engine must be built on target GPU: scripts/build_tensorrt_engine.sh
+ENV MODELS_DIR=/home/dev/models
+RUN mkdir -p ${MODELS_DIR} && \
+    /tmp/drone_autonomy_platform_build/scripts/export_rtdetr_onnx.sh && \
+    chown -R ${UID}:${GID} ${MODELS_DIR}
 RUN . /opt/ros/humble/setup.sh && \
     colcon build \
         --merge-install \
@@ -115,7 +114,7 @@ export GXF_LIB=/opt/ros/humble/share/isaac_ros_gxf/gxf/lib
 export LD_LIBRARY_PATH="${GXF_LIB}/std:${GXF_LIB}/cuda:${GXF_LIB}/serialization:${GXF_LIB}/multimedia:${GXF_LIB}:${LD_LIBRARY_PATH}"
 
 # Build TensorRT engine on first run if ONNX exists but .plan does not
-if [ -f /home/dev/models/sdetr_grasp.onnx ] && [ ! -f /home/dev/models/sdetr_grasp.plan ]; then
+if [ -f /home/dev/models/rtdetr_coco.onnx ] && [ ! -f /home/dev/models/rtdetr_coco.plan ]; then
     echo "[entrypoint] Building TensorRT engine (first run, ~10-15 min)..."
     /ros2_ws/src/drone_autonomy_platform/scripts/build_tensorrt_engine.sh || true
 fi

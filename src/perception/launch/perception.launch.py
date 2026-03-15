@@ -14,7 +14,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'model_path',
-            default_value='/home/dev/models/sdetr_grasp.plan',
+            default_value='/home/dev/models/rtdetr_coco.plan',
             description='Path to TensorRT engine file',
         ),
         DeclareLaunchArgument(
@@ -91,7 +91,7 @@ def generate_launch_description():
                     name='tensor_rt',
                     parameters=[{
                         'engine_file_path': model_path,
-                        'onnx_file_path': '/home/dev/models/sdetr_grasp.onnx',
+                        'onnx_file_path': '/home/dev/models/rtdetr_coco.onnx',
                         'force_engine_update': False,
                         'input_tensor_names': ['images', 'orig_target_sizes'],
                         'input_binding_names': ['images', 'orig_target_sizes'],
