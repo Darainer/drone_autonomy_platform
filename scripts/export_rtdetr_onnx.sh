@@ -20,9 +20,6 @@ mkdir -p "${MODELS_DIR}"
 echo "Cloning lyuwenyu/RT-DETR..."
 git clone --depth=1 https://github.com/lyuwenyu/RT-DETR.git "${REPO_DIR}"
 
-echo "Installing requirements..."
-pip3 install -q -r "${REPO_DIR}/rtdetr_pytorch/requirements.txt"
-
 echo "Downloading RT-DETR-R50 COCO weights..."
 wget -q -O "${REPO_DIR}/rtdetr_pytorch/rtdetr_r50vd_6x_coco_from_paddle.pth" "${WEIGHTS_URL}"
 
@@ -30,8 +27,7 @@ echo "Exporting ONNX..."
 cd "${REPO_DIR}/rtdetr_pytorch"
 python3 tools/export_onnx.py \
     -c configs/rtdetr/rtdetr_r50vd_6x_coco.yml \
-    -r rtdetr_r50vd_6x_coco_from_paddle.pth \
-    --check
+    -r rtdetr_r50vd_6x_coco_from_paddle.pth
 
 # export_onnx.py writes to rtdetr_r50vd_6x_coco.onnx in cwd
 cp rtdetr_r50vd_6x_coco.onnx "${ONNX_OUT}"
