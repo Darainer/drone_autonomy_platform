@@ -13,3 +13,4 @@ __pycache__/
 *.log
 flight_logs/
 .DS_Store
+models/
