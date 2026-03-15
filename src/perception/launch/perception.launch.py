@@ -22,7 +22,7 @@ def generate_launch_description():
             default_value='0.7',
             description='RT-DETR detection confidence threshold',
         ),
-        DeclareLaunchArgument('camera_fps', default_value='30.0'),
+        DeclareLaunchArgument('camera_fps', default_value='15.0'),
         DeclareLaunchArgument('rgb_resolution', default_value='1080P'),
         DeclareLaunchArgument('enable_vslam', default_value='true'),
 
