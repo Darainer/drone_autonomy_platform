@@ -14,3 +14,4 @@ __pycache__/
 flight_logs/
 .DS_Store
 models/
+bags/

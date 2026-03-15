@@ -69,6 +69,8 @@ services:
       - /dev/bus/usb:/dev/bus/usb
       - ~/.claude:/home/dev/.claude
       - ../models:/home/dev/models
+      - ../bags:/home/dev/bags
+      - /tmp/.X11-unix:/tmp/.X11-unix
     environment:
       - DISPLAY=${DISPLAY:-}
       - NVIDIA_VISIBLE_DEVICES=all

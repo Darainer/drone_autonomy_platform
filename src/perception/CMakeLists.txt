@@ -15,6 +15,12 @@ install(TARGETS perception_node
     DESTINATION lib/${PROJECT_NAME}
 )
 
+install(PROGRAMS
+    src/detection_visualizer.py
+    DESTINATION lib/${PROJECT_NAME}
+    RENAME detection_visualizer
+)
+
 install(
     DIRECTORY launch
     DESTINATION share/${PROJECT_NAME}
