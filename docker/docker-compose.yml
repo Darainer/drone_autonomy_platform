@@ -68,7 +68,9 @@ services:
       - ..:/ros2_ws/src/drone_autonomy_platform
       - /dev/bus/usb:/dev/bus/usb
       - ~/.claude:/home/dev/.claude
-      - orin-models:/home/dev/models
+      - ../models:/home/dev/models
+      - ../bags:/home/dev/bags
+      - /tmp/.X11-unix:/tmp/.X11-unix
     environment:
       - DISPLAY=${DISPLAY:-}
       - NVIDIA_VISIBLE_DEVICES=all
@@ -201,4 +203,3 @@ services:
 
 volumes:
   temporal-data:
-  orin-models:
