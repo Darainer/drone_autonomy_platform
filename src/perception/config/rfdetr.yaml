@@ -1,0 +1,18 @@
+# RF-DETR-S detection node parameters
+# Model: RF-DETR-Small (Roboflow, Apache 2.0)
+# Backbone: DINOv2 ViT | Input: 512x512 | NMS-free
+# COCO val2017: 53.0 mAP (AP50-95)
+rfdetr_node:
+  ros__parameters:
+    # Path to TensorRT FP16 engine (built via scripts/build_rfdetr_engine.sh)
+    engine_path: /home/dev/models/rfdetr_s_coco.engine
+
+    # Minimum confidence to publish a detection (0.0–1.0)
+    # Lower for recall-critical tasks (search & rescue), higher for precision (grasping)
+    confidence_threshold: 0.5
+
+    # Camera image topic (OAK-D default)
+    image_topic: /oak/rgb/image_raw
+
+    # Max detections per frame (RF-DETR outputs 300, we cap for downstream perf)
+    max_detections: 100
