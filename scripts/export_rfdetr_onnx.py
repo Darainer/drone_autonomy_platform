@@ -62,8 +62,8 @@ def main():
     parser = argparse.ArgumentParser(description="Export RF-DETR-S to ONNX")
     parser.add_argument(
         "--output",
-        default="models/rfdetr_s_coco.onnx",
-        help="Output ONNX file path (default: models/rfdetr_s_coco.onnx)",
+        default="models/RF-DETR-SMALL.onnx",
+        help="Output ONNX file path (default: models/RF-DETR-SMALL.onnx)",
     )
     parser.add_argument("--opset", type=int, default=17, help="ONNX opset version")
     parser.add_argument(
