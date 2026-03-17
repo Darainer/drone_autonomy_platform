@@ -22,7 +22,7 @@ def generate_launch_description():
             default_value='0.7',
             description='RT-DETR detection confidence threshold',
         ),
-        DeclareLaunchArgument('camera_fps', default_value='30'),
+        DeclareLaunchArgument('camera_fps', default_value='15.0'),
         DeclareLaunchArgument('rgb_resolution', default_value='1080P'),
         DeclareLaunchArgument('enable_vslam', default_value='true'),
 
@@ -91,6 +91,8 @@ def generate_launch_description():
                     name='tensor_rt',
                     parameters=[{
                         'engine_file_path': model_path,
+                        'onnx_file_path': '/home/dev/models/sdetr_grasp.onnx',
+                        'force_engine_update': False,
                         'input_tensor_names': ['images', 'orig_target_sizes'],
                         'input_binding_names': ['images', 'orig_target_sizes'],
                         'output_tensor_names': ['labels', 'boxes', 'scores'],
