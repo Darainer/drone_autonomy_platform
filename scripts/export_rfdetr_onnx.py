@@ -5,7 +5,7 @@ Run this on a workstation with a GPU (not on the Jetson itself).
 The resulting ONNX file is then converted to a TensorRT engine on-device.
 
 Usage:
-    pip install rfdetr onnx onnxsim
+    pip install rfdetr onnx onnxsim onnxruntime polygraphy onnx-graphsurgeon
     python scripts/export_rfdetr_onnx.py [--output /path/to/rfdetr_s.onnx]
 
 RF-DETR-S specs (COCO val2017):
@@ -14,11 +14,11 @@ RF-DETR-S specs (COCO val2017):
 """
 
 import argparse
+import shutil
 import sys
 from pathlib import Path
 
 import onnx
-import torch
 
 
 def export_rfdetr_s(output_path: str, opset: int = 17, simplify: bool = True) -> Path:
@@ -29,38 +29,23 @@ def export_rfdetr_s(output_path: str, opset: int = 17, simplify: bool = True) ->
     output.parent.mkdir(parents=True, exist_ok=True)
 
     print("Loading RF-DETR-S pretrained weights (COCO)...")
-    model = RFDETRSmall(pretrained=True)
-    model.model.eval()
-
-    # RF-DETR-S uses 512x512 input resolution
-    input_h, input_w = 512, 512
-    dummy_input = torch.randn(1, 3, input_h, input_w)
-
-    print(f"Exporting to ONNX (opset {opset}, input: 1x3x{input_h}x{input_w})...")
-    torch.onnx.export(
-        model.model,
-        dummy_input,
-        str(output),
+    model = RFDETRSmall()
+    export_dir = output.parent
+    print(f"Exporting to ONNX via RF-DETR library exporter (opset {opset})...")
+    model.export(
+        output_dir=str(export_dir),
+        simplify=simplify,
         opset_version=opset,
-        input_names=["images"],
-        output_names=["labels", "boxes", "scores"],
-        dynamic_axes=None,  # static shape for TensorRT optimization
+        verbose=False,
+        batch_size=1,
     )
 
-    if simplify:
-        print("Simplifying ONNX graph...")
-        try:
-            import onnxsim
-
-            onnx_model = onnx.load(str(output))
-            onnx_model, check = onnxsim.simplify(onnx_model)
-            if check:
-                onnx.save(onnx_model, str(output))
-                print("ONNX simplification succeeded.")
-            else:
-                print("WARNING: ONNX simplification check failed, keeping original.")
-        except ImportError:
-            print("WARNING: onnxsim not installed, skipping simplification.")
+    exported_name = "inference_model.sim.onnx" if simplify else "inference_model.onnx"
+    exported_path = export_dir / exported_name
+    if not exported_path.exists():
+        raise FileNotFoundError(f"Expected exported ONNX file not found: {exported_path}")
+    if exported_path != output:
+        shutil.move(str(exported_path), str(output))
 
     # Validate
     onnx_model = onnx.load(str(output))
@@ -90,7 +75,10 @@ def main():
         export_rfdetr_s(args.output, args.opset, simplify=not args.no_simplify)
     except ImportError as e:
         print(f"ERROR: Missing dependency: {e}", file=sys.stderr)
-        print("Install with: pip install rfdetr onnx onnxsim", file=sys.stderr)
+        print(
+            "Install with: pip install rfdetr onnx onnxsim onnxruntime polygraphy onnx-graphsurgeon",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
 

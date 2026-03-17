@@ -23,7 +23,8 @@ RUN apt-get update && apt-get install -y \
     libusb-1.0-0-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink transforms3d
+RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink transforms3d && \
+    pip3 install rfdetr onnx onnxsim onnxruntime polygraphy onnx-graphsurgeon
 
 # Install geographiclib datasets (MAVROS dependency)
 RUN wget https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh && \
