@@ -19,7 +19,7 @@ def generate_launch_description():
         # --- Launch arguments ---
         DeclareLaunchArgument(
             'engine_path',
-            default_value='/home/dev/models/rfdetr_s_coco.engine',
+            default_value='/home/dev/models/RF-DETR-SMALL.engine',
             description='Path to RF-DETR-S TensorRT FP16 engine',
         ),
         DeclareLaunchArgument(

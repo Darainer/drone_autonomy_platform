@@ -4,8 +4,8 @@
 # COCO val2017: 53.0 mAP (AP50-95)
 rfdetr_node:
   ros__parameters:
-    # Path to TensorRT FP16 engine (built via scripts/build_rfdetr_engine.sh)
-    engine_path: /home/dev/models/rfdetr_s_coco.engine
+    # Path to TensorRT FP16 engine (built via scripts/build_tensorrt_engine.sh)
+    engine_path: /home/dev/models/RF-DETR-SMALL.engine
 
     # Minimum confidence to publish a detection (0.0–1.0)
     # Lower for recall-critical tasks (search & rescue), higher for precision (grasping)

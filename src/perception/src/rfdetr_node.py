@@ -91,8 +91,10 @@ class TensorRTEngine:
         """Run inference on a preprocessed image tensor (1,3,512,512) float32."""
         cuda = self._cuda
 
-        # Copy input to device
-        inp = self.inputs["images"]
+        # Exported RF-DETR ONNX uses input tensor name "input".
+        inp = self.inputs.get("input")
+        if inp is None:
+            inp = next(iter(self.inputs.values()))
         np.copyto(inp["host"], image_tensor)
         cuda.memcpy_htod_async(inp["device"], inp["host"], self.stream)
 
@@ -124,7 +126,7 @@ class RFDETRNode(Node):
         super().__init__("rfdetr_node")
 
         # Parameters
-        self.declare_parameter("engine_path", "/home/dev/models/rfdetr_s_coco.engine")
+        self.declare_parameter("engine_path", "/home/dev/models/RF-DETR-SMALL.engine")
         self.declare_parameter("confidence_threshold", 0.5)
         self.declare_parameter("image_topic", "/oak/rgb/image_raw")
         self.declare_parameter("max_detections", 100)
@@ -210,14 +212,17 @@ class RFDETRNode(Node):
     ) -> Detection2DArray:
         """Convert RF-DETR outputs to Detection2DArray.
 
-        RF-DETR-S outputs (NMS-free, top-300):
-            labels: (1, 300) int64 — class indices
-            boxes:  (1, 300, 4) float32 — [cx, cy, w, h] normalized to [0,1]
-            scores: (1, 300) float32 — confidence scores
+        Exported RF-DETR-S TensorRT outputs:
+            dets:   (1, 300, 4) float32 — [cx, cy, w, h] normalized to [0,1]
+            labels: (1, 300, 91) float32 — per-class logits including background
         """
-        labels = outputs["labels"].flatten()
-        scores = outputs["scores"].flatten()
-        boxes = outputs["boxes"].reshape(-1, 4)
+        boxes = outputs["dets"].reshape(-1, 4)
+        logits = outputs["labels"].reshape(-1, outputs["labels"].shape[-1])
+        exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+        probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+        class_probs = probs[:, :-1]
+        labels = np.argmax(class_probs, axis=1)
+        scores = np.max(class_probs, axis=1)
 
         det_array = Detection2DArray()
         det_array.header = header
