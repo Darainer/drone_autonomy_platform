@@ -14,9 +14,9 @@
 |-----------|---------------|
 | Autopilot | Holybro Pixhawk 6X (v2A) |
 | Firmware | PX4 |
-| RC Link | RadioMaster Boxer + R88 (ELRS 2.4 GHz) |
+| RC Link | RadioMaster Boxer + R88 (ELRS 2.4 GHz, CRSF on TELEM3) |
 | Telemetry | SiK Telemetry Radio V3 (433 MHz) |
-| Connection | Telem 2 → UAV-DEV USB2SERIAL → Jetson USB 3.1 |
+| Companion Link | Telem 2 → UAV-DEV USB2SERIAL → Jetson USB 3.1 |
 
 ## Companion Computer
 
@@ -50,7 +50,7 @@ Battery (6S 22.2V)
 Pixhawk 6X
     ├── Telem 1 ──▶ SiK 433 MHz radio ──▶ GCS (MAVLink)
     ├── Telem 2 ──▶ USB2SERIAL ──▶ Jetson (MAVROS)
-    ├── RC In   ◀── R88 ELRS Receiver (2.4 GHz)
+    ├── Telem 3 ◀── R88 ELRS Receiver (CRSF, 2.4 GHz)
     ├── GPS     ◀── GPS module
     └── PWM Out ──▶ ESCs
 
@@ -69,3 +69,18 @@ Jetson Orin Nano
 | R88 ELRS receiver | 2.4 GHz | Rear arm, diversity antennas |
 | WiFi (video/data) | 2.4 / 5 GHz | Jetson onboard or external USB adapter |
 | GPS | 1.575 GHz (L1) | Top plate, clear sky view |
+
+## Serial Port Allocation
+
+| Pixhawk Port | Connected Device | Purpose |
+|--------------|------------------|---------|
+| `TELEM1` | SiK 433 MHz radio | Ground-station MAVLink telemetry |
+| `TELEM2` | USB2SERIAL → Jetson Orin | Companion-computer MAVLink link |
+| `TELEM3` | R88 ELRS receiver | RC + telemetry via CRSF |
+| `RC IN` | Unused | Reserved unless switching to SBUS-style receivers |
+
+Notes:
+
+- `TELEM3` is preferred for ELRS when using `CRSF`, because CRSF is a bidirectional UART protocol.
+- `RC IN` is only needed for legacy one-way RC protocols such as SBUS/PPM.
+- All Pixhawk `TELEM` ports are 3.3 V UART. Match voltage levels when wiring ELRS and companion serial adapters.

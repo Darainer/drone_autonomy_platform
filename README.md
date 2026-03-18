@@ -45,7 +45,8 @@ Autonomous drone platform built on ROS2 Humble and NVIDIA Isaac ROS. Runs real-t
 │  ┌──────────┴──────────────────────────────────────────┐ │
 │  │  Pixhawk 6X (PX4)                                   │ │
 │  │    ├── Telem 1 ──▶ SiK 433 MHz antenna              │ │
-│  │    ├── RC In   ◀── R88 ELRS receiver + antenna      │ │
+│  │    ├── Telem 2 ──▶ Jetson Orin companion link       │ │
+│  │    ├── Telem 3 ◀── R88 ELRS receiver (CRSF)         │ │
 │  │    ├── GPS     ◀── GPS module + antenna             │ │
 │  │    └── PWM Out ──▶ ESCs ──▶ Motors (x4)             │ │
 │  └─────────────────────────────────────────────────────┘ │

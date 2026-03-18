@@ -81,6 +81,16 @@ Pixhawk 6X                    Ground Station
 └─────────────┘
 ```
 
+### Pixhawk Serial Port Usage
+
+| Pixhawk Port | Device | Protocol | Role |
+|--------------|--------|----------|------|
+| `TELEM1` | SiK radio | MAVLink | Ground-station telemetry |
+| `TELEM2` | Jetson companion link | MAVLink | PX4 ↔ Orin companion communication |
+| `TELEM3` | ELRS receiver | CRSF | RC control + telemetry back to transmitter |
+
+`ELRS` is connected on `TELEM3` rather than `RC IN` because `CRSF` is a bidirectional UART protocol. `RC IN` remains unused unless switching to a legacy receiver protocol such as `SBUS`.
+
 ### Data Carried
 
 | Direction | Data |
