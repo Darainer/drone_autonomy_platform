@@ -45,7 +45,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink && \
     pip3 install transforms3d 2>/dev/null || true
-RUN pip3 install rfdetr onnx onnxsim onnxruntime polygraphy onnx-graphsurgeon
+RUN pip3 install 'numpy<2' pycuda rfdetr onnx onnxsim onnxruntime polygraphy onnx-graphsurgeon
 
 # Node.js + Claude Code
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
@@ -90,7 +90,8 @@ RUN . /opt/ros/humble/setup.sh && \
         --base-paths /tmp/drone_autonomy_platform_build/msgs /tmp/drone_autonomy_platform_build/src \
         --packages-ignore common \
         --cmake-args -DBUILD_TESTING=OFF && \
-    rm -rf /tmp/drone_autonomy_platform_build
+    rm -rf /tmp/drone_autonomy_platform_build && \
+    chown -R ${UID}:${GID} /ros2_ws
 
 # Entrypoint: source ROS2/workspace, set GXF paths, build TensorRT on first run
 RUN cat <<'ENTRYPOINT_EOF' > /ros_entrypoint.sh
