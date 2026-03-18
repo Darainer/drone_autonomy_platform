@@ -236,6 +236,8 @@ Full frame specs, wiring, power system, and antenna placement are in
 [`docs/architecture/drone_hardware.md`](docs/architecture/drone_hardware.md).
 Telemetry and video downlink details are in
 [`docs/architecture/telemetry.md`](docs/architecture/telemetry.md).
+PX4 flight-controller port assignments and companion-link parameters are in
+[`docs/architecture/px4_setup.md`](docs/architecture/px4_setup.md).
 
 | Component | Spec |
 |-----------|------|

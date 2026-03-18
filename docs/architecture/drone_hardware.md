@@ -84,3 +84,6 @@ Notes:
 - `TELEM3` is preferred for ELRS when using `CRSF`, because CRSF is a bidirectional UART protocol.
 - `RC IN` is only needed for legacy one-way RC protocols such as SBUS/PPM.
 - All Pixhawk `TELEM` ports are 3.3 V UART. Match voltage levels when wiring ELRS and companion serial adapters.
+
+For PX4 parameter values associated with this wiring, see
+[`px4_setup.md`](./px4_setup.md).

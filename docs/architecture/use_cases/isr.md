@@ -36,7 +36,7 @@ The software architecture for an ISR drone is a complex, multi-layered system de
 |             |                               |                            |
 |   +-----------------------+      +-----------------------+      +-----------------+
 |   |   Flight Controller   |<---->|   Navigation & PNT    |<---->| Perception      |
-|   |   (PX4/ArduPilot)     |      | (Sensor Fusion/SLAM)  |      | (AI/ML Models)  |
+|   |       (PX4)           |      | (Sensor Fusion/SLAM)  |      | (AI/ML Models)  |
 |   +-----------------------+      +-----------------------+      +-----------------+
 |                                                                                 |
 +---------------------------------------------------------------------------------+
@@ -51,7 +51,7 @@ The software architecture for an ISR drone is a complex, multi-layered system de
     -   **Data Payloads:** This module manages the various sensor payloads, such as an electro-optical/infrared (EO/IR) camera or a signals intelligence (SIGINT) payload.
     -   **Navigation & PNT (Positioning, Navigation, and Timing):** This module is responsible for determining the drone's position and orientation. It fuses data from multiple sensors, including GPS, an inertial measurement unit (IMU), and visual-inertial odometry (VIO), to provide a robust and accurate position estimate, even in GPS-denied environments.
     -   **Perception:** This module processes the sensor data to create a comprehensive understanding of the environment. It uses AI/ML models to detect, classify, and track targets of interest.
-    -   **Flight Controller:** This is a dedicated microcontroller (e.g., PX4, ArduPilot) that is responsible for low-level flight control. It takes commands from the mission computer and translates them into motor commands.
+-   **Flight Controller:** This is a dedicated flight-control computer running PX4. It is responsible for low-level flight control and translates mission-computer commands into motor outputs.
 
 ## 3. Requirements
 
@@ -79,7 +79,7 @@ The software architecture for an ISR drone is a complex, multi-layered system de
 
 ## 4. Open-Source Software and Further Reading
 
--   **PX4/ArduPilot:** Open-source flight controller software.
+-   **PX4:** Open-source flight controller software.
     -   [https://px4.io/](https://px4.io/)
     -   [https://ardupilot.org/](https://ardupilot.org/)
 -   **MAVLink:** A lightweight messaging protocol for communicating with drones.

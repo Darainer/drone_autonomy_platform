@@ -29,7 +29,7 @@ The platform uses **two independent data links**:
 │           │                       ▼                         ▼               │
 │           │            ┌──────────────────┐      ┌──────────────────┐       │
 │           │            │  Jetson Orin     │      │  Pixhawk 6X      │       │
-│           │            │  ┌────────────┐  │      │  (ArduPilot)     │       │
+│           │            │  ┌────────────┐  │      │      (PX4)       │       │
 │           │            │  │  OAK-D     │  │      └────────┬─────────┘       │
 │           │            │  │  Camera    │  │               │                 │
 │           │            │  └────────────┘  │               │ UART            │
@@ -91,6 +91,9 @@ Pixhawk 6X                    Ground Station
 
 `ELRS` is connected on `TELEM3` rather than `RC IN` because `CRSF` is a bidirectional UART protocol. `RC IN` remains unused unless switching to a legacy receiver protocol such as `SBUS`.
 
+For the PX4 parameter values corresponding to this serial layout, see
+[`px4_setup.md`](./px4_setup.md).
+
 ### Data Carried
 
 | Direction | Data |
@@ -100,11 +103,8 @@ Pixhawk 6X                    Ground Station
 
 ### Configuration
 
-```bash
-# ArduPilot parameters (via QGroundControl)
-SERIAL1_PROTOCOL = 2      # MAVLink 2
-SERIAL1_BAUD = 57         # 57600 baud
-```
+For the PX4 parameters used by this project, see
+[`px4_setup.md`](./px4_setup.md).
 
 ---
 
