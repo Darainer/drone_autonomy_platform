@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import ComposableNodeContainer, Node
@@ -25,6 +26,21 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_fps', default_value='15.0'),
         DeclareLaunchArgument('rgb_resolution', default_value='1080P'),
         DeclareLaunchArgument('enable_vslam', default_value='true'),
+        DeclareLaunchArgument(
+            'enable_tracking',
+            default_value='true',
+            description='Launch the detector-agnostic multi-object tracker',
+        ),
+        DeclareLaunchArgument(
+            'tracker_type',
+            default_value='bytetrack',
+            description='Tracker backend: bytetrack | sort | botsort',
+        ),
+        DeclareLaunchArgument(
+            'odometry_source',
+            default_value='vslam',
+            description='Ego-motion odometry source: vslam | mavros | none',
+        ),
 
         # --- OAK-D camera driver (shared by RT-DETR + VSLAM) ---
         Node(
@@ -136,5 +152,20 @@ def generate_launch_description():
             executable='perception_node',
             name='perception_node',
             output='screen',
+        ),
+
+        # --- Detector-agnostic multi-object tracker ---
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([
+                    FindPackageShare('perception'), 'launch', 'tracking.launch.py'
+                ])
+            ),
+            launch_arguments={
+                'tracker_type':    LaunchConfiguration('tracker_type'),
+                'detection_topic': '/detections',
+                'odometry_source': LaunchConfiguration('odometry_source'),
+            }.items(),
+            condition=IfCondition(LaunchConfiguration('enable_tracking')),
         ),
     ])

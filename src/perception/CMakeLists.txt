@@ -21,6 +21,12 @@ install(PROGRAMS
     RENAME detection_visualizer
 )
 
+install(PROGRAMS
+    src/multi_object_tracker.py
+    DESTINATION lib/${PROJECT_NAME}
+    RENAME multi_object_tracker
+)
+
 install(
     DIRECTORY launch
     DESTINATION share/${PROJECT_NAME}

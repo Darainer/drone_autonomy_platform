@@ -28,6 +28,11 @@
   <exec_depend>cv_bridge</exec_depend>
   <exec_depend>rqt_image_view</exec_depend>
 
+  <!-- Multi-object tracker (Python) -->
+  <exec_depend>nav_msgs</exec_depend>
+  <!-- pip: supervision (ByteTrack/SORT/BotSORT), numpy -->
+  <!-- pip: tf-transformations (optional, quaternion→rotation; falls back to inline impl) -->
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

@@ -7,13 +7,16 @@ find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(vision_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "ros2/AttitudeCommand.msg"
   "ros2/Mission.msg"
   "ros2/SensorData.msg"
   "ros2/Trajectory.msg"
-  DEPENDENCIES geometry_msgs sensor_msgs std_msgs nav_msgs
+  "ros2/TrackedObject.msg"
+  "ros2/TrackedObjectArray.msg"
+  DEPENDENCIES geometry_msgs sensor_msgs std_msgs nav_msgs vision_msgs
 )
 
 ament_package()
