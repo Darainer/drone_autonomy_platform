@@ -36,13 +36,12 @@ def generate_launch_description():
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
                 PathJoinSubstitution([
-                    FindPackageShare('perception'), 'launch', 'rfdetr.launch.py'
+                    FindPackageShare('perception'), 'launch', 'perception_only.launch.py'
                 ])
             ),
             launch_arguments={
                 'confidence_threshold': LaunchConfiguration('confidence_threshold'),
                 'engine_path': LaunchConfiguration('engine_path'),
-                'enable_vslam': 'false',
             }.items(),
         ),
 

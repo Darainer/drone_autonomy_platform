@@ -26,23 +26,16 @@ def generate_launch_description():
         DeclareLaunchArgument('rgb_resolution', default_value='1080P'),
         DeclareLaunchArgument('enable_vslam', default_value='true'),
 
-        # --- OAK-D camera driver (shared by RT-DETR + VSLAM) ---
-        Node(
-            package='depthai_ros_driver',
-            executable='camera_node',
-            name='oak',
-            output='screen',
-            parameters=[{
-                'camera.i_usb_speed': 'SUPER_PLUS',
-                'camera.i_enable_imu': True,
-                'rgb.i_resolution': LaunchConfiguration('rgb_resolution'),
-                'rgb.i_fps': LaunchConfiguration('camera_fps'),
-                'left.i_publish_topic': True,
-                'right.i_publish_topic': True,
-                'stereo.i_depth_preset': 'HIGH_ACCURACY',
-                'stereo.i_output_disparity': False,
-                'stereo.i_lr_check': True,
-            }],
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([
+                    FindPackageShare('perception'), 'launch', 'oakd_full.launch.py'
+                ])
+            ),
+            launch_arguments={
+                'camera_fps': LaunchConfiguration('camera_fps'),
+                'rgb_resolution': LaunchConfiguration('rgb_resolution'),
+            }.items(),
         ),
 
         # --- Isaac ROS RT-DETR inference pipeline ---

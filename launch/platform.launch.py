@@ -30,7 +30,7 @@ def generate_launch_description():
     ))
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory('perception'), 'launch', 'perception.launch.py')
+            os.path.join(get_package_share_directory('perception'), 'launch', 'full_stack.launch.py')
         )
     ))
     ld.add_action(IncludeLaunchDescription(
