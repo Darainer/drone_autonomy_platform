@@ -45,7 +45,8 @@ Autonomous drone platform built on ROS2 Humble and NVIDIA Isaac ROS. Runs real-t
 │  ┌──────────┴──────────────────────────────────────────┐ │
 │  │  Pixhawk 6X (PX4)                                   │ │
 │  │    ├── Telem 1 ──▶ SiK 433 MHz antenna              │ │
-│  │    ├── RC In   ◀── R88 ELRS receiver + antenna      │ │
+│  │    ├── Telem 2 ──▶ Jetson Orin companion link       │ │
+│  │    ├── Telem 3 ◀── R88 ELRS receiver (CRSF)         │ │
 │  │    ├── GPS     ◀── GPS module + antenna             │ │
 │  │    └── PWM Out ──▶ ESCs ──▶ Motors (x4)             │ │
 │  └─────────────────────────────────────────────────────┘ │
@@ -235,6 +236,8 @@ Full frame specs, wiring, power system, and antenna placement are in
 [`docs/architecture/drone_hardware.md`](docs/architecture/drone_hardware.md).
 Telemetry and video downlink details are in
 [`docs/architecture/telemetry.md`](docs/architecture/telemetry.md).
+PX4 flight-controller port assignments and companion-link parameters are in
+[`docs/architecture/px4_setup.md`](docs/architecture/px4_setup.md).
 
 | Component | Spec |
 |-----------|------|
