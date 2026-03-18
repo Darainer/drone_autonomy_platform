@@ -45,6 +45,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink && \
     pip3 install transforms3d 2>/dev/null || true
+RUN pip3 install 'numpy<2' pycuda rfdetr onnx onnxsim onnxruntime polygraphy onnx-graphsurgeon
 
 # Node.js + Claude Code
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
@@ -80,14 +81,6 @@ ENV ROS_DOMAIN_ID=1
 ENV GXF_LIB=/opt/ros/humble/share/isaac_ros_gxf/gxf/lib
 ENV LD_LIBRARY_PATH=${GXF_LIB}/std:${GXF_LIB}/cuda:${GXF_LIB}/serialization:${GXF_LIB}/multimedia:${GXF_LIB}:${LD_LIBRARY_PATH}
 
-# Download SyntheticaDETR ONNX model (NVIDIA NGC, Apache 2.0)
-# TensorRT engine must be built on target GPU: scripts/build_tensorrt_engine.sh
-ENV MODELS_DIR=/home/dev/models
-RUN mkdir -p ${MODELS_DIR} && \
-    wget -q -O ${MODELS_DIR}/sdetr_grasp.onnx \
-        "https://api.ngc.nvidia.com/v2/models/nvidia/isaac/synthetica_detr/versions/1.0.0_onnx/files/sdetr_grasp.onnx" && \
-    chown -R ${UID}:${GID} ${MODELS_DIR}
-
 # Build the workspace (msgs + src packages, skipping common)
 WORKDIR /ros2_ws
 COPY . /tmp/drone_autonomy_platform_build/
@@ -97,7 +90,8 @@ RUN . /opt/ros/humble/setup.sh && \
         --base-paths /tmp/drone_autonomy_platform_build/msgs /tmp/drone_autonomy_platform_build/src \
         --packages-ignore common \
         --cmake-args -DBUILD_TESTING=OFF && \
-    rm -rf /tmp/drone_autonomy_platform_build
+    rm -rf /tmp/drone_autonomy_platform_build && \
+    chown -R ${UID}:${GID} /ros2_ws
 
 # Entrypoint: source ROS2/workspace, set GXF paths, build TensorRT on first run
 RUN cat <<'ENTRYPOINT_EOF' > /ros_entrypoint.sh
@@ -113,12 +107,6 @@ source /opt/ros/humble/setup.bash
 # Isaac ROS GXF shared libraries (needed by VSLAM, TensorRT nodes)
 export GXF_LIB=/opt/ros/humble/share/isaac_ros_gxf/gxf/lib
 export LD_LIBRARY_PATH="${GXF_LIB}/std:${GXF_LIB}/cuda:${GXF_LIB}/serialization:${GXF_LIB}/multimedia:${GXF_LIB}:${LD_LIBRARY_PATH}"
-
-# Build TensorRT engine on first run if ONNX exists but .plan does not
-if [ -f /home/dev/models/sdetr_grasp.onnx ] && [ ! -f /home/dev/models/sdetr_grasp.plan ]; then
-    echo "[entrypoint] Building TensorRT engine (first run, ~10-15 min)..."
-    /ros2_ws/src/drone_autonomy_platform/scripts/build_tensorrt_engine.sh || true
-fi
 
 exec "$@"
 ENTRYPOINT_EOF

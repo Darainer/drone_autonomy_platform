@@ -3,21 +3,24 @@
 <package format="3">
   <name>perception</name>
   <version>0.1.0</version>
-  <description>RT-DETR perception pipeline for OAK-D on NVIDIA Jetson Orin</description>
+  <description>RF-DETR-S perception pipeline for OAK-D on NVIDIA Jetson Orin (Apache 2.0)</description>
   <maintainer email="ryanjmatthews+drone_autonomy@gmail.com">Ryan</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
 
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
   <depend>vision_msgs</depend>
   <depend>drone_autonomy_msgs</depend>
 
-  <!-- Isaac ROS inference pipeline (Jetson only — excluded from x86 CI builds) -->
-  <exec_depend>isaac_ros_dnn_image_encoder</exec_depend>
-  <exec_depend>isaac_ros_rtdetr</exec_depend>
-  <exec_depend>isaac_ros_tensor_rt</exec_depend>
+  <!-- RF-DETR-S Python inference node dependencies -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+
+  <!-- Isaac ROS VSLAM (Jetson only — excluded from x86 CI builds) -->
   <exec_depend>isaac_ros_visual_slam</exec_depend>
 
   <!-- OAK-D camera driver (apt: ros-humble-depthai-ros) -->

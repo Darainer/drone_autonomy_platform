@@ -1,9 +1,9 @@
 """
-Launch the full RT-DETR perception pipeline + a live detection overlay viewer.
+Launch the RF-DETR perception pipeline + a live detection overlay viewer.
 
 Topics:
   /oak/rgb/image_raw              — raw camera feed
-  /detections                     — Detection2DArray from RT-DETR
+  /detections                     — Detection2DArray from RF-DETR
   /visualization/detection_overlay — annotated image (view in rqt_image_view)
 
 Usage:
@@ -24,25 +24,24 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'confidence_threshold',
             default_value='0.5',
-            description='RT-DETR confidence threshold (lower = more boxes shown)',
+            description='RF-DETR confidence threshold (lower = more boxes shown)',
         ),
         DeclareLaunchArgument(
-            'model_path',
-            default_value='/home/dev/models/sdetr_grasp.plan',
-            description='Path to TensorRT engine file',
+            'engine_path',
+            default_value='/home/dev/models/RF-DETR-SMALL.engine',
+            description='Path to RF-DETR TensorRT engine file',
         ),
 
-        # Full RT-DETR pipeline — VSLAM disabled (not needed for viz)
+        # RF-DETR pipeline — VSLAM disabled (not needed for viz)
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
                 PathJoinSubstitution([
-                    FindPackageShare('perception'), 'launch', 'perception.launch.py'
+                    FindPackageShare('perception'), 'launch', 'perception_only.launch.py'
                 ])
             ),
             launch_arguments={
-                'enable_vslam': 'false',
                 'confidence_threshold': LaunchConfiguration('confidence_threshold'),
-                'model_path': LaunchConfiguration('model_path'),
+                'engine_path': LaunchConfiguration('engine_path'),
             }.items(),
         ),
 

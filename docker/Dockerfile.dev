@@ -23,7 +23,8 @@ RUN apt-get update && apt-get install -y \
     libusb-1.0-0-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink transforms3d
+RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink transforms3d && \
+    pip3 install 'numpy<2' pycuda rfdetr onnx onnxsim onnxruntime polygraphy onnx-graphsurgeon
 
 # Install geographiclib datasets (MAVROS dependency)
 RUN wget https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh && \
@@ -51,6 +52,8 @@ RUN . /opt/ros/humble/setup.sh && \
         --packages-ignore common \
         --cmake-args -DBUILD_TESTING=OFF && \
     rm -rf /tmp/drone_autonomy_platform_build
+
+RUN chown -R 1000:1000 /ros2_ws
 
 # Source ROS2 and workspace in entrypoint
 RUN printf '#!/bin/bash\nset -e\nsource /opt/ros/humble/setup.bash\n[ -f /ros2_ws/install/setup.bash ] && source /ros2_ws/install/setup.bash\nexec "$@"\n' \

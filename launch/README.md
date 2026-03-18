@@ -43,7 +43,8 @@ strict ordering is required.
 ### Subsystem composition
 
 `platform.launch.py` explicitly includes each of the six subsystems in
-sequence:
+sequence. The perception subsystem entry point is
+`perception/full_stack.launch.py`.
 
 ```python
 # platform.launch.py (abridged)
@@ -140,9 +141,15 @@ To enable the full perception pipeline at runtime:
 
 1. Build on Jetson with the Isaac ROS dev container (`docker/Dockerfile.dev`), which
    includes `depthai_ros_driver` and the Isaac ROS apt sources.
-2. Generate the TensorRT engine (`rtdetr_l.plan`) on the target Jetson device
+2. Generate the TensorRT engine (`RF-DETR-SMALL.engine`) on the target Jetson device
    (see [`docs/architecture/perception_architecture.md`](../docs/architecture/perception_architecture.md)).
 3. Use `platform.launch.py` instead of `platform_core.launch.py`.
+
+Within the `perception` package, the main launch entry points are:
+
+* `perception_only.launch.py` — RGB-only RF-DETR perception
+* `vslam_only.launch.py` — stereo/IMU VSLAM only
+* `full_stack.launch.py` — combined RF-DETR + VSLAM + fusion
 
 For full details on the perception pipeline, model selection, and TensorRT
 engine generation see

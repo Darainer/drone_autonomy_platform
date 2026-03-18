@@ -5,7 +5,7 @@
 [![ROS2](https://img.shields.io/badge/ROS2-Humble-blue)](https://docs.ros.org/en/humble/)
 [![Platform](https://img.shields.io/badge/Platform-NVIDIA%20Orin-green)](https://developer.nvidia.com/embedded/jetson-orin)
 
-Autonomous drone platform built on ROS2 Humble and NVIDIA Isaac ROS. Runs real-time RT-DETR object detection and visual SLAM on a Jetson Orin Nano with a Luxonis OAK-D camera, communicating with a Pixhawk 6X flight controller over MAVLink.
+Autonomous drone platform built on ROS2 Humble and NVIDIA Isaac ROS. Runs real-time RF-DETR object detection and visual SLAM on a Jetson Orin Nano with a Luxonis OAK-D camera, communicating with a Pixhawk 6X flight controller over MAVLink.
 
 ---
 
@@ -62,7 +62,7 @@ Autonomous drone platform built on ROS2 Humble and NVIDIA Isaac ROS. Runs real-t
 
 ```
 src/
-├── perception/      OAK-D → RT-DETR detection + cuVSLAM odometry (Isaac ROS, Jetson only)
+├── perception/      OAK-D → RF-DETR detection + cuVSLAM odometry (Jetson only)
 ├── navigation/      Path planning, SLAM, localization (Nav2)
 ├── control/         Trajectory tracking, MAVROS bridge to Pixhawk
 ├── autonomy/        Mission logic, behavior trees
@@ -74,21 +74,21 @@ src/
 ### Perception Pipeline (Jetson Orin)
 
 ```
-OAK-D Camera                Isaac ROS (composable, zero-copy)
-┌──────────┐     ┌──────────────┐    ┌────────────┐    ┌──────────────┐    ┌──────────┐
-│ depthai  │────▶│ DnnImage     │───▶│  RT-DETR   │───▶│  TensorRT    │───▶│ RT-DETR  │
-│ _ros_    │     │ Encoder      │    │ Preprocess │    │  Inference   │    │ Decoder  │
-│ driver   │     │ (640x640)    │    │            │    │ (FP16)       │    │          │
-└────┬─────┘     └──────────────┘    └────────────┘    └──────────────┘    └────┬─────┘
-     │                                                                          │
-     │ /oak/rgb/image_raw                                       /detections     │
-     │ /oak/stereo/image_raw                             (Detection2DArray)     │
-     │ /oak/left,right/image_rect                                               │
-     │                                                                          ▼
-     │           ┌──────────────┐                                    ┌──────────────────┐
-     └──────────▶│   cuVSLAM    │                                    │  perception_node │
-      (stereo)   │ Visual SLAM  │──▶ /visual_slam/tracking/odometry  │  (sensor fusion) │
-      (IMU)      └──────────────┘    + odom → base_link tf           └──────────────────┘
+OAK-D Camera                     Jetson Orin
+┌──────────┐      /oak/rgb/image_raw     ┌──────────────┐      /detections
+│ depthai  │────────────────────────────▶│ RF-DETR-S    │────────────────────┐
+│ _ros_    │                             │ TensorRT     │                    │
+│ driver   │                             │ inference    │                    ▼
+└────┬─────┘                             └──────────────┘          ┌──────────────────┐
+     │                                                            │  perception_node │
+     │ /oak/left/image_raw                                        │  (sensor fusion) │
+     │ /oak/right/image_raw                                       └──────────────────┘
+     │ /oak/imu/data
+     │
+     └────────────────────────────────────────────────────────────▶┌──────────────┐
+                                                (stereo + IMU)    │   cuVSLAM    │
+                                                                  │ Visual SLAM  │
+                                                                  └──────────────┘
 ```
 
 ### Node Topics
@@ -161,6 +161,27 @@ docker run -it --rm --privileged --network host \
   ros2 launch /ws/src/drone_autonomy_platform/launch/platform.launch.py
 ```
 
+### Perception Launch Modes
+
+The `perception` package exposes three Jetson launch modes:
+
+```bash
+# 1. Perception only: OAK-D RGB + RF-DETR + perception_node
+ros2 launch perception perception_only.launch.py
+
+# 2. VSLAM only: OAK-D stereo/IMU + cuVSLAM
+ros2 launch perception vslam_only.launch.py
+
+# 3. Full stack: RF-DETR + cuVSLAM + perception_node
+ros2 launch perception full_stack.launch.py
+```
+
+For live annotated output during perception-only runs:
+
+```bash
+ros2 launch perception detection_viz.launch.py
+```
+
 ### Development Loop
 
 ```bash
@@ -191,7 +212,7 @@ drone_autonomy_platform/
 ├── src/                       # ROS2 packages (see above)
 ├── msgs/                      # Custom message definitions (SensorData, Mission, etc.)
 ├── launch/
-│   ├── platform.launch.py     # Full stack (Jetson — includes perception)
+│   ├── platform.launch.py     # Full platform (Jetson — includes perception/full_stack.launch.py)
 │   └── platform_core.launch.py # Core stack (x86/CI — excludes perception)
 ├── agents/                    # AI agent workforce (Temporal-based)
 ├── scripts/                   # submit_task.py, utilities
@@ -201,7 +222,7 @@ drone_autonomy_platform/
 ## Notes on Perception
 
 The `perception_node` binary builds on x86 — it only depends on `rclcpp`, `sensor_msgs`,
-`vision_msgs`, and `drone_autonomy_msgs`. The full detection pipeline (Isaac ROS RT-DETR,
+`vision_msgs`, and `drone_autonomy_msgs`. The full Jetson perception stack (RF-DETR TensorRT,
 cuVSLAM, depthai_ros_driver) runs only on Jetson Orin. These are declared as `exec_depend`
 in `package.xml` so the package compiles anywhere but launches fully only on Jetson.
 
