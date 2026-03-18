@@ -21,6 +21,12 @@ install(PROGRAMS
     RENAME detection_visualizer
 )
 
+install(PROGRAMS
+    src/rfdetr_____node.py
+    DESTINATION lib/${PROJECT_NAME}
+    RENAME rfdetr_node
+)
+
 install(
     DIRECTORY launch
     DESTINATION share/${PROJECT_NAME}
