@@ -69,6 +69,7 @@ ARG UID=1000
 ARG GID=1000
 RUN groupadd -g ${GID} dev 2>/dev/null || true && \
     useradd -u ${UID} -g ${GID} -m -s /bin/bash dev && \
+    usermod -aG dialout dev && \
     echo "source /opt/ros/humble/setup.bash" >> /home/dev/.bashrc
 
 RUN chown -R ${UID}:${GID} /ros2_ws
