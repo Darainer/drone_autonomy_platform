@@ -1,0 +1,22 @@
+<!-- GENERATED FILE — do not edit by hand. Regenerate with: python scripts/generate_c4.py -->
+# C4 Level 1 — System Context
+
+```mermaid
+C4Context
+    title System Context — Drone Autonomy Platform
+
+    Person(operator, "Drone Operator", "Plans missions, monitors telemetry, retains override authority")
+    System(platform, "Drone Autonomy Platform", "ROS2 autonomy stack on Jetson Orin (this repository)")
+    System_Ext(gcs, "Ground Control Station", "QGroundControl / custom GCS")
+    System_Ext(px4, "PX4 Flight Controller", "Autopilot firmware, reached via MAVROS/MAVLink")
+    System_Ext(oakd, "OAK-D Camera", "RGB + stereo depth sensor")
+
+    Rel(operator, gcs, "Operates")
+    BiRel(gcs, px4, "MAVLink C2 + telemetry", "radio datalink")
+    BiRel(platform, px4, "Setpoints, mode commands, vehicle state", "MAVROS / DDS")
+    Rel(oakd, platform, "RGB + stereo depth images", "ROS2 topics")
+```
+
+The context view is maintained from the `EXTERNAL_SYSTEMS` table and the
+static context template in `scripts/generate_c4.py` — update those when an
+external actor or system changes.

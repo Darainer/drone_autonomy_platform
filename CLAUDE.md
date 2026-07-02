@@ -73,6 +73,29 @@ Steps execute in order. `depends_on` is informational only (not enforced by Temp
 
 ---
 
+## Standardized Workflows (Skills)
+
+Repo workflows are standardized as skills in `.claude/skills/`. Invoke the
+matching skill before doing the work:
+
+| Skill | Use for | Key artifact |
+|---|---|---|
+| `requirements` | Add/change requirements (StrictDoc) | `docs/requirements/*.sdoc` |
+| `design` | Feature/change design docs before implementation | `docs/design/DES-*.md` |
+| `architecture` | Subsystem/use-case architecture docs | `docs/architecture/*.md` |
+| `test-plan` | Verification planning + test↔requirement linkage | `docs/test_plans/TP-*.md`, `Verifies:` markers |
+| `report` | Status, traceability, verification reports | `docs/reports/*.md` |
+| `c4` | Generate C4 architecture views from code | `docs/architecture/c4/*.md` |
+
+**Standing rules:**
+- After any change to nodes/topics/services: `python scripts/generate_c4.py`
+  and commit the regenerated views (`--check` = drift gate).
+- After any change to requirements, test plans, or `Implements:`/`Verifies:`
+  markers: `python scripts/check_traceability.py` and commit the matrix.
+- Requirement UIDs are defined only in `docs/requirements/*.sdoc`.
+
+---
+
 ## Workspace Structure
 
 ```
@@ -85,7 +108,7 @@ launch/            — top-level launch files
 docker/            — dev + agent containers
   local-agent/     — Ollama local LLM stack
 scripts/           — submit_task.py and utilities
-docs/              — architecture docs
+docs/              — architecture, requirements (.sdoc), design, test_plans, reports
 ```
 
 ---

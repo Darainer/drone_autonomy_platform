@@ -4,6 +4,7 @@
 
 namespace safety {
 
+// Implements: SAF-1, SAF-2
 static constexpr float BATTERY_WARN_PCT    = 0.25f;  // 25% — log warning
 static constexpr float BATTERY_CRITICAL_PCT = 0.15f; // 15% — trigger RTL
 
