@@ -242,6 +242,49 @@ RELATIONS:
 [[/SECTION]]
 
 [[SECTION]]
+TITLE: Functional — Perception/Autonomy Data Flow
+
+[REQUIREMENT]
+UID: PER-1
+STATUS: Draft
+TAGS: perception, interface
+TITLE: Fused Sensor Data Publication
+STATEMENT: >>>
+The perception node shall publish fused sensor data
+(drone_autonomy_msgs/SensorData) on the canonical topic /sensor_data at the
+camera frame rate.
+<<<
+RATIONALE: >>>
+The perception node is the platform's sensor-fusion point (README software
+architecture); downstream decision-making needs a single fused feed rather
+than raw per-sensor topics.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: PLAT-1
+
+[REQUIREMENT]
+UID: AUT-1
+STATUS: Draft
+TAGS: autonomy, interface
+TITLE: Mission Decisions Use Fused Perception Output
+STATEMENT: >>>
+The autonomy node shall use the most recent fused sensor data received on
+/sensor_data as the perceived-information input to every mission decision.
+<<<
+RATIONALE: >>>
+COMP-5 budgets "a decision based on the perceived information", and PLAT-2
+budgets perception output to control command — both presuppose that the
+mission manager actually consumes perception output. Today autonomy_node has
+no subscriptions and publishes missions blind.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: PLAT-2
+
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Safety
 
 [REQUIREMENT]

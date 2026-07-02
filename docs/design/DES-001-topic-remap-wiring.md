@@ -63,7 +63,8 @@ connected edges and stale *needs remap* warnings disappear.
 
 Out of scope: `/perception_node/sensor_data` has no consumer anywhere in the
 repo — that is missing functionality (a future subscriber in
-autonomy/navigation), not a wiring defect; it stays listed as dangling.
+autonomy/navigation), not a wiring defect; addressed by
+[DES-002](DES-002-sensor-data-consumption.md).
 `/visualization/detection_overlay` is consumed externally by
 `rqt_image_view` and is intentional.
 
