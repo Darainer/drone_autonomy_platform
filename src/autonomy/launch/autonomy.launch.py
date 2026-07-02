@@ -7,6 +7,8 @@ def generate_launch_description():
             package='autonomy',
             executable='autonomy_node',
             name='autonomy_node',
-            output='screen'
+            output='screen',
+            # DES-001: canonical topic wiring
+            remappings=[('~/mission', '/mission')]
         )
     ])

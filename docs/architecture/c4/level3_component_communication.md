@@ -12,7 +12,7 @@ C4Component
         Component(communication_node, "communication_node", "ROS2 node (C++)", "0 pub / 2 sub")
     }
 
-    Rel(control_node, communication_node, "attitude_command (needs remap)", "drone_autonomy_msgs/AttitudeCommand")
+    Rel(control_node, communication_node, "/attitude_command", "drone_autonomy_msgs/AttitudeCommand")
     Rel(mavros, communication_node, "/mavros/state", "mavros_msgs/State")
 ```
 
@@ -20,5 +20,5 @@ C4Component
 
 | Node | Direction | Topic / Service | Type |
 |---|---|---|---|
-| `communication_node` | subscribes | `/communication_node/attitude_command` | `drone_autonomy_msgs/AttitudeCommand` |
+| `communication_node` | subscribes | `/attitude_command` | `drone_autonomy_msgs/AttitudeCommand` |
 | `communication_node` | subscribes | `/mavros/state` | `mavros_msgs/State` |

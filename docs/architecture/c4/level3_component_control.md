@@ -12,13 +12,13 @@ C4Component
         Component(control_node, "control_node", "ROS2 node (C++)", "1 pub / 1 sub")
     }
 
-    Rel(control_node, communication_node, "attitude_command (needs remap)", "drone_autonomy_msgs/AttitudeCommand")
-    Rel(navigation_node, control_node, "trajectory (needs remap)", "drone_autonomy_msgs/Trajectory")
+    Rel(control_node, communication_node, "/attitude_command", "drone_autonomy_msgs/AttitudeCommand")
+    Rel(navigation_node, control_node, "/trajectory", "drone_autonomy_msgs/Trajectory")
 ```
 
 ## Interfaces
 
 | Node | Direction | Topic / Service | Type |
 |---|---|---|---|
-| `control_node` | publishes | `/control_node/attitude_command` | `drone_autonomy_msgs/AttitudeCommand` |
-| `control_node` | subscribes | `/control_node/trajectory` | `drone_autonomy_msgs/Trajectory` |
+| `control_node` | publishes | `/attitude_command` | `drone_autonomy_msgs/AttitudeCommand` |
+| `control_node` | subscribes | `/trajectory` | `drone_autonomy_msgs/Trajectory` |

@@ -7,6 +7,11 @@ def generate_launch_description():
             package='control',
             executable='control_node',
             name='control_node',
-            output='screen'
+            output='screen',
+            # DES-001: canonical topic wiring
+            remappings=[
+                ('~/trajectory', '/trajectory'),
+                ('~/attitude_command', '/attitude_command'),
+            ]
         )
     ])

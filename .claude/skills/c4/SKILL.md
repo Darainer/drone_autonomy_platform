@@ -7,8 +7,9 @@ description: Generate or refresh C4-model architecture views (context, container
 
 `scripts/generate_c4.py` parses `src/**` for rclcpp/rclpy constructs
 (`create_publisher`, `create_subscription`, `create_client`, `create_service`,
-`message_filters.Subscriber`, node names, parameter-default topics) and emits
-Mermaid C4 diagrams to `docs/architecture/c4/`:
+`message_filters.Subscriber`, node names, parameter-default topics), applies
+`remappings=` from launch-file `Node(...)` actions (matched by node name), and
+emits Mermaid C4 diagrams to `docs/architecture/c4/`:
 
 | File | View |
 |---|---|

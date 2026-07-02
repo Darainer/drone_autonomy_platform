@@ -11,6 +11,7 @@ C4Container
 
     System_Ext(mavros, "MAVROS / PX4 Autopilot", "MAVLink bridge to the PX4 flight controller")
     System_Ext(oakd, "OAK-D Camera Driver", "depthai-ros driver publishing RGB + stereo depth")
+    System_Ext(viz, "Operator Visualization", "rqt_image_view / GCS video overlay consumers")
 
     System_Boundary(platform, "Drone Autonomy Platform") {
         Container_Boundary(autonomy_pkg, "src/autonomy") {
@@ -36,18 +37,19 @@ C4Container
         }
     }
 
-    Rel(autonomy_node, navigation_node, "mission (needs remap)", "drone_autonomy_msgs/Mission")
-    Rel(control_node, communication_node, "attitude_command (needs remap)", "drone_autonomy_msgs/AttitudeCommand")
+    Rel(control_node, communication_node, "/attitude_command", "drone_autonomy_msgs/AttitudeCommand")
     Rel(rfdetr_node, detection_visualizer, "/detections", "Detection2DArray")
     Rel(rfdetr_node, perception_node, "/detections", "Detection2DArray")
     Rel(mavros, battery_monitor, "/mavros/battery", "sensor_msgs/BatteryState")
     Rel(mavros, communication_node, "/mavros/state", "mavros_msgs/State")
     Rel(mavros, safety_node, "/mavros/state", "mavros_msgs/State")
-    Rel(navigation_node, control_node, "trajectory (needs remap)", "drone_autonomy_msgs/Trajectory")
+    Rel(autonomy_node, navigation_node, "/mission", "drone_autonomy_msgs/Mission")
     Rel(oakd, detection_visualizer, "/oak/rgb/image_raw", "Image")
     Rel(oakd, perception_node, "/oak/rgb/image_raw", "sensor_msgs/Image")
     Rel(oakd, rfdetr_node, "/oak/rgb/image_raw", "Image")
     Rel(oakd, perception_node, "/oak/stereo/image_raw", "sensor_msgs/Image")
+    Rel(navigation_node, control_node, "/trajectory", "drone_autonomy_msgs/Trajectory")
+    Rel(detection_visualizer, viz, "/visualization/detection_overlay", "Image")
     Rel(battery_monitor, mavros, "srv: /mavros/set_mode", "mavros_msgs/SetMode")
 
     UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="2")

@@ -17,6 +17,8 @@ Usage:
     python scripts/generate_c4.py --check    # exit 1 if views are stale (CI/drift check)
 
 Topic matching rules:
+  * remappings= entries in launch_ros Node(...) actions (src/**/launch/*.py
+    and launch/*.py, matched by node name) are applied first
   * exact fully-qualified topic match           -> connected edge
   * private topics (~/x) expand to /<node>/x    -> only match if remapped;
     same-basename private topics on different nodes are flagged as
@@ -63,6 +65,12 @@ EXTERNAL_SYSTEMS = [
         "NVIDIA Isaac ROS GPU-accelerated nodes",
         re.compile(r"^/visual_slam(/|$)"),
     ),
+    (
+        "viz",
+        "Operator Visualization",
+        "rqt_image_view / GCS video overlay consumers",
+        re.compile(r"^/visualization(/|$)"),
+    ),
 ]
 
 # ── source parsing ──────────────────────────────────────────────────────────
@@ -82,6 +90,27 @@ PY_MF_SUB = re.compile(
 )
 PY_CLIENT = re.compile(r'create_client\(\s*([A-Za-z_][\w.]*)\s*,\s*' + STR_OR_NAME)
 PY_PARAM = re.compile(r'declare_parameter\(\s*["\'](\w+)["\']\s*,\s*["\']([^"\']+)["\']')
+
+LAUNCH_NODE = re.compile(r"\bNode\s*\(((?:[^()]|\([^()]*\))*)\)", re.S)
+LAUNCH_NAME = re.compile(r"name\s*=\s*['\"]([^'\"]+)['\"]")
+LAUNCH_REMAPS = re.compile(r"remappings\s*=\s*\[(.*?)\]", re.S)
+LAUNCH_REMAP_TUPLE = re.compile(r"\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\)")
+
+
+def parse_launch_remappings() -> dict[str, dict[str, str]]:
+    """Remappings per node name, from launch_ros Node(...) actions."""
+    remaps: dict[str, dict[str, str]] = defaultdict(dict)
+    launch_files = list(SRC_DIR.glob("*/launch/*.py")) + list((REPO / "launch").glob("*.py"))
+    for path in sorted(launch_files):
+        text = path.read_text(errors="replace")
+        for block in LAUNCH_NODE.findall(text):
+            name_m = LAUNCH_NAME.search(block)
+            remaps_m = LAUNCH_REMAPS.search(block)
+            if not name_m or not remaps_m:
+                continue
+            for src, dst in LAUNCH_REMAP_TUPLE.findall(remaps_m.group(1)):
+                remaps[name_m.group(1)][src] = dst
+    return remaps
 
 
 def short_type(cpp_or_py_type: str) -> str:
@@ -111,11 +140,14 @@ class RosNode:
         self.clients: list[tuple[str, str]] = []  # (service, srv type)
         self.services: list[tuple[str, str]] = []
         self.notes: list[str] = []
+        self.remaps: dict[str, str] = {}
 
     def fq(self, topic: str) -> str:
-        """Expand ~/x to /<node_name>/x (ROS2 private topic expansion)."""
+        """Apply launch remappings, then expand ~/x to /<node_name>/x."""
+        topic = self.remaps.get(topic, topic)
         if topic.startswith("~"):
-            return f"/{self.name}{topic[1:]}"
+            topic = f"/{self.name}{topic[1:]}"
+        topic = self.remaps.get(topic, topic)
         if not topic.startswith("/"):
             return f"/{topic}"
         return topic
@@ -158,6 +190,10 @@ def parse_sources() -> list[RosNode]:
                     if from_param:
                         node.notes.append(f"topic `{topic}` comes from parameter default")
             nodes.append(node)
+
+    remaps = parse_launch_remappings()
+    for node in nodes:
+        node.remaps = remaps.get(node.name, {})
     return nodes
 
 

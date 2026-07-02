@@ -14,13 +14,13 @@
 | COMP-8 | Data Link Uplink Latency | Approved | docs/architecture/latency_requirements.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
 | COMP-9 | Data Link Downlink Latency | Approved | docs/architecture/latency_requirements.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
 | E2E-1 | Sensor to GCS Display Latency | Approved | docs/architecture/latency_requirements.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
-| E2E-2 ⚠ | Sensor to Action Latency (Threat Response) | Approved | docs/architecture/latency_requirements.md<br>docs/architecture/perception_architecture.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
-| E2E-3 | Sensor to Action Latency (Target Tracking) | Approved | docs/architecture/latency_requirements.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
+| E2E-2 ⚠ | Sensor to Action Latency (Threat Response) | Approved | docs/architecture/latency_requirements.md<br>docs/architecture/perception_architecture.md<br>docs/design/DES-001-topic-remap-wiring.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
+| E2E-3 | Sensor to Action Latency (Target Tracking) | Approved | docs/architecture/latency_requirements.md<br>docs/design/DES-001-topic-remap-wiring.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
 | PLAT-1 | Sensor Input to Perception Output | Approved | docs/architecture/latency_requirements.md<br>docs/architecture/perception_architecture.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
-| PLAT-2 | Perception Output to Control Command | Approved | docs/architecture/latency_requirements.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
+| PLAT-2 | Perception Output to Control Command | Approved | docs/architecture/latency_requirements.md<br>docs/design/DES-001-topic-remap-wiring.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
 | PLAT-3 | Total Onboard Processing | Approved | docs/architecture/latency_requirements.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
-| SAF-1 ⚠ | Critical Battery Return-to-Launch | Approved | docs/test_plans/TP-001-latency-and-safety.md | src/safety/src/battery_monitor.cpp | — | 🟡 planned |
-| SAF-2 ⚠ | Low Battery Warning | Approved | docs/test_plans/TP-001-latency-and-safety.md | src/safety/src/battery_monitor.cpp | — | 🟡 planned |
+| SAF-1 ⚠ | Critical Battery Return-to-Launch | Approved | docs/design/DES-001-topic-remap-wiring.md<br>docs/test_plans/TP-001-latency-and-safety.md | src/safety/src/battery_monitor.cpp | — | 🟡 planned |
+| SAF-2 ⚠ | Low Battery Warning | Approved | docs/design/DES-001-topic-remap-wiring.md<br>docs/test_plans/TP-001-latency-and-safety.md | src/safety/src/battery_monitor.cpp | — | 🟡 planned |
 
 ## Summary
 

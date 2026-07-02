@@ -7,6 +7,11 @@ def generate_launch_description():
             package='navigation',
             executable='navigation_node',
             name='navigation_node',
-            output='screen'
+            output='screen',
+            # DES-001: canonical topic wiring
+            remappings=[
+                ('~/mission', '/mission'),
+                ('~/trajectory', '/trajectory'),
+            ]
         )
     ])

@@ -7,6 +7,8 @@ def generate_launch_description():
             package='communication',
             executable='communication_node',
             name='communication_node',
-            output='screen'
+            output='screen',
+            # DES-001: canonical topic wiring
+            remappings=[('~/attitude_command', '/attitude_command')]
         )
     ])

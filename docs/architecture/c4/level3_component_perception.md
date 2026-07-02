@@ -6,6 +6,7 @@ C4Component
     title Component View — src/perception
 
     System_Ext(oakd, "OAK-D Camera Driver", "depthai-ros driver publishing RGB + stereo depth")
+    System_Ext(viz, "Operator Visualization", "rqt_image_view / GCS video overlay consumers")
 
     Container_Boundary(perception, "src/perception") {
         Component(detection_visualizer, "detection_visualizer", "ROS2 node (Python)", "1 pub / 2 sub")
@@ -19,6 +20,7 @@ C4Component
     Rel(oakd, perception_node, "/oak/rgb/image_raw", "sensor_msgs/Image")
     Rel(oakd, rfdetr_node, "/oak/rgb/image_raw", "Image")
     Rel(oakd, perception_node, "/oak/stereo/image_raw", "sensor_msgs/Image")
+    Rel(detection_visualizer, viz, "/visualization/detection_overlay", "Image")
 ```
 
 ## Interfaces
