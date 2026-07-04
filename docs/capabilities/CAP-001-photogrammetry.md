@@ -4,6 +4,8 @@
 **Stakeholder requirement:** STK-1 — Post-Flight 3D Survey Mapping
 **Target spec:** [docs/architecture/target/CAP-001-photogrammetry.yaml](../architecture/target/CAP-001-photogrammetry.yaml)
 **Gap report:** [docs/reports/gap_CAP-001.md](../reports/gap_CAP-001.md) (generated — rerun `python scripts/check_architecture_gap.py`)
+**Implementation plan:** [CAP-001-implementation-plan.md](CAP-001-implementation-plan.md) (WP → task breakdown, execution/review model)
+**Test plan:** [docs/test_plans/TP-002-survey-mapping.md](../test_plans/TP-002-survey-mapping.md)
 
 ## Stakeholder need
 
@@ -97,7 +99,10 @@ markers land.
 | WP-1 | Survey mission type + coverage trajectory generator | DES-003 (to write) | MAP-6, MAP-1 | `autonomy-dev`, `nav-dev` / `ros2-dev` — **safety_critical: true** (navigation) | behaviors MAP-6, MAP-1 ✅; SITL flies a polygon survey |
 | WP-2 | `survey_recorder_node` (new `src/mapping` pkg) + subscriptions | DES-004 (to write) | MAP-2, MAP-3 | `infra` (package scaffold) → `perception-dev` / `ros2-dev` | container + 3 flows ✅; dataset produced in SITL |
 | WP-3 | `tools/photogrammetry` offboard pipeline + coverage QA | DES-005 (to write) | MAP-4, MAP-5 | `ml-pipeline` / `ml-pipeline` | container ✅; sample dataset → mesh + coverage % |
-| WP-4 | Validation: SITL end-to-end survey + field procedure | TP-002 (to write) | MAP-5, STK-1 | `sim-test` / `simulation` | `Verifies:` markers land; STK-1 acceptance demonstrated |
+| WP-4 | Validation: SITL end-to-end survey + field procedure | [TP-002](../test_plans/TP-002-survey-mapping.md) (written) | MAP-5, STK-1 | `sim-test` / `simulation` | `Verifies:` markers land; STK-1 acceptance demonstrated |
+
+Task-level breakdown, execution/review roles, and per-WP `submit_task.py`
+plans: [CAP-001-implementation-plan.md](CAP-001-implementation-plan.md).
 
 Example plan for WP-2 (adjust after DES-004 is approved):
 
@@ -130,3 +135,7 @@ results are filed as a dated report (`report` skill).
 ## Designer iteration log
 
 - v0.1 — initial target architecture and decomposition; gap 6/14.
+- v0.2 — implementation plan written (CAP-001-implementation-plan.md): WPs
+  broken into Sonnet-executable tasks with Opus review and human WP gates;
+  TP-002 verification/validation plan added. Gap unchanged (6/14 — no code
+  yet). Next action: human approval of the plan, then T1.1 (DES-003).
