@@ -51,6 +51,13 @@ Structure, node responsibilities, data flow. Diagrams in Mermaid.
 | Direction | Topic/Service | Type | QoS | Notes |
 |---|---|---|---|---|
 
+## Design decisions (fixed)
+| # | Decision | Choice | Rejected alternative |
+|---|---|---|---|
+Numbered, closed decisions (D1, D2, …). For capability work packages these
+are made HERE by the designer-class model — implementing agents never make
+or re-open them; per-task specs below reference them.
+
 ## Safety impact
 Failure modes, failsafe interaction, DO-178C considerations (or "none").
 

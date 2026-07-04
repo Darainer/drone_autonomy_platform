@@ -63,15 +63,27 @@ Reference example: CAP-001 (photogrammetry/survey mapping).
 
 ## Handoff contract (to the detailed loop)
 
-A work package handed to an implementation session (Opus/Sonnet-class Claude
-Code or `submit_task.py`) must contain:
+A work package handed to an implementation session (Sonnet-class Claude Code
+or `submit_task.py`) must contain:
 
-- the DES doc to write/implement (`design` skill) and the requirement UIDs,
-- the target-spec lines it must satisfy (its exit = those lines ✅ under
-  `python scripts/check_architecture_gap.py`),
+- the DES doc it implements — **already written, with design decisions
+  resolved and per-task specifications, by the designer-class model**
+  (Opus/Fable via the `design` skill). Executors implement a resolved
+  design; a task that would require a design decision stops and returns
+  to the designer,
+- the requirement UIDs and the target-spec lines it must satisfy (its exit =
+  those lines ✅ under `python scripts/check_architecture_gap.py`),
 - the traceability markers expected (`Implements:`/`Verifies:` — the gap
   checker greps for behavior evidence, so unmarked code does not count),
+- the test specs (TS-*) from the test plan each task codes against
+  (`test-plan` skill — one-line coverage rows are not a handoff),
 - `safety_critical: true` if `src/control|safety|navigation` is touched.
+
+**Review altitude:** the human reviews at WP level only — once when
+approving the plan (with its DES docs and test specs), then once per WP at
+its PR. Every task inside a WP is reviewed by an Opus-class reviewer
+(`/code-review` + the `code-review` agent); the human does not re-enter
+the loop between tasks.
 
 The implementing session must NOT edit the target YAML or the capability doc
 except to append to the iteration log — target changes are designer decisions

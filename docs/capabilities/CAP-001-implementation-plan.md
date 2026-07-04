@@ -1,15 +1,20 @@
 # CAP-001 Implementation Plan — Visual Photogrammetry / Survey Mapping
 
-**Status:** Proposed (awaiting human approval of WP-1 kickoff)
+**Status:** Proposed v2 (awaiting WP-level human approval)
 **Capability doc:** [CAP-001-photogrammetry.md](CAP-001-photogrammetry.md)
 **Target spec:** [docs/architecture/target/CAP-001-photogrammetry.yaml](../architecture/target/CAP-001-photogrammetry.yaml)
-**Gap report:** [docs/reports/gap_CAP-001.md](../reports/gap_CAP-001.md) — 6/14 present, 8 gaps
-**Test plan:** [docs/test_plans/TP-002-survey-mapping.md](../test_plans/TP-002-survey-mapping.md)
-**Requirements:** STK-1, MAP-1..MAP-6 (`docs/requirements/*.sdoc`)
+**Gap report:** [docs/reports/gap_CAP-001.md](../reports/gap_CAP-001.md)
+**Test plan:** [docs/test_plans/TP-002-survey-mapping.md](../test_plans/TP-002-survey-mapping.md) (full test specs TS-01..TS-13)
+**Design docs (written, per-task scoped):** [DES-003](../design/DES-003-survey-mission-coverage-trajectory.md) · [DES-004](../design/DES-004-survey-dataset-recording.md) · [DES-005](../design/DES-005-photogrammetry-pipeline.md)
+**Requirements:** STK-1, MAP-1..MAP-8
 
-This plan turns the four work packages in the CAP-001 handoff table into
-concrete, agent-executable tasks. It is the working contract between the
-designer (human), the executing agents, and the reviewers.
+v2 changes (designer review on commit 5dcf5cf): design decisions are now
+**pre-scoped by the designer-class model** in DES-003/004/005 — every task
+below points at the DES section and test specs (TS-*) it implements, so a
+Sonnet-class executor implements a resolved design rather than making design
+choices. The human reviews **at WP level only** (this plan once, then each
+WP's PR); Opus reviews every task. The pipeline is **dual-target**: ground
+station and onboard (Orin Nano class) post-flight execution (MAP-7, MAP-8).
 
 ---
 
@@ -17,202 +22,164 @@ designer (human), the executing agents, and the reviewers.
 
 | Role | Who | Responsibility |
 |---|---|---|
-| **WP gate review** | Human (designer) | Approves each DES doc before implementation starts; reviews each completed WP against its exit criteria before the next WP begins |
-| **Task execution** | Sonnet-class session (Claude Code on `claude-sonnet-5`) or the agent workforce via `scripts/submit_task.py` | One task = one session/plan; must land the `Implements:`/`Verifies:` markers named in the task |
-| **Task review** | Opus-class session (`/code-review`) + the `code-review` agent on the `orchestrator` queue | Every task's diff is reviewed before merge; findings go back to the executor as `--rework` feedback |
-| **Safety-critical review** | Opus review **and** human sign-off **at the PR** | Any task touching `src/navigation`, `src/control`, or `src/safety` (WP-1 T1.4) — see "Where the human gates are enforced" below |
+| **WP-level review (human)** | Designer | Approves this plan (with its DES docs + test specs) once; thereafter reviews **only each WP's PR** against exit criteria. The human is not in the loop inside a WP. |
+| **Design scoping** | Designer-class model (Opus/Fable) | All design decisions resolved in DES docs *before* execution (done — DES-003/004/005). Executors never make or re-open design decisions. |
+| **Task execution** | Sonnet-class session or agent workforce (`scripts/submit_task.py`) | One task = one session/plan step, implementing the referenced DES section to the referenced TS pass criteria; must land the named markers |
+| **Task review (Opus)** | Opus-class `/code-review` + `code-review` agent (`orchestrator` queue) | Every task diff, before it lands on the WP branch; findings return as `--rework` feedback |
 
-**Harness constraints (how tasks map onto the Temporal workflow):**
+**Rules binding every task:**
 
-- **Human gates are enforced at the PR, not inside the workflow.**
-  `scripts/submit_task.py` submits `FeatureRequest(auto_approve=True)`, and
-  `NewFeatureWorkflow` skips its safety-critical wait whenever `auto_approve`
-  is set — so a `safety_critical: true` plan submitted through the documented
-  path completes without any Temporal-side human approval. The human
-  sign-offs promised in this plan are therefore **git-level gates**: agent
-  work lands on a feature branch, and safety-critical diffs (WP-1) merge only
-  via a pull request explicitly approved by the human reviewer. WP gate
-  reviews are PR reviews. (Alternative if in-workflow gating is ever needed:
-  add a non-auto-approved submission flag to `submit_task.py` and release via
-  the workflow's `approve` signal — a change outside this plan's scope.)
-- **`sim-test` must not appear as a step in `submit_task.py` plans.** The
-  workflow dispatches every plan step as the `run_domain_agent` activity on
-  the step's queue, but the simulation worker registers only the built-in
-  `run_simulation` activity on the `simulation` queue — a `sim-test` plan
-  step is never picked up and stalls the workflow until timeout. The
-  workflow already runs `run_simulation` (the sim-test agent) once, after
-  all plan steps, with the full plan as input. So: **test authoring** goes
-  into the dev-agent steps (or a Sonnet session) with its `Verifies:`
-  markers, and the **SITL scenario + pass criteria** are written into the
-  plan's `summary`/`action` text so the built-in `run_simulation` stage
-  executes them. Task rows below marked "`sim-test` (via `run_simulation`
-  stage)" follow this pattern.
-
-**Rules binding every task** (from the capability handoff contract):
-
-- Executors implement to the approved DES doc — they do **not** edit
-  `docs/architecture/target/*.yaml` or the capability doc (except appending to
-  its iteration log). Target changes go back to the designer.
-- Unmarked code does not count: the gap checker greps for `Implements:` and
-  the traceability checker for `Verifies:`. Each task below names the markers
-  it must land.
-- Every task ends with the standing regeneration commands that apply to it:
-  `python scripts/generate_c4.py` (node/topic changes),
-  `python scripts/check_architecture_gap.py` (after merges),
-  `python scripts/check_traceability.py` (requirement/test/marker changes) —
+- The DES docs are the contract. A task that cannot be completed without a
+  design change **stops** and goes back to the designer (`capability` skill);
+  it does not improvise. DES/target/capability docs are not edited by
+  executors (iteration-log appends excepted).
+- Unmarked code does not count: land the `Implements:` markers named per task
+  and the `Verifies:` + TS-id references named in TP-002.
+- Every task finishes with the applicable regeneration commands
+  (`generate_c4.py`, `check_architecture_gap.py`, `check_traceability.py`)
   and commits the regenerated artifacts.
 
-**Definition of done for a task:** diff merged, review passed, named markers
-present, regenerated reports committed, TP-002 rows it covers flipped from
-`planned` to `implemented`.
+**Harness constraints (unchanged from v1):**
 
-**Definition of done for a WP:** its gap-report lines read ✅, its TP-002 rows
-are green, and the human gate review is recorded in the capability doc's
-iteration log.
+- **Human gates are enforced at the PR.** `submit_task.py` submits
+  `auto_approve=True`, so the workflow's safety-critical wait never fires;
+  each WP develops on a feature branch and merges only via a human-approved
+  PR — that PR **is** the WP gate.
+- **No `sim-test` steps in `submit_task.py` plans.** The `simulation` queue
+  serves only the built-in `run_simulation` stage, which runs automatically
+  after the plan steps. Tests are authored in dev-agent steps; SITL scenarios
+  + pass criteria (from the TS specs) go in the plan text.
+
+**Definition of done — task:** diff on the WP branch, Opus review passed,
+markers landed, referenced TS rows implemented and passing.
+**Definition of done — WP:** gap-report lines ✅, TP-002 rows green, WP PR
+approved and merged by the human.
 
 ---
 
 ## Dependency graph
 
 ```
-DES-003 ──► WP-1 (mission type + coverage trajectory) ──► WP-4 (end-to-end validation)
-DES-004 ──► WP-2 (survey recorder)                    ──►
-DES-005 ──► WP-3 (photogrammetry pipeline)            ──►
+        ┌─► WP-1 (mission type + coverage trajectory; DES-003) ─┐
+plan+DES approval                                               ├─► WP-4 (end-to-end + field validation)
+        ├─► WP-2 (survey recorder; DES-004)  ───────────────────┤
+        └─► WP-3 (dual-target pipeline; DES-005) ───────────────┘
 ```
 
-- WP-1 and WP-2 implementation can proceed in parallel once their DES docs
-  are approved; WP-2's recording trigger consumes the `/mission` semantics
-  fixed in DES-003, so **DES-003 must be approved before DES-004 is finalized**.
-- WP-3 depends only on the **dataset format decided in DES-004**, not on the
-  onboard code — it can start as soon as DES-004 is approved and can be
-  developed against a hand-built sample dataset.
-- WP-4 requires all of WP-1..3 merged.
+All three DES docs are approved together with this plan (single WP-level
+human review), so WP-1/2/3 can start immediately and run in parallel:
+WP-2 consumes only DES-003's *interface* (`/mission_status`), which is fixed
+here, not WP-1's code; WP-3 consumes only DES-004's dataset format. WP-4
+requires WP-1..3 merged.
 
 ---
 
-## WP-1 — Survey mission type + coverage trajectory generator
+## WP-1 — Survey mission type + coverage trajectory (DES-003)
 
-**Requirements:** MAP-6, MAP-1 · **Design doc:** DES-003 (to write, task T1.1)
-**`safety_critical: true`** — touches `src/navigation`.
-**Current state:** `autonomy_node` publishes a single hardcoded `waypoints`
-mission; `navigation_node` receives missions but never publishes a
-trajectory; `Mission.msg` has no survey fields (polygon/altitude/overlap).
+**Requirements:** MAP-6, MAP-1 · **`safety_critical: true`** · Branch `wp1-survey-mission`
 
-| Task | Agent / queue | What | Markers | Review |
+| Task | Executor (agent/queue) | Spec to implement | Markers / tests | Review |
 |---|---|---|---|---|
-| T1.1 | Sonnet session (`design` skill) | Write **DES-003 — survey mission & coverage trajectory**: extend `Mission.msg` (survey polygon vertices, altitude, forward/side overlap) vs. new `SurveySpec.msg`; boustrophedon (lawnmower) lane generation from camera footprint (OAK-D FOV × altitude) and overlap; polygon validity limits; failure behavior for degenerate polygons | — | Opus review → **human approves DES-003 (gate)** |
-| T1.2 | `infra` / `orchestrator` | Message change per DES-003 (msgs/ change comes first, per plan rules); update `msgs/CMakeLists.txt` | — | Opus |
-| T1.3 | `autonomy-dev` / `ros2-dev` | Survey mission type in `autonomy_node`: accept a survey spec, validate it, dispatch `mission_type: "survey"` on `/mission`, publish mission start/end (recording arm/disarm semantics for WP-2) | `Implements: MAP-6` | Opus |
-| T1.4 | `nav-dev` / `ros2-dev` | Coverage trajectory generator in `navigation_node`: on `mission_type == "survey"`, generate the lane pattern per DES-003 and publish `/trajectory` (feeds the existing DES-001 chain to control) | `Implements: MAP-1` | Opus **+ human (safety-critical)** |
-| T1.5 | test authoring in T1.3/T1.4 dev steps; SITL via `sim-test` (`run_simulation` stage) | Tests per TP-002 rows MAP-6, MAP-1: geometry property tests on the generated lanes (spacing vs. overlap, containment) authored alongside the node code; SITL survey-dispatch scenario + pass criteria written into the plan text for the workflow's built-in simulation stage | `Verifies: MAP-6` / `Verifies: MAP-1` | Opus |
-| T1.6 | `infra` / `orchestrator` | Regenerate C4 views, gap report, traceability matrix; update README node-topic diagram; flip TP-002 rows | — | Opus |
+| T1.1 | `infra` / `orchestrator` | DES-003 "Message changes": `Mission.msg` survey fields, new `MissionStatus.msg`, `/mission_status` launch remaps | — | Opus |
+| T1.2 | `autonomy-dev` / `ros2-dev` | DES-003 "autonomy_node behavior" (validation rules, dispatch, lifecycle) | `Implements: MAP-6`; tests TS-01, TS-02 | Opus |
+| T1.3 | `nav-dev` / `ros2-dev` | DES-003 "navigation_node behavior" (`SurveyPlanner`, params, publication) | `Implements: MAP-1`; tests TS-03 | Opus |
+| T1.4 | `infra` / `orchestrator` | Regenerate C4/gap/traceability; README topic diagram; flip TP-002 rows; F1 fixtures checked in | — | Opus |
 
-**Exit criteria (human gate):** gap-report behaviors "Survey mission type in
-mission manager" and "Coverage-pattern trajectory generator in navigation" ✅;
-TP-002 MAP-1/MAP-6 rows `implemented` and passing; SITL flies a polygon survey.
+SITL scenario for the plan summary (built-in `run_simulation` stage): TS-04.
 
-`submit_task.py` plan skeleton (finalize after DES-003 approval):
-
-Note there is no `sim-test` step (see harness constraints above): tests are
-authored by the dev-agent steps, and the SITL scenario rides in the summary
-for the workflow's automatic `run_simulation` stage. The safety-critical
-human gate happens at PR review of the resulting branch, since
-`submit_task.py` auto-approves the in-workflow gate.
+**WP PR gate (human):** gap behaviors MAP-6 + MAP-1 ✅; TS-01..04 implemented
+and passing; diff review with safety-critical attention on `src/navigation`.
 
 ```json
 {
-  "summary": "Survey mission type + coverage trajectory generator (CAP-001 WP-1). SITL check for run_simulation: dispatch reference-polygon survey mission; expect mission_type 'survey' on /mission and a /trajectory whose lanes satisfy TP-002 MAP-1 spacing/containment criteria",
+  "summary": "CAP-001 WP-1 per DES-003. SITL check for run_simulation: TS-04 — dispatch REF-RECT survey, expect one /trajectory passing TS-03 geometry assertions within 5 s",
   "safety_critical": true,
   "affected_packages": ["msgs", "src/autonomy", "src/navigation"],
   "steps": [
     {"agent": "infra", "task_queue": "orchestrator",
-     "action": "Extend mission messages with survey spec fields per DES-003", "depends_on": []},
+     "action": "DES-003 message changes: survey fields in Mission.msg, new MissionStatus.msg, /mission_status remaps in both platform launch files", "depends_on": []},
     {"agent": "autonomy-dev", "task_queue": "ros2-dev",
-     "action": "Add survey mission type to autonomy_node per DES-003; mark Implements: MAP-6. Author TP-002 MAP-6 tests (survey dispatch, degenerate-polygon rejection); mark Verifies: MAP-6", "depends_on": [0]},
+     "action": "DES-003 autonomy_node behavior sections 1-4; mark Implements: MAP-6; author TS-01/TS-02 tests, mark Verifies: MAP-6", "depends_on": [0]},
     {"agent": "nav-dev", "task_queue": "ros2-dev",
-     "action": "Add boustrophedon coverage trajectory generator to navigation_node per DES-003; mark Implements: MAP-1. Author TP-002 MAP-1 geometry property tests (lane spacing, containment, footprint coverage); mark Verifies: MAP-1", "depends_on": [0]},
+     "action": "DES-003 navigation_node behavior: SurveyPlanner per steps 1-6; mark Implements: MAP-1; author TS-03 gtest suite, mark Verifies: MAP-1", "depends_on": [0]},
     {"agent": "infra", "task_queue": "orchestrator",
-     "action": "Regenerate C4 + gap report + traceability matrix; update README topics diagram", "depends_on": [1, 2]}
+     "action": "Regenerate C4 + gap + traceability, update README topics diagram, commit F1 reference polygons fixture", "depends_on": [1, 2]}
   ]
 }
 ```
 
 ---
 
-## WP-2 — `survey_recorder_node` (new `src/mapping` package)
+## WP-2 — `survey_recorder_node` (DES-004)
 
-**Requirements:** MAP-2, MAP-3 · **Design doc:** DES-004 (to write, task T2.1)
-`safety_critical: false`.
+**Requirements:** MAP-2, MAP-3 · `safety_critical: false` · Branch `wp2-survey-recorder`
 
-| Task | Agent / queue | What | Markers | Review |
+| Task | Executor | Spec to implement | Markers / tests | Review |
 |---|---|---|---|---|
-| T2.1 | Sonnet session (`design` skill) | Write **DES-004 — survey dataset recording & offload**: dataset container format (images + poses CSV + manifest vs. rosbag2 — decide here), pose/frame sync policy (`message_filters` approximate-time, explicit sync budget in ms), recording trigger (arm on survey `/mission` start, disarm on end, per DES-003 semantics), storage path/rotation, single-package offload procedure | — | Opus review → **human approves DES-004 (gate)** |
-| T2.2 | `infra` / `orchestrator` | Scaffold `src/mapping` package (CMakeLists, package.xml, launch include in `platform.launch.py`); extend `scripts/smoke_test.sh` node list | — | Opus |
-| T2.3 | `perception-dev` / `ros2-dev` | Implement `survey_recorder_node`: subscribe `/oak/rgb/image_raw`, `/mavros/local_position/pose`, `/mission`; write time-synced dataset per DES-004; implement the documented offload format | `Implements: MAP-2` and `Implements: MAP-3` | Opus |
-| T2.4 | test authoring in T2.3 dev step; SITL via `sim-test` (`run_simulation` stage) | Tests per TP-002 rows MAP-2, MAP-3 authored with the node (replay frames+pose, assert dataset frame count and per-frame sync error ≤ DES-004 budget; manifest schema validation); replay scenario written into the plan text for the built-in simulation stage | `Verifies: MAP-2` / `Verifies: MAP-3` | Opus |
-| T2.5 | `infra` / `orchestrator` | Regenerate C4/gap/traceability; add `src/mapping` to README package list; flip TP-002 rows | — | Opus |
+| T2.1 | `infra` / `orchestrator` | Scaffold `src/mapping` (CMakeLists, package.xml, launch include); extend `scripts/smoke_test.sh` node list | — | Opus |
+| T2.2 | `perception-dev` / `ros2-dev` | DES-004 "survey_recorder_node" + "Dataset format" (subscriptions, sync D4, trigger D6, storage D7, manifest) | `Implements: MAP-2`, `Implements: MAP-3`; tests TS-05, TS-06, TS-07 (writer side) | Opus |
+| T2.3 | `infra` / `orchestrator` | F3 replay-bag fixture; regenerate C4/gap/traceability; README package list; flip TP-002 rows | — | Opus |
 
-**Exit criteria (human gate):** gap report shows `survey_recorder_node`
-container and all three flows (`oakd →`, `mavros →`, `autonomy_node →`) ✅;
-a dataset is produced in SITL and passes the schema test.
+SITL scenario for the plan summary: TS-05/TS-06 replay assertions.
 
-The CAP-001 doc contains the reference `submit_task.py` plan for this WP.
+**WP PR gate (human):** `survey_recorder_node` container + all five target
+flows ✅; TS-05..07 implemented and passing; dataset from replay validates.
 
 ---
 
-## WP-3 — `tools/photogrammetry` offboard pipeline + coverage QA
+## WP-3 — Dual-target photogrammetry pipeline (DES-005)
 
-**Requirements:** MAP-4, MAP-5 · **Design doc:** DES-005 (to write, task T3.1)
-`safety_critical: false`. Runs on the ground station, not the Jetson.
+**Requirements:** MAP-4, MAP-5, **MAP-7, MAP-8** · `safety_critical: false` · Branch `wp3-photogrammetry-pipeline`
 
-| Task | Agent / queue | What | Markers | Review |
+Scope per designer direction: the pipeline is **also executable on device**
+(Orin Nano class) — `check` mode is the onboard post-flight consistency
+check, `full` mode runs on both targets.
+
+| Task | Executor | Spec to implement | Markers / tests | Review |
 |---|---|---|---|---|
-| T3.1 | Sonnet session (`design` skill) | Write **DES-005 — post-flight reconstruction pipeline**: SfM/MVS engine choice (COLMAP vs. OpenDroneMap — decide here, with the ≤2 h STK-1(c) runtime budget on reference hardware as a selection criterion), input = DES-004 dataset format, outputs (georeferenced point cloud + textured mesh + coverage report), coverage-QA method (reconstruction footprint vs. survey polygon), fully unattended invocation (STK-1(d)) | — | Opus review → **human approves DES-005 (gate)** |
-| T3.2 | `ml-pipeline` / `ml-pipeline` | Implement `tools/photogrammetry/` pipeline CLI: dataset in → 3D products out, single command, no interactive steps | `Implements: MAP-4` | Opus |
-| T3.3 | `ml-pipeline` / `ml-pipeline` | Implement coverage-QA module: computes % of survey polygon covered by the reconstruction, emits machine-readable report | `Implements: MAP-5` | Opus |
-| T3.4 | `ml-pipeline` / `ml-pipeline` | Tests per TP-002 rows MAP-4, MAP-5, colocated with the pipeline (`tools/photogrammetry/tests/`, run in CI — no SITL involved): pipeline smoke on a small sample dataset (exit 0, products exist); coverage-QA unit test against synthetic geometry with a known hole | `Verifies: MAP-4` / `Verifies: MAP-5` | Opus |
-| T3.5 | `infra` / `orchestrator` | `tools/photogrammetry/README.md` (usage, reference hardware, runtime); regenerate gap/traceability; flip TP-002 rows | — | Opus |
+| T3.1 | `ml-pipeline` / `ml-pipeline` | DES-005 package skeleton + `dataset.py` + `verify_dataset.py` (DES-004 reader/validator) | tests TS-07 (reader side) | Opus |
+| T3.2 | `ml-pipeline` / `ml-pipeline` | DES-005 `footprint.py` + `coverage.py` + `--mode check` (D3) | `Implements: MAP-5`, `Implements: MAP-7`; tests TS-09 | Opus |
+| T3.3 | `ml-pipeline` / `ml-pipeline` | DES-005 `odm_runner.py` + `--mode full` (D1, D6) + multi-arch Dockerfile (D5) | `Implements: MAP-4`, `Implements: MAP-8`; tests TS-08 | Opus |
+| T3.4 | `infra` / `orchestrator` | F2 sample-dataset fixture; `tools/photogrammetry/README.md` (both targets, runtimes); companion-image addition in `docker/`; regenerate gap/traceability; flip rows | — | Opus |
 
-**Exit criteria (human gate):** gap report shows `photogrammetry_pipeline` ✅;
-sample dataset → point cloud + mesh + coverage % with no manual steps.
+Jetson HIL runs TS-10 (check-mode ≤ 15 min) and TS-11 (onboard full mode) are
+executed at the WP gate on hardware; their results attach to the WP PR.
+
+**WP PR gate (human):** `photogrammetry_pipeline` container + behaviors
+MAP-7/MAP-8 ✅; TS-08/09 green in CI; TS-10/11 HIL results attached.
 
 ---
 
 ## WP-4 — End-to-end validation (STK-1)
 
-**Requirements:** MAP-5, STK-1 · **Test plan:** TP-002 (written — this plan's
-companion). Depends on WP-1..3 merged.
+**Requirements:** MAP-5, MAP-7, STK-1 · Branch `wp4-e2e-validation` · Depends on WP-1..3 merged.
 
-| Task | Agent / queue | What | Markers | Review |
+| Task | Executor | Spec to implement | Markers / tests | Review |
 |---|---|---|---|---|
-| T4.1 | Sonnet session (test authoring); SITL via `sim-test` (`run_simulation` stage) | SITL end-to-end: reference polygon survey → dataset → WP-3 pipeline → assert coverage ≥ 95% automatically (TP-002 MAP-5 end-to-end row). The e2e script is authored in a session; the scenario + pass criterion go in the submitted plan text so the built-in simulation stage executes it | `Verifies: MAP-5` (mission level) | Opus |
-| T4.2 | Sonnet session (`report` skill) | Field-flight procedure + dated demonstration report in `docs/reports/` checking STK-1 acceptance (a)–(d) | — | **Human executes/validates the flight** |
-| T4.3 | `infra` / `orchestrator` | Final regeneration: gap report must read **14/14 present**; traceability matrix green for MAP-1..6; capability doc status flip is then a **designer** action | — | Opus + human |
+| T4.1 | Sonnet session | TS-12 end-to-end script (SITL survey → dataset → full mode → coverage gate) | `Verifies: MAP-5`; TS-12 | Opus |
+| T4.2 | Sonnet session (`report` skill) | TS-13 field procedure doc + dated demonstration report (incl. onboard check ≤ 15 min) | — | Opus |
+| T4.3 | `infra` / `orchestrator` | Final regeneration: gap report all-present; traceability green for MAP-1..8 | — | Opus |
 
-**Exit criteria (human gate = capability complete):** gap report 14/14, all
-TP-002 Test rows implemented and passing, STK-1 demonstration report filed.
+**WP PR gate (human = capability complete):** gap report all elements
+present; all TP-002 Test rows implemented + passing; TS-13 report filed with
+STK-1 acceptance (a)–(d) met. Capability status flip is a designer action.
 
 ---
 
-## Open design decisions (fixed in DES docs, not here)
+## Resolved design decisions (v1 open items → fixed)
 
-Delegated by the capability doc; each is decided in exactly one DES doc:
-
-| Decision | Decided in |
+| Decision | Resolution |
 |---|---|
-| Survey spec in `Mission.msg` vs. new message | DES-003 |
-| Dataset container format (rosbag2 vs. images+CSV+manifest) | DES-004 |
-| Pose source (raw MAVROS vs. VSLAM-fused) | DES-004 |
-| Recording trigger semantics | DES-003 (mission side) / DES-004 (recorder side) |
-| SfM engine (COLMAP vs. OpenDroneMap) | DES-005 |
-
-DES numbers 003–005 are reserved by this plan (see `docs/design/README.md`
-numbering rule: sequential, never reused).
+| Survey spec carrier | Extend `Mission.msg` — DES-003 D1 |
+| Mission lifecycle / recording trigger | New `/mission_status` topic — DES-003 D2, DES-004 D6 |
+| Dataset container format | Images + `poses.csv` + `manifest.yaml` — DES-004 D1 |
+| Pose source | Raw MAVROS local pose + GNSS side-by-side — DES-004 D3 |
+| SfM engine | OpenDroneMap (containerized, amd64+arm64) — DES-005 D1 |
+| On-device execution (designer, commit-5dcf5cf review) | Dual-target pipeline: onboard `check` (MAP-7) + onboard `full` (MAP-8) — DES-005 D3/D5 |
 
 ## Change control
 
-- Rework within a task: `submit_task.py --rework "<specific finding>"` or a
-  follow-up Sonnet session; keep feedback pointed at the exact file/function.
-- Anything that changes the target architecture (topics, containers, flows in
-  the YAML) stops the task and goes back to the designer via the `capability`
-  skill — then this plan is updated to match.
+- Rework within a task: `--rework "<file/function-specific finding>"`.
+- Any change to DES decisions, the target YAML, or requirement statements is
+  a designer action via the `capability`/`requirements` skills; this plan and
+  the TS specs are then updated to match before execution resumes.
