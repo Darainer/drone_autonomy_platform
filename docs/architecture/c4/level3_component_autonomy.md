@@ -8,7 +8,7 @@ C4Component
     Container(navigation_node, "navigation_node", "ROS2 node", "src/navigation")
 
     Container_Boundary(autonomy, "src/autonomy") {
-        Component(autonomy_node, "autonomy_node", "ROS2 node (C++)", "1 pub / 0 sub")
+        Component(autonomy_node, "autonomy_node", "ROS2 node (C++)", "2 pub / 1 sub")
     }
 
     Rel(autonomy_node, navigation_node, "/mission", "drone_autonomy_msgs/Mission")
@@ -19,3 +19,5 @@ C4Component
 | Node | Direction | Topic / Service | Type |
 |---|---|---|---|
 | `autonomy_node` | publishes | `/mission` | `drone_autonomy_msgs/Mission` |
+| `autonomy_node` | publishes | `/mission_status` | `drone_autonomy_msgs/MissionStatus` |
+| `autonomy_node` | subscribes | `/survey_request` | `drone_autonomy_msgs/Mission` |

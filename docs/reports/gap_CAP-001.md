@@ -4,7 +4,7 @@
 
 Target spec: `docs/architecture/target/CAP-001-photogrammetry.yaml` · Stakeholder requirements: STK-1
 
-**6 / 18** target elements present — **12 gap(s) remain**
+**8 / 18** target elements present — **10 gap(s) remain**
 
 ## Containers
 
@@ -33,8 +33,8 @@ Target spec: `docs/architecture/target/CAP-001-photogrammetry.yaml` · Stakehold
 
 | Target element | Requirement | Status | Detail |
 |---|---|---|---|
-| Survey mission type in mission manager | MAP-6 | ❌ missing | no `Implements: MAP-6` marker under src/ |
-| Coverage-pattern trajectory generator in navigation | MAP-1 | ❌ missing | no `Implements: MAP-1` marker under src/ |
+| Survey mission type in mission manager | MAP-6 | ✅ present | `Implements: MAP-6` in src/autonomy/include/autonomy/autonomy_node.hpp, src/autonomy/include/autonomy/survey_validation.hpp, src/autonomy/src/autonomy_node.cpp |
+| Coverage-pattern trajectory generator in navigation | MAP-1 | ✅ present | `Implements: MAP-1` in src/navigation/include/navigation/survey_planner.hpp, src/navigation/src/survey_planner.cpp |
 | Dataset offload format documented and implemented | MAP-3 | ❌ missing | no `Implements: MAP-3` marker under src/ |
 | Onboard post-flight consistency check | MAP-7 | ❌ missing | no `Implements: MAP-7` marker under src/ |
 | Reconstruction pipeline executable on companion | MAP-8 | ❌ missing | no `Implements: MAP-8` marker under src/ |
@@ -48,8 +48,6 @@ Target spec: `docs/architecture/target/CAP-001-photogrammetry.yaml` · Stakehold
 - [ ] mavros → survey_recorder_node (MAP-2)
 - [ ] autonomy_node → survey_recorder_node (MAP-2)
 - [ ] autonomy_node → survey_recorder_node (MAP-2)
-- [ ] Survey mission type in mission manager (MAP-6)
-- [ ] Coverage-pattern trajectory generator in navigation (MAP-1)
 - [ ] Dataset offload format documented and implemented (MAP-3)
 - [ ] Onboard post-flight consistency check (MAP-7)
 - [ ] Reconstruction pipeline executable on companion (MAP-8)
