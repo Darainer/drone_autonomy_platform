@@ -382,6 +382,46 @@ RELATIONS:
 - TYPE: Parent
   VALUE: STK-1
 
+[REQUIREMENT]
+UID: MAP-7
+STATUS: Draft
+TAGS: mapping, onboard
+TITLE: Onboard Post-Flight Consistency Check
+STATEMENT: >>>
+The companion computer shall produce an onboard survey-dataset consistency
+report (projected polygon coverage, frame/pose synchronization health, and
+dataset completeness) within 15 minutes of survey mission completion.
+<<<
+RATIONALE: >>>
+The Orin Nano class companion has sufficient processing power for post-flight
+checks. An on-site consistency verdict lets the operator re-fly gaps before
+leaving the survey area — directly supporting the STK-1 "complete" criterion
+without a second mobilization.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-8
+STATUS: Draft
+TAGS: mapping, onboard
+TITLE: Onboard Reconstruction Execution
+STATEMENT: >>>
+The post-flight reconstruction pipeline shall be executable on the companion
+computer (Jetson Orin Nano class), producing the same map products as the
+ground-station execution from the same dataset without manual intervention.
+<<<
+RATIONALE: >>>
+One pipeline codebase, two execution targets: the ground station meets the
+STK-1 2-hour product deadline; onboard execution removes the ground-station
+dependency when time permits. Onboard runtime is documented, not bounded by
+STK-1(c), which applies to the reference ground station.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
 [[/SECTION]]
 
 [[SECTION]]

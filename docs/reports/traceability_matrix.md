@@ -17,26 +17,28 @@
 | E2E-1 | Sensor to GCS Display Latency | Approved | docs/architecture/latency_requirements.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
 | E2E-2 ⚠ | Sensor to Action Latency (Threat Response) | Approved | docs/architecture/latency_requirements.md<br>docs/architecture/perception_architecture.md<br>docs/design/DES-001-topic-remap-wiring.md<br>docs/design/DES-002-sensor-data-consumption.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
 | E2E-3 | Sensor to Action Latency (Target Tracking) | Approved | docs/architecture/latency_requirements.md<br>docs/design/DES-001-topic-remap-wiring.md<br>docs/design/DES-002-sensor-data-consumption.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
-| MAP-1 ⚠ | Survey Trajectory Generation | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-photogrammetry.md | — | — | ❌ uncovered |
-| MAP-2 | Synchronized Survey Data Recording | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-photogrammetry.md | — | — | ❌ uncovered |
-| MAP-3 | Survey Dataset Offload | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-photogrammetry.md | — | — | ❌ uncovered |
-| MAP-4 | Post-Flight 3D Reconstruction | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-photogrammetry.md | — | — | ❌ uncovered |
-| MAP-5 | Reconstruction Completeness | Draft | docs/capabilities/CAP-001-photogrammetry.md | — | — | ❌ uncovered |
-| MAP-6 | Survey Mission Type | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-photogrammetry.md | — | — | ❌ uncovered |
+| MAP-1 ⚠ | Survey Trajectory Generation | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-003-survey-mission-coverage-trajectory.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
+| MAP-2 | Synchronized Survey Data Recording | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-004-survey-dataset-recording.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
+| MAP-3 | Survey Dataset Offload | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-004-survey-dataset-recording.md<br>docs/design/DES-005-photogrammetry-pipeline.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
+| MAP-4 | Post-Flight 3D Reconstruction | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-005-photogrammetry-pipeline.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
+| MAP-5 | Reconstruction Completeness | Draft | docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-005-photogrammetry-pipeline.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
+| MAP-6 | Survey Mission Type | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-003-survey-mission-coverage-trajectory.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
+| MAP-7 | Onboard Post-Flight Consistency Check | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-004-survey-dataset-recording.md<br>docs/design/DES-005-photogrammetry-pipeline.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
+| MAP-8 | Onboard Reconstruction Execution | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-005-photogrammetry-pipeline.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
 | PER-1 | Fused Sensor Data Publication | Draft | docs/design/DES-002-sensor-data-consumption.md | — | — | ❌ uncovered |
 | PLAT-1 | Sensor Input to Perception Output | Approved | docs/architecture/latency_requirements.md<br>docs/architecture/perception_architecture.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
 | PLAT-2 | Perception Output to Control Command | Approved | docs/architecture/latency_requirements.md<br>docs/design/DES-001-topic-remap-wiring.md<br>docs/design/DES-002-sensor-data-consumption.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
 | PLAT-3 | Total Onboard Processing | Approved | docs/architecture/latency_requirements.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
 | SAF-1 ⚠ | Critical Battery Return-to-Launch | Approved | docs/design/DES-001-topic-remap-wiring.md<br>docs/test_plans/TP-001-latency-and-safety.md | src/safety/src/battery_monitor.cpp | — | 🟡 planned |
 | SAF-2 ⚠ | Low Battery Warning | Approved | docs/design/DES-001-topic-remap-wiring.md<br>docs/test_plans/TP-001-latency-and-safety.md | src/safety/src/battery_monitor.cpp | — | 🟡 planned |
-| STK-1 | Post-Flight 3D Survey Mapping | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-photogrammetry.md | — | — | ❌ uncovered |
+| STK-1 | Post-Flight 3D Survey Mapping | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-004-survey-dataset-recording.md<br>docs/design/DES-005-photogrammetry-pipeline.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
 
 ## Summary
 
-- Requirements: **26**
+- Requirements: **28**
 - Verified by test: **0**
-- Verification planned (test plan only): **17**
-- Uncovered: **9**
+- Verification planned (test plan only): **26**
+- Uncovered: **2**
 
 ⚠ = tagged `safety-critical` (DO-178C review scope, see docs/standards/do_178c_context.md)
 

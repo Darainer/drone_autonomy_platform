@@ -129,6 +129,28 @@ OAK-D Camera                     Jetson Orin
 
 ---
 
+## Capabilities & Roadmap
+
+Mission-level capabilities are engineered through three nested loops
+(capability → system → implementation) documented in [CLAUDE.md](CLAUDE.md)
+and `.claude/skills/`. Each capability has a stakeholder requirement,
+a target architecture with a machine-checked gap report, and a work-package
+implementation plan.
+
+| Capability | Stakeholder req | Status | Artifacts |
+|---|---|---|---|
+| CAP-001 — Visual Photogrammetry / Survey Mapping | STK-1 | **Planned, awaiting WP-1 kickoff** — gap 6/18, 4 work packages, designs DES-003/004/005 written | [capability doc](docs/capabilities/CAP-001-photogrammetry.md) · [implementation plan](docs/capabilities/CAP-001-implementation-plan.md) · [test plan](docs/test_plans/TP-002-survey-mapping.md) · [gap report](docs/reports/gap_CAP-001.md) |
+
+CAP-001 adds a `survey` mission type and coverage trajectory generator
+(WP-1), an onboard `survey_recorder_node` in a new `src/mapping` package
+(WP-2), a **dual-target** `tools/photogrammetry` reconstruction pipeline —
+runs on the ground station and on the Orin companion for a ≤15 min
+post-flight consistency check and onboard reconstruction (WP-3) — and
+end-to-end validation (WP-4). Design decisions are fixed in DES-003/004/005;
+`src/mapping` and `tools/` appear in the tree as the work packages land.
+
+---
+
 ## Quick Start
 
 ### x86 Development (Docker)
@@ -216,8 +238,14 @@ drone_autonomy_platform/
 │   ├── platform.launch.py     # Full platform (Jetson — includes perception/full_stack.launch.py)
 │   └── platform_core.launch.py # Core stack (x86/CI — excludes perception)
 ├── agents/                    # AI agent workforce (Temporal-based)
-├── scripts/                   # submit_task.py, utilities
-└── docs/                      # Architecture docs, use cases, standards
+├── scripts/                   # submit_task.py, traceability/gap/C4 checkers
+└── docs/
+    ├── requirements/          # StrictDoc requirements (single source of UIDs)
+    ├── capabilities/          # Capability docs + implementation plans (CAP-*)
+    ├── architecture/          # Architecture docs, target specs, generated C4 views
+    ├── design/                # Design docs (DES-*)
+    ├── test_plans/            # Test plans (TP-*) with Verifies: linkage
+    └── reports/               # Generated traceability matrix, gap reports
 ```
 
 ## Notes on Perception

@@ -45,6 +45,15 @@ technically possible, and may not ship while still `planned`.
 Every row needs a **concrete pass criterion** (threshold, count, exact
 expected call) — "verify it works" is not a procedure.
 
+**Test specifications (TS-*):** a one-line coverage row is a planning
+placeholder, not a reviewable artifact. Before a work package is handed to
+implementation, every Test-method row must reference a full test spec in the
+plan's "Test Specifications" section — `TS-<nn>` with: item under test,
+environment, fixtures, setup, procedure, and explicit pass criteria. The
+implementing agent codes against the TS; the reviewer reviews against it;
+the implemented test cites its TS id in a comment next to the `Verifies:`
+marker. (See TP-002 for the reference format.)
+
 ## Linking tests to requirements
 
 Put a marker comment directly above the test (comma-separate multiple UIDs):

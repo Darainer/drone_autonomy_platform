@@ -4,6 +4,8 @@
 **Stakeholder requirement:** STK-1 — Post-Flight 3D Survey Mapping
 **Target spec:** [docs/architecture/target/CAP-001-photogrammetry.yaml](../architecture/target/CAP-001-photogrammetry.yaml)
 **Gap report:** [docs/reports/gap_CAP-001.md](../reports/gap_CAP-001.md) (generated — rerun `python scripts/check_architecture_gap.py`)
+**Implementation plan:** [CAP-001-implementation-plan.md](CAP-001-implementation-plan.md) (WP → task breakdown, execution/review model)
+**Test plan:** [docs/test_plans/TP-002-survey-mapping.md](../test_plans/TP-002-survey-mapping.md)
 
 ## Stakeholder need
 
@@ -21,11 +23,16 @@ steps between offload and product.
    (MAP-1); control/MAVROS fly it (existing DES-001 chain).
 3. **Capture** — for the duration of the mission, the survey recorder
    persists camera frames with time-synchronized vehicle pose onboard (MAP-2).
-4. **Land & offload** — operator retrieves the survey dataset as a single
+4. **Land & check on device** — the companion (Orin Nano class) runs the
+   pipeline's consistency-check mode on the recorded dataset within 15 min of
+   mission completion (MAP-7); the operator re-flies gaps **before leaving
+   the site** if predicted coverage fails.
+5. **Offload** — operator retrieves the survey dataset as a single
    documented package (MAP-3).
-5. **Reconstruct** — ground-station photogrammetry pipeline turns the dataset
-   into a georeferenced point cloud + textured mesh, unattended (MAP-4).
-6. **Validate** — coverage QA against the survey polygon (MAP-5); operator
+6. **Reconstruct** — the photogrammetry pipeline turns the dataset into a
+   georeferenced point cloud + textured mesh, unattended (MAP-4); the same
+   pipeline is executable onboard as a post-flight step (MAP-8).
+7. **Validate** — coverage QA against the survey polygon (MAP-5); operator
    re-tasks only if acceptance criteria fail.
 
 ## Target architecture
@@ -47,7 +54,7 @@ C4Container
         Container(survey_recorder_node, "survey_recorder_node", "NEW — src/mapping", "frames + synced pose -> onboard dataset")
     }
     System_Boundary(ground, "Ground station (post-flight)") {
-        Container(photogrammetry_pipeline, "photogrammetry_pipeline", "NEW — tools/photogrammetry", "SfM/MVS: dataset -> 3D map + coverage QA")
+        Container(photogrammetry_pipeline, "photogrammetry_pipeline", "NEW — tools/photogrammetry (dual-target: GS + onboard Orin)", "SfM/MVS: dataset -> 3D map + coverage QA; onboard check + reconstruction (MAP-7/8)")
     }
 
     Rel(operator, autonomy_node, "survey mission spec", "GCS")
@@ -59,19 +66,21 @@ C4Container
     Rel(photogrammetry_pipeline, operator, "3D map + coverage report")
 ```
 
-Design decisions delegated to the detailed loop (to be fixed in DES docs, not
-here): dataset container format (rosbag2 vs. images+CSV), SfM engine
-(COLMAP vs. OpenDroneMapper), pose source (raw MAVROS vs. VSLAM-fused),
-recording trigger semantics.
+Design decisions are fixed in the DES docs (written by the designer-class
+model, per the v0.4 review direction): DES-003 (mission/trajectory), DES-004
+(dataset format, sync, trigger), DES-005 (engine, dual-target execution).
+See the implementation plan's "Resolved design decisions" table.
 
 ## Gap to current architecture
 
 From the generated report (rerun after every implementation merge):
-**6/14 present, 8 gaps.** What exists already: the tasking chain
-(`/mission`, `/trajectory` — DES-001), the camera and pose sources, both
-host nodes for the new behaviors. What's missing clusters into exactly the
-work packages below. `/perception_node/sensor_data` (DES-002) is *not* on
-this path — survey capture records raw frames, not fused decision data.
+**6/18 present, 12 gaps** (v0.4 added the onboard-processing behaviors
+MAP-7/MAP-8 and the GNSS + mission-status recorder flows). What exists
+already: the tasking chain (`/mission`, `/trajectory` — DES-001), the camera
+and pose sources, both host nodes for the new behaviors. What's missing
+clusters into exactly the work packages below. `/perception_node/sensor_data`
+(DES-002) is *not* on this path — survey capture records raw frames, not
+fused decision data.
 
 ## Requirements derived
 
@@ -84,6 +93,8 @@ this path — survey capture records raw frames, not fused decision data.
 | MAP-3 | System | dataset offload format |
 | MAP-4 | System | unattended post-flight reconstruction |
 | MAP-5 | System | ≥95% coverage (validation) |
+| MAP-7 | System | onboard post-flight consistency check ≤15 min (companion) |
+| MAP-8 | System | reconstruction pipeline executable on companion |
 
 ## Implementation handoff (the detailed loop)
 
@@ -94,16 +105,19 @@ markers land.
 
 | WP | Scope | Design doc | Requirements | Agents / queue | Exit criteria |
 |---|---|---|---|---|---|
-| WP-1 | Survey mission type + coverage trajectory generator | DES-003 (to write) | MAP-6, MAP-1 | `autonomy-dev`, `nav-dev` / `ros2-dev` — **safety_critical: true** (navigation) | behaviors MAP-6, MAP-1 ✅; SITL flies a polygon survey |
-| WP-2 | `survey_recorder_node` (new `src/mapping` pkg) + subscriptions | DES-004 (to write) | MAP-2, MAP-3 | `infra` (package scaffold) → `perception-dev` / `ros2-dev` | container + 3 flows ✅; dataset produced in SITL |
-| WP-3 | `tools/photogrammetry` offboard pipeline + coverage QA | DES-005 (to write) | MAP-4, MAP-5 | `ml-pipeline` / `ml-pipeline` | container ✅; sample dataset → mesh + coverage % |
-| WP-4 | Validation: SITL end-to-end survey + field procedure | TP-002 (to write) | MAP-5, STK-1 | `sim-test` / `simulation` | `Verifies:` markers land; STK-1 acceptance demonstrated |
+| WP-1 | Survey mission type + coverage trajectory generator | [DES-003](../design/DES-003-survey-mission-coverage-trajectory.md) | MAP-6, MAP-1 | `autonomy-dev`, `nav-dev` / `ros2-dev` — **safety_critical: true** (navigation) | behaviors MAP-6, MAP-1 ✅; SITL flies a polygon survey (TS-04) |
+| WP-2 | `survey_recorder_node` (new `src/mapping` pkg) + subscriptions | [DES-004](../design/DES-004-survey-dataset-recording.md) | MAP-2, MAP-3 | `infra` (package scaffold) → `perception-dev` / `ros2-dev` | container + 5 flows ✅; replay dataset validates (TS-05..07) |
+| WP-3 | `tools/photogrammetry` **dual-target** pipeline (GS + onboard) + coverage QA | [DES-005](../design/DES-005-photogrammetry-pipeline.md) | MAP-4, MAP-5, MAP-7, MAP-8 | `ml-pipeline` / `ml-pipeline` | container + onboard behaviors ✅; TS-08/09 CI, TS-10/11 Jetson HIL |
+| WP-4 | Validation: SITL end-to-end survey + field procedure | [TP-002](../test_plans/TP-002-survey-mapping.md) TS-12/13 | MAP-5, MAP-7, STK-1 | Sonnet session + `run_simulation` stage | `Verifies:` markers land; STK-1 acceptance demonstrated |
+
+Task-level breakdown, execution/review roles, and per-WP `submit_task.py`
+plans: [CAP-001-implementation-plan.md](CAP-001-implementation-plan.md).
 
 Example plan for WP-2 (adjust after DES-004 is approved):
 
 ```json
 {
-  "summary": "Add survey_recorder_node recording synced frames+pose (CAP-001 WP-2)",
+  "summary": "Add survey_recorder_node recording synced frames+pose (CAP-001 WP-2). SITL check for run_simulation: run survey mission stub, assert dataset contains N frames with pose deltas < sync budget",
   "safety_critical": false,
   "affected_packages": ["src/mapping"],
   "steps": [
@@ -111,14 +125,16 @@ Example plan for WP-2 (adjust after DES-004 is approved):
      "action": "Scaffold src/mapping package (CMakeLists, package.xml, launch) per DES-004",
      "depends_on": []},
     {"agent": "perception-dev", "task_queue": "ros2-dev",
-     "action": "Implement survey_recorder_node: subscribe /oak/rgb/image_raw + /mavros/local_position/pose + /mission, write synced dataset per DES-004; mark Implements: MAP-2, MAP-3",
-     "depends_on": [0]},
-    {"agent": "sim-test", "task_queue": "simulation",
-     "action": "SITL: run survey mission stub, assert dataset contains N frames with pose deltas < sync budget (Verifies: MAP-2)",
-     "depends_on": [1]}
+     "action": "Implement survey_recorder_node: subscribe /oak/rgb/image_raw + /mavros/local_position/pose + /mission, write synced dataset per DES-004; mark Implements: MAP-2, MAP-3. Author TP-002 MAP-2/MAP-3 tests (sync budget, manifest schema); mark Verifies: MAP-2, MAP-3",
+     "depends_on": [0]}
   ]
 }
 ```
+
+Note: no `sim-test` step in the plan — the `simulation` queue serves only the
+workflow's built-in `run_simulation` stage, which runs automatically after
+the plan steps with the plan text as its scenario (see the implementation
+plan's harness constraints).
 
 ## Validation plan
 
@@ -127,6 +143,35 @@ polygon → dataset → pipeline → coverage ≥95% asserted automatically (WP-
 TP-002); one field flight repeats the same procedure on hardware and its
 results are filed as a dated report (`report` skill).
 
+## Future extensions (explicitly deferred, not forgotten)
+
+| ID | Extension | Trigger to schedule | Where designed |
+|---|---|---|---|
+| FE-1 | **Sub-centimeter absolute accuracy with RTK base station.** Two candidate paths: hardware camera trigger + PPS timestamping (moving capture), or stationary stop-and-go capture (hover at each capture point, no hardware change, costs mission time — `capture_mode` hook reserved in DES-003) | Designer schedules via this loop: revise STK-1 acceptance (GSD/accuracy criterion), derive new MAP requirement(s), extend the target spec | DES-004 §FE-1 (analysis), DES-003 §Future extensions (trajectory hook) |
+
+v1 keeps forward compatibility: `poses.csv`/manifest are versioned and gain
+RTK columns additively.
+
 ## Designer iteration log
 
 - v0.1 — initial target architecture and decomposition; gap 6/14.
+- v0.2 — implementation plan written (CAP-001-implementation-plan.md): WPs
+  broken into Sonnet-executable tasks with Opus review and human WP gates;
+  TP-002 verification/validation plan added. Gap unchanged (6/14 — no code
+  yet). Next action: human approval of the plan, then T1.1 (DES-003).
+- v0.3 — PR #22 review fixes: `sim-test` removed as a plan step everywhere
+  (the `simulation` queue serves only the workflow's built-in
+  `run_simulation` stage); safety-critical human gates documented as
+  PR-level since `submit_task.py` auto-approves the in-workflow gate.
+- v0.4 — designer review on commit 5dcf5cf, three fundamental changes:
+  (1) pipeline is dual-target — also executable on the Orin-class companion
+  as onboard consistency check (new MAP-7) and onboard reconstruction (new
+  MAP-8); target YAML gains 2 behaviors + 2 recorder flows. (2) Design
+  decisions pre-scoped by the designer-class model: DES-003/004/005 written
+  with per-task specifications; human reviews at WP level (PR) only, Opus
+  reviews every task. (3) TP-002 rewritten with full test specs TS-01..TS-13.
+  Skills (`capability`, `test-plan`, `design`) updated to encode this.
+- v0.5 — PR #22 review round 2: PTP analysis + mission-planned capture rate
+  + 500 MB storage guard (DES-003/004); FE-1 recorded — sub-1 cm accuracy
+  with RTK base station as an explicit future extension, with stationary
+  (stop-and-go) capture as the no-hardware alternative path.

@@ -29,12 +29,17 @@ containers:
     requirement: MAP-2
     description: Records camera frames + time-synchronized pose to an onboard dataset
 
-  # New offboard (post-flight) module
+  # New post-flight module — dual execution target (MAP-4 ground station,
+  # MAP-7/MAP-8 onboard on the Orin-class companion)
   - name: photogrammetry_pipeline
     kind: offboard
     path: tools/photogrammetry
     requirement: MAP-4
-    description: Ground-station pipeline (SfM/MVS, e.g. COLMAP/ODM) dataset -> 3D map
+    description: >
+      Post-flight pipeline (SfM/MVS via ODM) dataset -> 3D map + coverage QA.
+      Same package executes on the ground station (MAP-4) and on the
+      companion computer as an onboard consistency check (MAP-7) and
+      onboard reconstruction (MAP-8).
 
 flows:
   # Tasking chain (already wired by DES-001)
@@ -43,7 +48,9 @@ flows:
   # Survey capture chain (new)
   - {from: oakd, to: survey_recorder_node, topic: /oak/rgb/image_raw, requirement: MAP-2}
   - {from: mavros, to: survey_recorder_node, topic: /mavros/local_position/pose, requirement: MAP-2}
+  - {from: mavros, to: survey_recorder_node, topic: /mavros/global_position/global, requirement: MAP-2}
   - {from: autonomy_node, to: survey_recorder_node, topic: /mission, requirement: MAP-2}
+  - {from: autonomy_node, to: survey_recorder_node, topic: /mission_status, requirement: MAP-2}
 
 behaviors:
   # Behavioral gaps inside existing containers — flip to present when the
@@ -57,3 +64,9 @@ behaviors:
   - name: Dataset offload format documented and implemented
     requirement: MAP-3
     evidence: "Implements: MAP-3"
+  - name: Onboard post-flight consistency check
+    requirement: MAP-7
+    evidence: "Implements: MAP-7"
+  - name: Reconstruction pipeline executable on companion
+    requirement: MAP-8
+    evidence: "Implements: MAP-8"
