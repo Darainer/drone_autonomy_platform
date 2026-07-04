@@ -1,0 +1,56 @@
+# F1 reference polygons — TP-002 "Reference fixtures" (CAP-001 WP-1, T1.4).
+#
+# These are the exact fixture polygons referenced by TP-002 TS-01/TS-02/TS-03
+# and used to exercise `autonomy_node` survey validation/dispatch and
+# `navigation::SurveyPlanner` coverage geometry. Coordinates here are copied
+# verbatim from the hard-coded fixtures in the corresponding tests so the
+# fixture data and the test expectations never drift apart:
+#   - REF-RECT / REF-HEX:            src/navigation/tests/survey_planner_test.cpp
+#   - REF-BAD-2VERTEX / REF-BAD-BOWTIE: src/autonomy/test/test_survey_dispatch.cpp
+#
+# Units: meters, local ENU frame, z ignored (per DES-003 `Mission.msg`
+# `survey_polygon` field). Common survey parameters (TP-002): altitude 40 m,
+# forward_overlap 0.75, side_overlap 0.60, survey_speed_ms 5.0,
+# capture_rate_hz 2.0.
+
+fixtures:
+  # TP-002 F1: 100 m x 80 m rectangle.
+  REF-RECT:
+    description: "100 m x 80 m rectangle"
+    valid: true
+    polygon:
+      - {x: 0.0,   y: 0.0}
+      - {x: 100.0, y: 0.0}
+      - {x: 100.0, y: 80.0}
+      - {x: 0.0,   y: 80.0}
+
+  # TP-002 F1: convex 6-vertex polygon, ~0.79 ha (7875 sqm), longest edge
+  # (95.0 m) oriented ~25 degrees off the x-axis.
+  REF-HEX:
+    description: "convex 6-vertex polygon, ~0.8 ha"
+    valid: true
+    polygon:
+      - {x: 187.321, y: 227.189}
+      - {x: 240.784, y: 219.018}
+      - {x: 326.883, y: 259.167}
+      - {x: 345.925, y: 301.147}
+      - {x: 292.463, y: 309.319}
+      - {x: 219.958, y: 275.509}
+
+  # TP-002 F1 REF-BAD-*: 2-vertex degenerate polygon (fewer than 3 vertices).
+  REF-BAD-2VERTEX:
+    description: "degenerate: only 2 vertices"
+    valid: false
+    polygon:
+      - {x: 0.0,  y: 0.0}
+      - {x: 10.0, y: 0.0}
+
+  # TP-002 F1 REF-BAD-*: self-intersecting bowtie (edges 0-1 and 2-3 cross).
+  REF-BAD-BOWTIE:
+    description: "self-intersecting bowtie quadrilateral"
+    valid: false
+    polygon:
+      - {x: 0.0,  y: 0.0}
+      - {x: 10.0, y: 10.0}
+      - {x: 10.0, y: 0.0}
+      - {x: 0.0,  y: 10.0}

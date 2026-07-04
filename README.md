@@ -122,8 +122,8 @@ OAK-D Camera                     Jetson Orin
                     └──────────────────┘
 
                     ┌──────────────────┐
-                    │ autonomy_node   │──▶ ~/mission
-                    │ (BehaviorTree)  │    ~/mission_status
+  ~/survey_request ▶│ autonomy_node   │──▶ ~/mission
+                    │ (BehaviorTree)  │    ~/mission_status (reliable, transient_local)
                     └──────────────────┘
 ```
 
