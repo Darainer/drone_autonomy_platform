@@ -24,8 +24,9 @@ Workflow, UID scheme, and authoring rules: see the `requirements` skill
   - `# Verifies: PLAT-1` in test code
   - bare UID mentions in `docs/design/`, `docs/test_plans/`, `docs/architecture/`
 - **Traceability matrix**: `python scripts/check_traceability.py` →
-  `docs/reports/traceability_matrix.md` (`--strict` fails on uncovered approved
-  requirements).
+  `docs/reports/traceability_matrix.md` (`--strict` fails on any Approved
+  requirement without an implemented `Verifies:` test — a test-plan mention
+  alone ("planned") does not satisfy strict mode).
 
 ## Validating with StrictDoc (optional)
 

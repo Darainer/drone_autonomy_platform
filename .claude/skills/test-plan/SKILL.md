@@ -77,7 +77,8 @@ from `planned` to `implemented`.
 
 ```bash
 python scripts/check_traceability.py           # refresh matrix, commit it
-python scripts/check_traceability.py --strict  # must pass: no approved req fully uncovered
+python scripts/check_traceability.py --strict  # must pass: every approved req has an
+                                                # implemented Verifies: test (not just "planned")
 ```
 
 Then check the matrix: rows you planned should show 🟡 planned, rows with

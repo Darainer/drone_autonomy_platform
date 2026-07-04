@@ -35,12 +35,21 @@ private:
 
         RCLCPP_DEBUG(this->get_logger(), "Battery: %.2f V  %.1f%%", msg->voltage, pct * 100.0f);
 
-        if (pct <= BATTERY_CRITICAL_PCT && !rtl_triggered_) {
-            RCLCPP_ERROR(this->get_logger(),
-                         "CRITICAL battery at %.1f%% — commanding RTL", pct * 100.0f);
-            triggerRTL();
+        if (pct <= BATTERY_CRITICAL_PCT) {
+            if (!rtl_triggered_) {
+                RCLCPP_ERROR(this->get_logger(),
+                             "CRITICAL battery at %.1f%% — commanding RTL", pct * 100.0f);
+                triggerRTL();
+            }
         } else if (pct <= BATTERY_WARN_PCT) {
             RCLCPP_WARN(this->get_logger(), "Low battery: %.1f%%", pct * 100.0f);
+        } else if (rtl_triggered_) {
+            // Recovered above the warn threshold (hysteresis, avoids re-arming on
+            // noise right at BATTERY_CRITICAL_PCT) — a later drop below critical
+            // is a new discharge event and must trigger RTL again (SAF-1).
+            RCLCPP_INFO(this->get_logger(),
+                        "Battery recovered to %.1f%% — RTL latch reset", pct * 100.0f);
+            rtl_triggered_ = false;
         }
     }
 

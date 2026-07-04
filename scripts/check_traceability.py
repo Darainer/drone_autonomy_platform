@@ -14,8 +14,9 @@ Emits a traceability matrix to docs/reports/traceability_matrix.md.
 Usage:
     python scripts/check_traceability.py             # write matrix
     python scripts/check_traceability.py --stdout    # print instead of write
-    python scripts/check_traceability.py --strict    # exit 1 if any Approved
-                                                     # requirement has no test
+    python scripts/check_traceability.py --strict    # exit 1 if any Approved requirement
+                                                     # lacks an implemented Verifies: test
+                                                     # (a test-plan mention alone does not count)
 """
 
 from __future__ import annotations
@@ -130,7 +131,11 @@ def build_matrix(reqs, implements, verifies, doc_refs) -> tuple[str, list[str]]:
         "| UID | Title | Status | Design/Docs | Code (Implements) | Tests (Verifies) | Coverage |",
         "|---|---|---|---|---|---|---|",
     ]
-    uncovered_approved: list[str] = []
+    # Requirements this file marks "Approved" but that have no *implemented*
+    # Verifies: test marker — includes both "planned" (test plan exists, no
+    # test yet) and "uncovered" (nothing at all). Only "✅ verified" satisfies
+    # an Approved requirement for --strict; "planned" is not enough.
+    approved_without_test: list[str] = []
     counts = defaultdict(int)
 
     for uid in sorted(reqs, key=uid_sort_key):
@@ -144,8 +149,8 @@ def build_matrix(reqs, implements, verifies, doc_refs) -> tuple[str, list[str]]:
             coverage = "🟡 planned"
         else:
             coverage = "❌ uncovered"
-            if r["status"].lower() == "approved":
-                uncovered_approved.append(uid)
+        if coverage != "✅ verified" and r["status"].lower() == "approved":
+            approved_without_test.append(uid)
         counts[coverage.split()[1]] += 1
         safety = " ⚠" if "safety-critical" in r.get("tags", "") else ""
         lines.append(
@@ -168,21 +173,22 @@ def build_matrix(reqs, implements, verifies, doc_refs) -> tuple[str, list[str]]:
         "Linkage markers: `Implements: <UID>` in source, `Verifies: <UID>` in tests, "
         "bare UID mentions in design docs and test plans.",
     ]
-    return "\n".join(lines) + "\n", uncovered_approved
+    return "\n".join(lines) + "\n", approved_without_test
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--stdout", action="store_true", help="print matrix to stdout")
     ap.add_argument("--strict", action="store_true",
-                    help="exit 1 if any Approved requirement has no test coverage")
+                    help="exit 1 if any Approved requirement lacks an implemented "
+                         "Verifies: test marker (a test-plan mention alone does not count)")
     args = ap.parse_args()
 
     reqs = parse_sdoc_requirements()
     if not reqs:
         sys.exit("error: no requirements found in docs/requirements/*.sdoc")
     implements, verifies, doc_refs, unknown = scan_markers(set(reqs))
-    matrix, uncovered = build_matrix(reqs, implements, verifies, doc_refs)
+    matrix, approved_without_test = build_matrix(reqs, implements, verifies, doc_refs)
 
     if args.stdout:
         print(matrix)
@@ -194,10 +200,11 @@ def main() -> int:
     for uid, where in sorted(unknown):
         print(f"warning: marker references unknown UID {uid} in {where}", file=sys.stderr)
 
-    print(f"{len(reqs)} requirements; {len(uncovered)} approved without test coverage")
-    if args.strict and uncovered:
-        print("strict mode: uncovered approved requirements: " + ", ".join(uncovered),
-              file=sys.stderr)
+    print(f"{len(reqs)} requirements; {len(approved_without_test)} approved without "
+          "verified test coverage")
+    if args.strict and approved_without_test:
+        print("strict mode: approved requirements without an implemented Verifies: "
+              "test: " + ", ".join(approved_without_test), file=sys.stderr)
         return 1
     return 0
 
