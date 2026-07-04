@@ -1,0 +1,415 @@
+[DOCUMENT]
+TITLE: Drone Autonomy Platform Requirements
+UID: DOC-PLATFORM-REQ
+VERSION: 0.1
+
+[TEXT]
+STATEMENT: >>>
+Canonical requirements for the drone autonomy platform in StrictDoc format.
+Requirement IDs defined here (E2E-*, COMP-*, PLAT-*) are the single source of
+truth — narrative documents such as docs/architecture/latency_requirements.md
+reference these UIDs but do not define them.
+
+Conventions are described in docs/requirements/README.md and the
+`requirements` skill. Verify linkage with:
+python scripts/check_traceability.py
+<<<
+
+[[SECTION]]
+TITLE: End-to-End Latency (ISR)
+
+[TEXT]
+STATEMENT: >>>
+End-to-end latency is the time from a photon hitting the sensor to the drone
+(or operator) acting on that information.
+<<<
+
+[REQUIREMENT]
+UID: E2E-1
+STATUS: Approved
+TAGS: latency, isr
+TITLE: Sensor to GCS Display Latency
+STATEMENT: >>>
+The time from image capture on the sensor to display of that image on the
+ground control station (GCS) shall not exceed 500 ms.
+<<<
+RATIONALE: >>>
+Real-time situational awareness for the operator degrades rapidly beyond
+half a second of display lag.
+<<<
+
+[REQUIREMENT]
+UID: E2E-2
+STATUS: Approved
+TAGS: latency, isr, safety-critical
+TITLE: Sensor to Action Latency (Threat Response)
+STATEMENT: >>>
+The time from detection of a threat to initiation of a defensive action
+(e.g., an evasive maneuver) shall not exceed 250 ms.
+<<<
+RATIONALE: >>>
+Critical safety requirement: reaction time bounds survivability against
+fast-moving threats.
+<<<
+
+[REQUIREMENT]
+UID: E2E-3
+STATUS: Approved
+TAGS: latency, isr
+TITLE: Sensor to Action Latency (Target Tracking)
+STATEMENT: >>>
+The time from detection of a target to a course adjustment that tracks the
+target shall not exceed 300 ms.
+<<<
+RATIONALE: >>>
+Required to maintain lock on moving targets.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Component-Level Latency Budget
+
+[REQUIREMENT]
+UID: COMP-1
+STATUS: Approved
+TAGS: latency
+TITLE: Camera Capture Latency
+STATEMENT: >>>
+The time from image capture to availability of the frame on the MIPI-CSI bus
+shall not exceed 30 ms.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-2
+
+[REQUIREMENT]
+UID: COMP-2
+STATUS: Approved
+TAGS: latency
+TITLE: Image Processing Latency
+STATEMENT: >>>
+Image processing (debayering, color correction, resize) shall complete within
+50 ms per frame.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-2
+
+[REQUIREMENT]
+UID: COMP-3
+STATUS: Approved
+TAGS: latency, perception
+TITLE: Object Detection Latency
+STATEMENT: >>>
+The object detection model shall produce detections within 100 ms of
+receiving an input frame.
+<<<
+RATIONALE: >>>
+Drives the RT-DETR/RF-DETR pipeline design in
+docs/architecture/perception_architecture.md.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-2
+
+[REQUIREMENT]
+UID: COMP-4
+STATUS: Approved
+TAGS: latency, perception
+TITLE: Object Tracking Latency
+STATEMENT: >>>
+Frame-to-frame object tracking shall complete within 50 ms per frame.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-3
+
+[REQUIREMENT]
+UID: COMP-5
+STATUS: Approved
+TAGS: latency, autonomy
+TITLE: Decision Making Latency
+STATEMENT: >>>
+The mission manager shall produce a decision within 20 ms of receiving
+perception output.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-2
+
+[REQUIREMENT]
+UID: COMP-6
+STATUS: Approved
+TAGS: latency, control, safety-critical
+TITLE: Control Command Generation Latency
+STATEMENT: >>>
+A new control command (attitude/velocity setpoint) shall be generated within
+10 ms of a decision being made.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-2
+
+[REQUIREMENT]
+UID: COMP-7
+STATUS: Approved
+TAGS: latency, control, safety-critical
+TITLE: Flight Controller Processing Latency
+STATEMENT: >>>
+The flight controller shall process a control command and output motor
+commands within 10 ms.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-2
+
+[REQUIREMENT]
+UID: COMP-8
+STATUS: Approved
+TAGS: latency, comms
+TITLE: Data Link Uplink Latency
+STATEMENT: >>>
+Transmission of a command from the GCS to the drone shall not exceed 40 ms.
+<<<
+
+[REQUIREMENT]
+UID: COMP-9
+STATUS: Approved
+TAGS: latency, comms
+TITLE: Data Link Downlink Latency
+STATEMENT: >>>
+Transmission of the compressed video stream from the drone to the GCS shall
+not exceed 100 ms.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-1
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Platform Processing
+
+[REQUIREMENT]
+UID: PLAT-1
+STATUS: Approved
+TAGS: latency, perception
+TITLE: Sensor Input to Perception Output
+STATEMENT: >>>
+The mission computer shall complete perception processing (image processing,
+detection, tracking) within 150 ms of sensor data availability.
+<<<
+RATIONALE: >>>
+Sum of COMP-2, COMP-3, and COMP-4 budgets.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-2
+
+[REQUIREMENT]
+UID: PLAT-2
+STATUS: Approved
+TAGS: latency, autonomy, control
+TITLE: Perception Output to Control Command
+STATEMENT: >>>
+The mission computer shall generate a control command within 30 ms of
+perception output being available.
+<<<
+RATIONALE: >>>
+Sum of COMP-5 and COMP-6 budgets.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-2
+
+[REQUIREMENT]
+UID: PLAT-3
+STATUS: Approved
+TAGS: latency
+TITLE: Total Onboard Processing
+STATEMENT: >>>
+Total onboard processing from sensor data availability to control command
+output shall not exceed 180 ms.
+<<<
+RATIONALE: >>>
+Sum of PLAT-1 and PLAT-2 budgets.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: E2E-2
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Functional — Perception/Autonomy Data Flow
+
+[REQUIREMENT]
+UID: PER-1
+STATUS: Draft
+TAGS: perception, interface
+TITLE: Fused Sensor Data Publication
+STATEMENT: >>>
+The perception node shall publish fused sensor data
+(drone_autonomy_msgs/SensorData) on the canonical topic /sensor_data at the
+camera frame rate.
+<<<
+RATIONALE: >>>
+The perception node is the platform's sensor-fusion point (README software
+architecture); downstream decision-making needs a single fused feed rather
+than raw per-sensor topics.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: PLAT-1
+
+[REQUIREMENT]
+UID: AUT-1
+STATUS: Draft
+TAGS: autonomy, interface
+TITLE: Mission Decisions Use Fused Perception Output
+STATEMENT: >>>
+The autonomy node shall use the most recent fused sensor data received on
+/sensor_data as the perceived-information input to every mission decision.
+<<<
+RATIONALE: >>>
+COMP-5 budgets "a decision based on the perceived information", and PLAT-2
+budgets perception output to control command — both presuppose that the
+mission manager actually consumes perception output. Today autonomy_node has
+no subscriptions and publishes missions blind.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: PLAT-2
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Functional — Survey Mapping (derived from STK-1)
+
+[REQUIREMENT]
+UID: MAP-1
+STATUS: Draft
+TAGS: navigation, mapping, safety-critical
+TITLE: Survey Trajectory Generation
+STATEMENT: >>>
+The navigation subsystem shall generate a survey trajectory that covers an
+operator-defined polygon with configurable forward and side image overlap.
+<<<
+RATIONALE: >>>
+Photogrammetric reconstruction requires systematic coverage (typically >= 75%
+forward / >= 60% side overlap); ad-hoc waypoint missions cannot guarantee it.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-2
+STATUS: Draft
+TAGS: mapping, interface
+TITLE: Synchronized Survey Data Recording
+STATEMENT: >>>
+During a survey mission, the platform shall record camera frames together
+with time-synchronized vehicle pose onboard.
+<<<
+RATIONALE: >>>
+Georeferencing the reconstruction requires a pose prior per image;
+synchronization error translates directly into map error.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-3
+STATUS: Draft
+TAGS: mapping, interface
+TITLE: Survey Dataset Offload
+STATEMENT: >>>
+Recorded survey data shall be retrievable from the vehicle post-flight as a
+single dataset in a documented format.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-4
+STATUS: Draft
+TAGS: mapping, offboard
+TITLE: Post-Flight 3D Reconstruction
+STATEMENT: >>>
+The post-flight pipeline shall produce a georeferenced 3D reconstruction
+(point cloud and textured mesh) from a recorded survey dataset without manual
+intervention.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-5
+STATUS: Draft
+TAGS: mapping, validation
+TITLE: Reconstruction Completeness
+STATEMENT: >>>
+The delivered reconstruction shall cover at least 95% of the operator-defined
+survey polygon.
+<<<
+RATIONALE: >>>
+Direct measure of STK-1 "complete 3D map"; validated per survey mission, not
+per software unit.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-6
+STATUS: Draft
+TAGS: autonomy, mapping
+TITLE: Survey Mission Type
+STATEMENT: >>>
+The mission manager shall accept a survey mission specification (polygon,
+altitude, overlap parameters) and execute it as a mission of type "survey".
+<<<
+RATIONALE: >>>
+Entry point of the capability: the operator tasks the platform at the level
+of "survey this area", not individual waypoints.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Safety
+
+[REQUIREMENT]
+UID: SAF-1
+STATUS: Approved
+TAGS: safety-critical, failsafe
+TITLE: Critical Battery Return-to-Launch
+STATEMENT: >>>
+When the reported battery charge drops to 15% or below, the platform shall
+command the flight controller into Return-to-Launch (RTL) mode exactly once
+per discharge event.
+<<<
+RATIONALE: >>>
+Prevents loss of airframe from battery exhaustion; single-shot trigger
+avoids repeated mode-change spam that would fight operator overrides.
+<<<
+
+[REQUIREMENT]
+UID: SAF-2
+STATUS: Approved
+TAGS: safety-critical, failsafe
+TITLE: Low Battery Warning
+STATEMENT: >>>
+When the reported battery charge drops to 25% or below, the platform shall
+emit a warning to the operator via telemetry and logs.
+<<<
+
+[[/SECTION]]

@@ -1,0 +1,59 @@
+# Target architecture spec for CAP-001 — Visual Photogrammetry / Survey Mapping.
+# Owned by the designer; iterated together with docs/capabilities/CAP-001-photogrammetry.md.
+# Checked against the code with: python scripts/check_architecture_gap.py
+capability: CAP-001
+title: Visual Photogrammetry / Survey Mapping
+stakeholder_requirements: [STK-1]
+
+containers:
+  # Existing nodes the capability builds on
+  - name: autonomy_node
+    kind: node
+    requirement: MAP-6
+    description: Mission manager — gains "survey" mission type
+  - name: navigation_node
+    kind: node
+    requirement: MAP-1
+    description: Gains survey (lawnmower) trajectory generator
+  - name: oakd
+    kind: external
+    description: RGB source for survey capture
+  - name: mavros
+    kind: external
+    description: Vehicle pose source for georeferencing
+
+  # New onboard module
+  - name: survey_recorder_node
+    kind: node
+    package: mapping
+    requirement: MAP-2
+    description: Records camera frames + time-synchronized pose to an onboard dataset
+
+  # New offboard (post-flight) module
+  - name: photogrammetry_pipeline
+    kind: offboard
+    path: tools/photogrammetry
+    requirement: MAP-4
+    description: Ground-station pipeline (SfM/MVS, e.g. COLMAP/ODM) dataset -> 3D map
+
+flows:
+  # Tasking chain (already wired by DES-001)
+  - {from: autonomy_node, to: navigation_node, topic: /mission, requirement: MAP-6}
+  - {from: navigation_node, to: control_node, topic: /trajectory, requirement: MAP-1}
+  # Survey capture chain (new)
+  - {from: oakd, to: survey_recorder_node, topic: /oak/rgb/image_raw, requirement: MAP-2}
+  - {from: mavros, to: survey_recorder_node, topic: /mavros/local_position/pose, requirement: MAP-2}
+  - {from: autonomy_node, to: survey_recorder_node, topic: /mission, requirement: MAP-2}
+
+behaviors:
+  # Behavioral gaps inside existing containers — flip to present when the
+  # implementing code lands with its Implements: marker (traceability skill).
+  - name: Survey mission type in mission manager
+    requirement: MAP-6
+    evidence: "Implements: MAP-6"
+  - name: Coverage-pattern trajectory generator in navigation
+    requirement: MAP-1
+    evidence: "Implements: MAP-1"
+  - name: Dataset offload format documented and implemented
+    requirement: MAP-3
+    evidence: "Implements: MAP-3"

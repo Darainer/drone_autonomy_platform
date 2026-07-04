@@ -1,5 +1,11 @@
 # Latency Requirements for ISR
 
+> **Note:** The requirement statements in this document have been migrated to
+> [docs/requirements/platform_requirements.sdoc](../requirements/platform_requirements.sdoc),
+> which is the canonical source for the `E2E-*`, `COMP-*`, and `PLAT-*` UIDs.
+> This document remains as narrative context; update the `.sdoc` file when a
+> requirement changes (see the `requirements` skill).
+
 This document defines the latency requirements for the Intelligence, Surveillance, and Reconnaissance (ISR) use case. Latency is a critical factor in the performance of an ISR system, as it determines how quickly the drone can react to new information and threats.
 
 ## 1. End-to-End Latency Requirements
