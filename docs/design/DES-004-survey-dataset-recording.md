@@ -56,9 +56,28 @@ at 2 m/s → 0.10 m. This is a *prior* fed to SfM, not the map accuracy:
 bundle adjustment refines relative geometry to cm level regardless, and
 absolute georeferencing is bounded by non-RTK GNSS (~1–2.5 m) — an order of
 magnitude above the sync contribution. Slower flight shrinks the error
-linearly but is not required. Revisit only if RTK/PPK georeferencing is
-adopted later: the fix then is a camera hardware trigger/PPS timestamping
-chain (sub-10 ms), still not PTP.
+linearly but is not required for the current scope.
+
+### Future extension (FE-1): sub-centimeter accuracy with RTK base station
+
+**Explicit future goal (designer, PR #22): operation with an RTK base
+station targeting < 1 cm absolute accuracy.** Out of scope for CAP-001 v1;
+recorded here so v1 decisions don't preclude it. With RTK, GNSS stops being
+the dominant error and the timestamping chain becomes the limit
+(sub-1 cm at 5 m/s would need Δt < 2 ms). Two paths, to be decided when
+scheduled:
+
+1. **Moving capture, hardware sync** — camera hardware trigger + PPS
+   timestamping chain (sub-ms); highest throughput, hardware change.
+2. **Stationary capture (stop-and-go)** — trajectory hovers at each capture
+   point and the frame is taken at v ≈ 0, making `e = v·Δt` negligible with
+   *no* hardware change; costs mission time (~hover duration × capture
+   count). Hook already reserved: DES-003 `capture_mode` extension.
+
+v1 compatibility: `poses.csv` gains RTK columns additively (fix type,
+covariance); the dataset `format_version` field covers the migration.
+Scheduling this is a capability-loop action (new MAP requirement(s) under a
+revised STK-1 accuracy criterion), not an executor decision.
 
 ## Proposed design
 

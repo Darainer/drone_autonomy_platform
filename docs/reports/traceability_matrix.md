@@ -31,7 +31,7 @@
 | PLAT-3 | Total Onboard Processing | Approved | docs/architecture/latency_requirements.md<br>docs/test_plans/TP-001-latency-and-safety.md | — | — | 🟡 planned |
 | SAF-1 ⚠ | Critical Battery Return-to-Launch | Approved | docs/design/DES-001-topic-remap-wiring.md<br>docs/test_plans/TP-001-latency-and-safety.md | src/safety/src/battery_monitor.cpp | — | 🟡 planned |
 | SAF-2 ⚠ | Low Battery Warning | Approved | docs/design/DES-001-topic-remap-wiring.md<br>docs/test_plans/TP-001-latency-and-safety.md | src/safety/src/battery_monitor.cpp | — | 🟡 planned |
-| STK-1 | Post-Flight 3D Survey Mapping | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-005-photogrammetry-pipeline.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
+| STK-1 | Post-Flight 3D Survey Mapping | Draft | docs/architecture/target/CAP-001-photogrammetry.yaml<br>docs/capabilities/CAP-001-implementation-plan.md<br>docs/capabilities/CAP-001-photogrammetry.md<br>docs/design/DES-004-survey-dataset-recording.md<br>docs/design/DES-005-photogrammetry-pipeline.md<br>docs/test_plans/TP-002-survey-mapping.md | — | — | 🟡 planned |
 
 ## Summary
 

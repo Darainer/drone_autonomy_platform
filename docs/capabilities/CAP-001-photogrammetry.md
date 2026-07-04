@@ -143,6 +143,15 @@ polygon → dataset → pipeline → coverage ≥95% asserted automatically (WP-
 TP-002); one field flight repeats the same procedure on hardware and its
 results are filed as a dated report (`report` skill).
 
+## Future extensions (explicitly deferred, not forgotten)
+
+| ID | Extension | Trigger to schedule | Where designed |
+|---|---|---|---|
+| FE-1 | **Sub-centimeter absolute accuracy with RTK base station.** Two candidate paths: hardware camera trigger + PPS timestamping (moving capture), or stationary stop-and-go capture (hover at each capture point, no hardware change, costs mission time — `capture_mode` hook reserved in DES-003) | Designer schedules via this loop: revise STK-1 acceptance (GSD/accuracy criterion), derive new MAP requirement(s), extend the target spec | DES-004 §FE-1 (analysis), DES-003 §Future extensions (trajectory hook) |
+
+v1 keeps forward compatibility: `poses.csv`/manifest are versioned and gain
+RTK columns additively.
+
 ## Designer iteration log
 
 - v0.1 — initial target architecture and decomposition; gap 6/14.
@@ -162,3 +171,7 @@ results are filed as a dated report (`report` skill).
   with per-task specifications; human reviews at WP level (PR) only, Opus
   reviews every task. (3) TP-002 rewritten with full test specs TS-01..TS-13.
   Skills (`capability`, `test-plan`, `design`) updated to encode this.
+- v0.5 — PR #22 review round 2: PTP analysis + mission-planned capture rate
+  + 500 MB storage guard (DES-003/004); FE-1 recorded — sub-1 cm accuracy
+  with RTK base station as an explicit future extension, with stationary
+  (stop-and-go) capture as the no-hardware alternative path.

@@ -146,6 +146,15 @@ See Design decisions table. Additionally rejected: generating the lane plan in
 lifecycle — matches package boundaries and keeps the safety-critical surface
 in one package).
 
+## Future extensions
+
+- **FE-1 (sub-cm RTK, see DES-004):** a `capture_mode` field
+  (`continuous` | `stop_and_go`) is the reserved hook — `stop_and_go` makes
+  the generator emit hover-and-capture waypoints (dwell at each capture
+  point) so frames are taken stationary, supporting sub-centimeter RTK
+  georeferencing without a hardware trigger. Not implemented in WP-1; do
+  not add the field until the capability loop schedules FE-1.
+
 ## Open questions
 
 None — decisions D1–D5 are fixed for WP-1. Changes go back to the designer
