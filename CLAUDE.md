@@ -78,8 +78,13 @@ Steps execute in order. `depends_on` is informational only (not enforced by Temp
 Repo workflows are standardized as skills in `.claude/skills/`. Invoke the
 matching skill before doing the work:
 
+Three nested loops: **capability** (stakeholder task → target architecture →
+gap, designer-owned) → **system** (requirements/design/test-plan) →
+**implementation** (agent workforce / Claude Code sessions).
+
 | Skill | Use for | Key artifact |
 |---|---|---|
+| `capability` | Stakeholder tasks, target architecture, gap analysis, WP handoff | `docs/capabilities/CAP-*.md`, `docs/architecture/target/*.yaml` |
 | `requirements` | Add/change requirements (StrictDoc) | `docs/requirements/*.sdoc` |
 | `design` | Feature/change design docs before implementation | `docs/design/DES-*.md` |
 | `architecture` | Subsystem/use-case architecture docs | `docs/architecture/*.md` |
@@ -92,7 +97,11 @@ matching skill before doing the work:
   and commit the regenerated views (`--check` = drift gate).
 - After any change to requirements, test plans, or `Implements:`/`Verifies:`
   markers: `python scripts/check_traceability.py` and commit the matrix.
+- After merging capability work packages (or editing a target spec):
+  `python scripts/check_architecture_gap.py` and commit the gap reports.
 - Requirement UIDs are defined only in `docs/requirements/*.sdoc`.
+- Implementation sessions never edit `docs/architecture/target/*.yaml` or
+  capability docs — target changes go back to the designer (`capability` skill).
 
 ---
 

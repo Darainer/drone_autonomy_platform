@@ -11,6 +11,7 @@ All reports live in `docs/reports/`.
 |---|---|
 | Traceability matrix | `python scripts/check_traceability.py` → `docs/reports/traceability_matrix.md` (generated — never hand-edit) |
 | Architecture drift | `python scripts/generate_c4.py --check` (exit 1 = views stale) |
+| Capability gaps | `python scripts/check_architecture_gap.py` → `docs/reports/gap_CAP-*.md` (generated; target vs current architecture) |
 | Status / milestone / field-test reports | Hand-written: `docs/reports/YYYY-MM-DD-<topic>.md` |
 
 ## Status report procedure

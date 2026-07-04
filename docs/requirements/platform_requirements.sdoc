@@ -285,6 +285,106 @@ RELATIONS:
 [[/SECTION]]
 
 [[SECTION]]
+TITLE: Functional — Survey Mapping (derived from STK-1)
+
+[REQUIREMENT]
+UID: MAP-1
+STATUS: Draft
+TAGS: navigation, mapping, safety-critical
+TITLE: Survey Trajectory Generation
+STATEMENT: >>>
+The navigation subsystem shall generate a survey trajectory that covers an
+operator-defined polygon with configurable forward and side image overlap.
+<<<
+RATIONALE: >>>
+Photogrammetric reconstruction requires systematic coverage (typically >= 75%
+forward / >= 60% side overlap); ad-hoc waypoint missions cannot guarantee it.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-2
+STATUS: Draft
+TAGS: mapping, interface
+TITLE: Synchronized Survey Data Recording
+STATEMENT: >>>
+During a survey mission, the platform shall record camera frames together
+with time-synchronized vehicle pose onboard.
+<<<
+RATIONALE: >>>
+Georeferencing the reconstruction requires a pose prior per image;
+synchronization error translates directly into map error.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-3
+STATUS: Draft
+TAGS: mapping, interface
+TITLE: Survey Dataset Offload
+STATEMENT: >>>
+Recorded survey data shall be retrievable from the vehicle post-flight as a
+single dataset in a documented format.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-4
+STATUS: Draft
+TAGS: mapping, offboard
+TITLE: Post-Flight 3D Reconstruction
+STATEMENT: >>>
+The post-flight pipeline shall produce a georeferenced 3D reconstruction
+(point cloud and textured mesh) from a recorded survey dataset without manual
+intervention.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-5
+STATUS: Draft
+TAGS: mapping, validation
+TITLE: Reconstruction Completeness
+STATEMENT: >>>
+The delivered reconstruction shall cover at least 95% of the operator-defined
+survey polygon.
+<<<
+RATIONALE: >>>
+Direct measure of STK-1 "complete 3D map"; validated per survey mission, not
+per software unit.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[REQUIREMENT]
+UID: MAP-6
+STATUS: Draft
+TAGS: autonomy, mapping
+TITLE: Survey Mission Type
+STATEMENT: >>>
+The mission manager shall accept a survey mission specification (polygon,
+altitude, overlap parameters) and execute it as a mission of type "survey".
+<<<
+RATIONALE: >>>
+Entry point of the capability: the operator tasks the platform at the level
+of "survey this area", not individual waypoints.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-1
+
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Safety
 
 [REQUIREMENT]

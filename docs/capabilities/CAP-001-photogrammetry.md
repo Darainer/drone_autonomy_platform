@@ -1,0 +1,132 @@
+# CAP-001 — Visual Photogrammetry / Survey Mapping
+
+**Status:** Draft (designer iterating)
+**Stakeholder requirement:** STK-1 — Post-Flight 3D Survey Mapping
+**Target spec:** [docs/architecture/target/CAP-001-photogrammetry.yaml](../architecture/target/CAP-001-photogrammetry.yaml)
+**Gap report:** [docs/reports/gap_CAP-001.md](../reports/gap_CAP-001.md) (generated — rerun `python scripts/check_architecture_gap.py`)
+
+## Stakeholder need
+
+The UAV shall fly a survey mission and create, post-flight, a complete
+georeferenced 3D map from all visual data collected (STK-1). Acceptance:
+≥95% polygon coverage, ≤5 cm GSD, map product ≤2 h after landing, no manual
+steps between offload and product.
+
+## Operational concept (ConOps)
+
+1. **Plan** — operator defines survey polygon, altitude, and overlap at the
+   GCS; tasks the platform with a mission of type `survey` (MAP-6).
+2. **Fly** — mission manager dispatches the survey mission; navigation
+   generates a lawnmower coverage trajectory meeting overlap constraints
+   (MAP-1); control/MAVROS fly it (existing DES-001 chain).
+3. **Capture** — for the duration of the mission, the survey recorder
+   persists camera frames with time-synchronized vehicle pose onboard (MAP-2).
+4. **Land & offload** — operator retrieves the survey dataset as a single
+   documented package (MAP-3).
+5. **Reconstruct** — ground-station photogrammetry pipeline turns the dataset
+   into a georeferenced point cloud + textured mesh, unattended (MAP-4).
+6. **Validate** — coverage QA against the survey polygon (MAP-5); operator
+   re-tasks only if acceptance criteria fail.
+
+## Target architecture
+
+Two new modules (one onboard, one offboard) plus behavior added to two
+existing nodes. Everything else reuses the platform as-is.
+
+```mermaid
+C4Container
+    title CAP-001 target — survey mapping data path
+
+    Person(operator, "Operator", "defines polygon, receives map")
+    System_Ext(oakd, "OAK-D Camera Driver", "RGB frames")
+    System_Ext(mavros, "MAVROS / PX4", "vehicle pose, flight execution")
+
+    System_Boundary(platform, "Drone Autonomy Platform (onboard)") {
+        Container(autonomy_node, "autonomy_node", "existing + MAP-6", "survey mission type")
+        Container(navigation_node, "navigation_node", "existing + MAP-1", "coverage trajectory generator")
+        Container(survey_recorder_node, "survey_recorder_node", "NEW — src/mapping", "frames + synced pose -> onboard dataset")
+    }
+    System_Boundary(ground, "Ground station (post-flight)") {
+        Container(photogrammetry_pipeline, "photogrammetry_pipeline", "NEW — tools/photogrammetry", "SfM/MVS: dataset -> 3D map + coverage QA")
+    }
+
+    Rel(operator, autonomy_node, "survey mission spec", "GCS")
+    Rel(autonomy_node, navigation_node, "/mission", "type: survey")
+    Rel(oakd, survey_recorder_node, "/oak/rgb/image_raw")
+    Rel(mavros, survey_recorder_node, "/mavros/local_position/pose")
+    Rel(autonomy_node, survey_recorder_node, "/mission", "arm/disarm recording")
+    Rel(survey_recorder_node, photogrammetry_pipeline, "survey dataset", "offload, MAP-3")
+    Rel(photogrammetry_pipeline, operator, "3D map + coverage report")
+```
+
+Design decisions delegated to the detailed loop (to be fixed in DES docs, not
+here): dataset container format (rosbag2 vs. images+CSV), SfM engine
+(COLMAP vs. OpenDroneMapper), pose source (raw MAVROS vs. VSLAM-fused),
+recording trigger semantics.
+
+## Gap to current architecture
+
+From the generated report (rerun after every implementation merge):
+**6/14 present, 8 gaps.** What exists already: the tasking chain
+(`/mission`, `/trajectory` — DES-001), the camera and pose sources, both
+host nodes for the new behaviors. What's missing clusters into exactly the
+work packages below. `/perception_node/sensor_data` (DES-002) is *not* on
+this path — survey capture records raw frames, not fused decision data.
+
+## Requirements derived
+
+| UID | Level | What |
+|---|---|---|
+| STK-1 | Stakeholder | fly survey → complete post-flight 3D map |
+| MAP-6 | System | survey mission type (autonomy) |
+| MAP-1 | System | coverage trajectory generation (navigation, ⚠ safety-critical) |
+| MAP-2 | System | synchronized frame+pose recording |
+| MAP-3 | System | dataset offload format |
+| MAP-4 | System | unattended post-flight reconstruction |
+| MAP-5 | System | ≥95% coverage (validation) |
+
+## Implementation handoff (the detailed loop)
+
+Ordered work packages. Each is sized for one implementation session
+(Opus/Sonnet-class Claude Code session or `submit_task.py` plan) and has a
+machine-checkable exit: its gap-report lines flip to ✅ and traceability
+markers land.
+
+| WP | Scope | Design doc | Requirements | Agents / queue | Exit criteria |
+|---|---|---|---|---|---|
+| WP-1 | Survey mission type + coverage trajectory generator | DES-003 (to write) | MAP-6, MAP-1 | `autonomy-dev`, `nav-dev` / `ros2-dev` — **safety_critical: true** (navigation) | behaviors MAP-6, MAP-1 ✅; SITL flies a polygon survey |
+| WP-2 | `survey_recorder_node` (new `src/mapping` pkg) + subscriptions | DES-004 (to write) | MAP-2, MAP-3 | `infra` (package scaffold) → `perception-dev` / `ros2-dev` | container + 3 flows ✅; dataset produced in SITL |
+| WP-3 | `tools/photogrammetry` offboard pipeline + coverage QA | DES-005 (to write) | MAP-4, MAP-5 | `ml-pipeline` / `ml-pipeline` | container ✅; sample dataset → mesh + coverage % |
+| WP-4 | Validation: SITL end-to-end survey + field procedure | TP-002 (to write) | MAP-5, STK-1 | `sim-test` / `simulation` | `Verifies:` markers land; STK-1 acceptance demonstrated |
+
+Example plan for WP-2 (adjust after DES-004 is approved):
+
+```json
+{
+  "summary": "Add survey_recorder_node recording synced frames+pose (CAP-001 WP-2)",
+  "safety_critical": false,
+  "affected_packages": ["src/mapping"],
+  "steps": [
+    {"agent": "infra", "task_queue": "orchestrator",
+     "action": "Scaffold src/mapping package (CMakeLists, package.xml, launch) per DES-004",
+     "depends_on": []},
+    {"agent": "perception-dev", "task_queue": "ros2-dev",
+     "action": "Implement survey_recorder_node: subscribe /oak/rgb/image_raw + /mavros/local_position/pose + /mission, write synced dataset per DES-004; mark Implements: MAP-2, MAP-3",
+     "depends_on": [0]},
+    {"agent": "sim-test", "task_queue": "simulation",
+     "action": "SITL: run survey mission stub, assert dataset contains N frames with pose deltas < sync budget (Verifies: MAP-2)",
+     "depends_on": [1]}
+  ]
+}
+```
+
+## Validation plan
+
+Mission-level (validates STK-1, not code units): SITL survey over a reference
+polygon → dataset → pipeline → coverage ≥95% asserted automatically (WP-4 /
+TP-002); one field flight repeats the same procedure on hardware and its
+results are filed as a dated report (`report` skill).
+
+## Designer iteration log
+
+- v0.1 — initial target architecture and decomposition; gap 6/14.

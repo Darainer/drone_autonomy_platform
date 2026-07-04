@@ -11,7 +11,8 @@ Workflow, UID scheme, and authoring rules: see the `requirements` skill
 
 | File | Scope |
 |---|---|
-| `platform_requirements.sdoc` | System, latency (E2E/COMP/PLAT), and safety (SAF) requirements |
+| `stakeholder_requirements.sdoc` | Stakeholder/mission-task requirements (STK) — owned by the `capability` skill |
+| `platform_requirements.sdoc` | System requirements: latency (E2E/COMP/PLAT), functional (PER/AUT/MAP), safety (SAF) |
 
 ## Quick reference
 

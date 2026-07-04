@@ -36,6 +36,7 @@ MARKER_RX = re.compile(r"(Implements|Verifies):\s*([A-Z0-9\-,\s]+)")
 CODE_GLOBS = ["src/**/*.cpp", "src/**/*.hpp", "src/**/*.py", "agents/**/*.py",
               "scripts/**/*.py", "launch/**/*.py"]
 DOC_GLOBS = ["docs/design/**/*.md", "docs/architecture/**/*.md",
+             "docs/architecture/target/**/*.yaml", "docs/capabilities/**/*.md",
              "docs/test_plans/**/*.md", "docs/standards/**/*.md"]
 
 GENERATED_HEADER = (

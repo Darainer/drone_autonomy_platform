@@ -1,0 +1,47 @@
+[DOCUMENT]
+TITLE: Stakeholder Requirements
+UID: DOC-STK-REQ
+VERSION: 0.1
+
+[TEXT]
+STATEMENT: >>>
+Stakeholder (mission/task) level requirements: what the platform must
+accomplish for its operators, independent of how the software is structured.
+Each STK requirement is realized by a capability package
+(docs/capabilities/CAP-*.md) that defines the operational concept, target
+architecture, and gap to the current system. System requirements deriving
+from an STK requirement carry a Parent relation to it.
+
+STK requirements are validated (does the platform accomplish the task?), not
+just verified — acceptance criteria live in the COMMENT field and the
+capability's validation plan.
+<<<
+
+[[SECTION]]
+TITLE: Survey & Mapping
+
+[REQUIREMENT]
+UID: STK-1
+STATUS: Draft
+TAGS: capability, mapping
+TITLE: Post-Flight 3D Survey Mapping
+STATEMENT: >>>
+The UAV shall fly a survey mission over an operator-defined area and deliver,
+post-flight, a complete georeferenced 3D reconstruction of that area built
+from the visual data collected during the mission.
+<<<
+RATIONALE: >>>
+Photogrammetric mapping (terrain models, damage assessment, site surveys) is
+a primary operator task for the platform alongside ISR. "Complete" means the
+operator does not have to re-fly the area to fill holes.
+<<<
+COMMENT: >>>
+Acceptance criteria (validation, see CAP-001):
+(a) reconstruction covers >= 95% of the operator-defined survey polygon;
+(b) ground sampling distance <= 5 cm at the surveyed altitude;
+(c) map product available <= 2 hours after landing on the reference
+    ground-station hardware;
+(d) no manual intervention between dataset offload and map product.
+<<<
+
+[[/SECTION]]

@@ -16,11 +16,15 @@ narrative doc, migrate it here and leave a pointer.
 
 | Family | Scope |
 |---|---|
+| `STK` | Stakeholder / mission-task level — **defined only in `stakeholder_requirements.sdoc`**, owned by the `capability` skill |
 | `E2E` | End-to-end (sensor→action/display) |
 | `COMP` | Component-level budgets |
 | `PLAT` | Onboard platform processing |
 | `SAF` | Safety / failsafe behavior |
-| `PER`, `NAV`, `CTL`, `AUT`, `COM` | Package-level functional (perception, navigation, control, autonomy, communication) |
+| `PER`, `NAV`, `CTL`, `AUT`, `COM`, `MAP` | Package/capability functional (perception, navigation, control, autonomy, communication, mapping) |
+
+System requirements derived from a stakeholder need carry
+`RELATIONS: - TYPE: Parent  VALUE: STK-<n>`.
 
 To pick the next number: `grep -h "^UID:" docs/requirements/*.sdoc | sort`.
 
