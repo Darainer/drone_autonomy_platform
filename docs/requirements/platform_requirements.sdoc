@@ -289,7 +289,7 @@ TITLE: Functional — Survey Mapping (derived from STK-1)
 
 [REQUIREMENT]
 UID: MAP-1
-STATUS: Draft
+STATUS: Approved
 TAGS: navigation, mapping, safety-critical
 TITLE: Survey Trajectory Generation
 STATEMENT: >>>
@@ -306,7 +306,7 @@ RELATIONS:
 
 [REQUIREMENT]
 UID: MAP-2
-STATUS: Draft
+STATUS: Approved
 TAGS: mapping, interface
 TITLE: Synchronized Survey Data Recording
 STATEMENT: >>>
@@ -323,7 +323,7 @@ RELATIONS:
 
 [REQUIREMENT]
 UID: MAP-3
-STATUS: Draft
+STATUS: Approved
 TAGS: mapping, interface
 TITLE: Survey Dataset Offload
 STATEMENT: >>>
@@ -336,7 +336,7 @@ RELATIONS:
 
 [REQUIREMENT]
 UID: MAP-4
-STATUS: Draft
+STATUS: Approved
 TAGS: mapping, offboard
 TITLE: Post-Flight 3D Reconstruction
 STATEMENT: >>>
@@ -350,7 +350,7 @@ RELATIONS:
 
 [REQUIREMENT]
 UID: MAP-5
-STATUS: Draft
+STATUS: Approved
 TAGS: mapping, validation
 TITLE: Reconstruction Completeness
 STATEMENT: >>>
@@ -367,7 +367,7 @@ RELATIONS:
 
 [REQUIREMENT]
 UID: MAP-6
-STATUS: Draft
+STATUS: Approved
 TAGS: autonomy, mapping
 TITLE: Survey Mission Type
 STATEMENT: >>>
@@ -384,7 +384,7 @@ RELATIONS:
 
 [REQUIREMENT]
 UID: MAP-7
-STATUS: Draft
+STATUS: Approved
 TAGS: mapping, onboard
 TITLE: Onboard Post-Flight Consistency Check
 STATEMENT: >>>
@@ -404,7 +404,7 @@ RELATIONS:
 
 [REQUIREMENT]
 UID: MAP-8
-STATUS: Draft
+STATUS: Approved
 TAGS: mapping, onboard
 TITLE: Onboard Reconstruction Execution
 STATEMENT: >>>
