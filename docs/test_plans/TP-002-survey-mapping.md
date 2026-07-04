@@ -43,7 +43,7 @@ MAP-1 is promoted from Draft to Approved.
 |---|---|
 | Unit (`pytest`) | ROS2 package tests next to the package (`src/navigation`, `src/mapping`), pipeline tests in `tools/photogrammetry/tests/`; runs in CI |
 | Smoke | `scripts/smoke_test.sh` in the platform Docker image — extend the node list with `survey_recorder_node` (WP-2) |
-| SITL | `sim-test` agent on the `simulation` queue via `scripts/submit_task.py` |
+| SITL | `sim-test` agent via the workflow's built-in `run_simulation` stage — scenario + pass criteria written into the submitted plan text, **not** a plan step (the `simulation` queue serves no other activity; see the implementation plan's harness constraints) |
 | Ground station | Reference ground-station hardware defined in DES-005; pipeline runs are automated but hardware-bound |
 | Field | Manual demonstration flight; results recorded in `docs/reports/` |
 

@@ -108,7 +108,7 @@ Example plan for WP-2 (adjust after DES-004 is approved):
 
 ```json
 {
-  "summary": "Add survey_recorder_node recording synced frames+pose (CAP-001 WP-2)",
+  "summary": "Add survey_recorder_node recording synced frames+pose (CAP-001 WP-2). SITL check for run_simulation: run survey mission stub, assert dataset contains N frames with pose deltas < sync budget",
   "safety_critical": false,
   "affected_packages": ["src/mapping"],
   "steps": [
@@ -116,14 +116,16 @@ Example plan for WP-2 (adjust after DES-004 is approved):
      "action": "Scaffold src/mapping package (CMakeLists, package.xml, launch) per DES-004",
      "depends_on": []},
     {"agent": "perception-dev", "task_queue": "ros2-dev",
-     "action": "Implement survey_recorder_node: subscribe /oak/rgb/image_raw + /mavros/local_position/pose + /mission, write synced dataset per DES-004; mark Implements: MAP-2, MAP-3",
-     "depends_on": [0]},
-    {"agent": "sim-test", "task_queue": "simulation",
-     "action": "SITL: run survey mission stub, assert dataset contains N frames with pose deltas < sync budget (Verifies: MAP-2)",
-     "depends_on": [1]}
+     "action": "Implement survey_recorder_node: subscribe /oak/rgb/image_raw + /mavros/local_position/pose + /mission, write synced dataset per DES-004; mark Implements: MAP-2, MAP-3. Author TP-002 MAP-2/MAP-3 tests (sync budget, manifest schema); mark Verifies: MAP-2, MAP-3",
+     "depends_on": [0]}
   ]
 }
 ```
+
+Note: no `sim-test` step in the plan — the `simulation` queue serves only the
+workflow's built-in `run_simulation` stage, which runs automatically after
+the plan steps with the plan text as its scenario (see the implementation
+plan's harness constraints).
 
 ## Validation plan
 
@@ -139,3 +141,7 @@ results are filed as a dated report (`report` skill).
   broken into Sonnet-executable tasks with Opus review and human WP gates;
   TP-002 verification/validation plan added. Gap unchanged (6/14 — no code
   yet). Next action: human approval of the plan, then T1.1 (DES-003).
+- v0.3 — PR #22 review fixes: `sim-test` removed as a plan step everywhere
+  (the `simulation` queue serves only the workflow's built-in
+  `run_simulation` stage); safety-critical human gates documented as
+  PR-level since `submit_task.py` auto-approves the in-workflow gate.
