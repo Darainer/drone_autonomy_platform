@@ -34,10 +34,31 @@ C4: [level2_container.md](../architecture/c4/level2_container.md), [topics.md](.
 | D1 | Dataset container | **Directory of JPEG images + `poses.csv` + `manifest.yaml`** | rosbag2 — opaque to SfM tools, forces a conversion step on every consumer, complicates MAP-7 onboard check |
 | D2 | Image encoding | **JPEG quality 95** | PNG — 5–8× larger for negligible reconstruction gain at survey GSD |
 | D3 | Pose source | **Raw MAVROS local pose + GNSS fix recorded side-by-side** | VSLAM-fused pose — not flight-proven on this platform yet; pipeline uses GNSS for georef, local pose for QA; fused pose can be added as a column later |
-| D4 | Sync mechanism | **`message_filters::ApproximateTime`** (image, local pose), slop 50 ms; GNSS attached as most-recent-within-200 ms | Exact-time sync — sources are unsynchronized clocks/rates, exact match never fires |
-| D5 | Capture policy | **Fixed rate, `capture_rate_hz` param, default 2.0** | Distance-triggered capture — needs velocity estimation in the recorder; DES-003 capture spacing already guarantees overlap at nominal speed |
+| D4 | Sync mechanism | **`message_filters::ApproximateTime`** (image, local pose), slop 50 ms; GNSS attached as most-recent-within-200 ms. **No PTP** — see time-sync analysis below | Exact-time sync — sources are unsynchronized rates, exact match never fires. PTP — solves a multi-host clock problem this system does not have |
+| D5 | Capture policy | **Fixed rate set in the mission spec** (`Mission.capture_rate_hz`, DES-003; recorder `default_capture_rate_hz=2.0` param used when the mission leaves it 0) | Distance-triggered capture — needs velocity estimation in the recorder; DES-003 capture spacing already guarantees overlap at planned speed |
 | D6 | Recording trigger | **Arm on `/mission` with `mission_type=="survey"`; disarm on `/mission_status` `complete`/`aborted` for that `mission_id`** | Recording whenever airborne — wastes storage, couples recorder to flight state |
-| D7 | Storage & rotation | **`/data/surveys/<dataset_id>/`; refuse to arm below 2 GiB free; keep-last-5 rotation of *offloaded* datasets only** | Unbounded retention — Orin eMMC/SD fills mid-mission |
+| D7 | Storage & rotation | **`/data/surveys/<dataset_id>/` on the external data volume; refuse to arm below 500 MB free** (enough to prevent system-level issues); keep-last-5 rotation of *offloaded* datasets only | Unbounded retention; 2 GiB guard — excessive for an external volume, would block valid missions |
+
+### Time synchronization analysis (D4 — why PTP is not required)
+
+All timestamps in the dataset are applied by **one clock**: the Jetson host.
+The depthai driver stamps frames on the Jetson at receipt, and MAVROS stamps
+`local_position/pose` on the Jetson when it arrives over the companion UART —
+there is no second networked host whose clock must agree, which is the
+problem PTP solves. The residual pairing error is transport-latency
+asymmetry (camera exposure→USB→stamp, tens of ms, vs. UART pose, ~ms),
+bounded by the 50 ms ApproximateTime slop and **measured per frame** as
+`sync_err_ms` in `poses.csv`, so QA verifies actuals rather than assuming.
+
+Effect of the error at survey speed *v*: along-track pose-prior offset
+`e = v · Δt`. At the nominal 5 m/s survey speed, worst-case 50 ms → **0.25 m**;
+at 2 m/s → 0.10 m. This is a *prior* fed to SfM, not the map accuracy:
+bundle adjustment refines relative geometry to cm level regardless, and
+absolute georeferencing is bounded by non-RTK GNSS (~1–2.5 m) — an order of
+magnitude above the sync contribution. Slower flight shrinks the error
+linearly but is not required. Revisit only if RTK/PPK georeferencing is
+adopted later: the fix then is a camera hardware trigger/PPS timestamping
+chain (sub-10 ms), still not PTP.
 
 ## Proposed design
 
@@ -70,9 +91,11 @@ the manifest make the transfer verifiable with `tools/photogrammetry/verify_data
 - Sync: ApproximateTime(image, pose), queue 30, slop 50 ms; per-pair
   `sync_err_ms = |stamp_img − stamp_pose|` recorded in `poses.csv`; pairs
   with `sync_err_ms > 50` are dropped and counted (`dropped_sync` in manifest).
-- Rate limiting to `capture_rate_hz` after sync (drop, don't queue).
-- Parameters: `capture_rate_hz=2.0`, `output_dir=/data/surveys`,
-  `jpeg_quality=95`, `min_free_gib=2.0`.
+- Rate limiting after sync (drop, don't queue) to the rate from the arming
+  `Mission` (`capture_rate_hz` field, DES-003); falls back to the
+  `default_capture_rate_hz` parameter when the mission leaves it 0.
+- Parameters: `default_capture_rate_hz=2.0`, `output_dir=/data/surveys`
+  (external data volume), `jpeg_quality=95`, `min_free_mb=500`.
 - Failure behavior: disk-full or write error → stop recording, publish
   diagnostic log at ERROR, finalize manifest with `status: truncated`.
 

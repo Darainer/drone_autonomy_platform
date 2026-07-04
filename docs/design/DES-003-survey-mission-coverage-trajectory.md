@@ -51,7 +51,14 @@ geometry_msgs/Polygon survey_polygon   # vertices in local ENU frame, z ignored
 float32 survey_altitude_m              # AGL altitude for the survey
 float32 forward_overlap                # 0.0–1.0, default 0.75
 float32 side_overlap                   # 0.0–1.0, default 0.60
+float32 survey_speed_ms                # planned ground speed, default 5.0
+float32 capture_rate_hz                # recorder capture rate; 0 = recorder default (2.0)
 ```
+
+Capture rate is a **mission-planning** input (designer review, PR #22): the
+operator tunes it with speed. Consistency rule enforced at validation:
+`survey_speed_ms ≤ capture_spacing × capture_rate_hz` (with the DES-003
+capture spacing `s_cap`), so the flown speed cannot break forward overlap.
 
 New `msgs/ros2/MissionStatus.msg`:
 
@@ -69,7 +76,11 @@ string detail       # human-readable reason (rejection cause, abort source)
    here; wiring beyond a launch remap is out of WP-1 scope).
 2. Validation (reject → publish `MissionStatus{state: "rejected", detail}`):
    polygon has ≥ 3 vertices; no self-intersection (segment sweep test);
-   `10.0 ≤ survey_altitude_m ≤ 120.0`; overlaps in `[0.30, 0.95]`.
+   `10.0 ≤ survey_altitude_m ≤ 120.0`; overlaps in `[0.30, 0.95]`;
+   `capture_rate_hz` is 0 or in `[0.5, 10.0]`; `survey_speed_ms` in
+   `[1.0, 12.0]` and consistent with the effective capture rate
+   (`survey_speed_ms ≤ s_cap × capture_rate_hz`, using the recorder default
+   2.0 Hz when the field is 0).
 3. On pass: publish the `Mission` on `~/mission` with `mission_type =
    "survey"`, unique `mission_id` (`survey_<utc-iso>`), then
    `MissionStatus{state: "active"}` on `~/mission_status`.

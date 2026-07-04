@@ -43,8 +43,8 @@ MAP-1 is Approved).
   `/mavros/local_position/pose` + `/mavros/global_position/global` at
   realistic rates/timestamps, checked in with WP-2.
 - Common parameters unless a TS says otherwise: altitude 40 m,
-  forward_overlap 0.75, side_overlap 0.60, OAK-D FOV 69°/55°
-  (footprint ≈ 55 m × 42 m at 40 m AGL).
+  forward_overlap 0.75, side_overlap 0.60, survey_speed 5 m/s,
+  capture_rate 2 Hz, OAK-D FOV 69°/55° (footprint ≈ 55 m × 42 m at 40 m AGL).
 
 ## Test Specifications
 
@@ -57,7 +57,7 @@ MAP-1 is Approved).
 
 ### TS-02 — Degenerate survey rejection (`Verifies: MAP-6`)
 - **Item under test:** DES-003 validation rules
-- **Setup:** publish each `REF-BAD-*` polygon, plus altitude 5 m and 200 m cases, plus overlap 0.1 and 0.99 cases
+- **Setup:** publish each `REF-BAD-*` polygon, plus altitude 5 m and 200 m cases, plus overlap 0.1 and 0.99 cases, plus capture_rate 0.1 and 20 Hz cases, plus a speed/rate inconsistency case (12 m/s at 0.5 Hz — violates `speed ≤ s_cap × rate`)
 - **Pass:** for every case: zero `/mission` publications; one `MissionStatus{state:"rejected"}` whose `detail` names the failed rule.
 
 ### TS-03 — Coverage geometry properties (`Verifies: MAP-1`)
@@ -81,7 +81,7 @@ MAP-1 is Approved).
 - **Item under test:** `survey_recorder_node` sync (DES-004 D4)
 - **Environment:** replay F3 with an armed survey mission
 - **Procedure:** replay 60 s; disarm via `MissionStatus{complete}`; read dataset
-- **Pass:** dataset contains ≥ 95% of the expected `capture_rate_hz × 60` frames; every `poses.csv` row has `sync_err_ms ≤ 50`; `lat/lon` non-null for ≥ 99% of rows; `dropped_sync` in manifest equals replayed pairs exceeding slop.
+- **Pass:** dataset contains ≥ 95% of the expected `rate × 60` frames at the **mission-specified** capture rate (repeat at 1 Hz and 4 Hz to prove the field is honored); every `poses.csv` row has `sync_err_ms ≤ 50`; `lat/lon` non-null for ≥ 99% of rows; `dropped_sync` in manifest equals replayed pairs exceeding slop.
 
 ### TS-06 — Recording window (`Verifies: MAP-2`)
 - **Item under test:** DES-004 D6 trigger semantics
