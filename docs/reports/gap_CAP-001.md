@@ -4,7 +4,7 @@
 
 Target spec: `docs/architecture/target/CAP-001-photogrammetry.yaml` · Stakeholder requirements: STK-1
 
-**15 / 18** target elements present — **3 gap(s) remain**
+**18 / 18** target elements present — **capability complete**
 
 ## Containers
 
@@ -15,7 +15,7 @@ Target spec: `docs/architecture/target/CAP-001-photogrammetry.yaml` · Stakehold
 | oakd | — | ✅ present | registered in EXTERNAL_SYSTEMS |
 | mavros | — | ✅ present | registered in EXTERNAL_SYSTEMS |
 | survey_recorder_node | MAP-2 | ✅ present | ROS2 node parsed from src/ |
-| photogrammetry_pipeline | MAP-4 | ❌ missing | `tools/photogrammetry` does not exist |
+| photogrammetry_pipeline | MAP-4 | ✅ present | `tools/photogrammetry` exists |
 
 ## Flows
 
@@ -36,13 +36,5 @@ Target spec: `docs/architecture/target/CAP-001-photogrammetry.yaml` · Stakehold
 | Survey mission type in mission manager | MAP-6 | ✅ present | `Implements: MAP-6` in src/autonomy/include/autonomy/autonomy_node.hpp, src/autonomy/include/autonomy/survey_validation.hpp, src/autonomy/src/autonomy_node.cpp |
 | Coverage-pattern trajectory generator in navigation | MAP-1 | ✅ present | `Implements: MAP-1` in src/navigation/include/navigation/survey_planner.hpp, src/navigation/src/survey_planner.cpp |
 | Dataset offload format documented and implemented | MAP-3 | ✅ present | `Implements: MAP-3` in src/mapping/include/mapping/dataset_writer.hpp |
-| Onboard post-flight consistency check | MAP-7 | ❌ missing | no `Implements: MAP-7` marker under src/ |
-| Reconstruction pipeline executable on companion | MAP-8 | ❌ missing | no `Implements: MAP-8` marker under src/ |
-
-## Gap list (implementation handoff input)
-
-- [ ] photogrammetry_pipeline (MAP-4)
-- [ ] Onboard post-flight consistency check (MAP-7)
-- [ ] Reconstruction pipeline executable on companion (MAP-8)
-
-Turn gaps into work: see the `capability` skill — each gap cluster gets a design doc (`design` skill) and an agent work package.
+| Onboard post-flight consistency check | MAP-7 | ✅ present | `Implements: MAP-7` in tools/photogrammetry/run_pipeline.py |
+| Reconstruction pipeline executable on companion | MAP-8 | ✅ present | `Implements: MAP-8` in tools/photogrammetry/run_pipeline.py |
