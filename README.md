@@ -73,6 +73,10 @@ src/
 └── common/          Shared headers
 ```
 
+The offboard/dual-target photogrammetry reconstruction pipeline (WP-3) lives
+at `tools/photogrammetry` — it is not a ROS package; see
+[`tools/photogrammetry/README.md`](tools/photogrammetry/README.md).
+
 ### Perception Pipeline (Jetson Orin)
 
 ```
@@ -126,6 +130,12 @@ OAK-D Camera                     Jetson Orin
   ~/survey_request ▶│ autonomy_node   │──▶ ~/mission
                     │ (BehaviorTree)  │    ~/mission_status (reliable, transient_local)
                     └──────────────────┘
+
+                    ┌──────────────────┐
+  /oak/rgb/image ──▶│ survey_recorder  │──▶ /data/surveys/<id>/
+  /mavros pose+fix ▶│      _node       │    (DES-004 dataset)
+  /mission(+status)▶│                  │
+                    └──────────────────┘
 ```
 
 ---
@@ -140,7 +150,7 @@ implementation plan.
 
 | Capability | Stakeholder req | Status | Artifacts |
 |---|---|---|---|
-| CAP-001 — Visual Photogrammetry / Survey Mapping | STK-1 | **Planned, awaiting WP-1 kickoff** — gap 15/18, 4 work packages, designs DES-003/004/005 written | [capability doc](docs/capabilities/CAP-001-photogrammetry.md) · [implementation plan](docs/capabilities/CAP-001-implementation-plan.md) · [test plan](docs/test_plans/TP-002-survey-mapping.md) · [gap report](docs/reports/gap_CAP-001.md) |
+| CAP-001 — Visual Photogrammetry / Survey Mapping | STK-1 | **WP-1/WP-2 merged, WP-3 in PR #26** — WP-1 (survey mission + coverage trajectory) and WP-2 (survey_recorder_node) merged; WP-3 (dual-target photogrammetry pipeline) in PR #26 — gap 18/18 target elements present with WP-3; WP-4 (e2e validation) remaining | [capability doc](docs/capabilities/CAP-001-photogrammetry.md) · [implementation plan](docs/capabilities/CAP-001-implementation-plan.md) · [test plan](docs/test_plans/TP-002-survey-mapping.md) · [gap report](docs/reports/gap_CAP-001.md) |
 
 CAP-001 adds a `survey` mission type and coverage trajectory generator
 (WP-1), an onboard `survey_recorder_node` in a new `src/mapping` package
@@ -148,7 +158,8 @@ CAP-001 adds a `survey` mission type and coverage trajectory generator
 runs on the ground station and on the Orin companion for a ≤15 min
 post-flight consistency check and onboard reconstruction (WP-3) — and
 end-to-end validation (WP-4). Design decisions are fixed in DES-003/004/005;
-`src/mapping` and `tools/` appear in the tree as the work packages land.
+`src/mapping` has landed (WP-2), and `tools/photogrammetry` lands with WP-3
+(PR #26).
 
 ---
 

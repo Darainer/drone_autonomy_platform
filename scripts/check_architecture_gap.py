@@ -16,6 +16,7 @@ Presence rules:
                              (from, to, topic) — remappings already applied
     behavior                 present if its `evidence` string (usually an
                              "Implements: <UID>" marker) is found under src/
+                             or tools/ (offboard modules, e.g. DES-005)
 
 Usage:
     python scripts/check_architecture_gap.py                # all target specs
@@ -52,11 +53,24 @@ def load_current_model():
     return node_names, edge_keys, externals
 
 
+# Behavior evidence (an "Implements: <UID>" marker) is searched under both
+# src/ (ROS2 nodes) and tools/ (offboard modules). CAP-001 DES-005 records the
+# onboard photogrammetry behaviors MAP-7/MAP-8 as markers in
+# tools/photogrammetry (an offboard container, not a src/ node), so restricting
+# the search to src/ would leave those behaviors permanently ❌ even once their
+# code lands.
+BEHAVIOR_MARKER_ROOTS = ("src", "tools")
+
+
 def grep_src(needle: str) -> list[str]:
     hits = []
-    for path in sorted((REPO / "src").rglob("*")):
-        if path.suffix in (".cpp", ".hpp", ".py") and needle in path.read_text(errors="replace"):
-            hits.append(str(path.relative_to(REPO)))
+    for root in BEHAVIOR_MARKER_ROOTS:
+        root_dir = REPO / root
+        if not root_dir.exists():
+            continue
+        for path in sorted(root_dir.rglob("*")):
+            if path.suffix in (".cpp", ".hpp", ".py") and needle in path.read_text(errors="replace"):
+                hits.append(str(path.relative_to(REPO)))
     return hits
 
 

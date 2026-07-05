@@ -32,10 +32,14 @@ REQ_DIR = REPO / "docs" / "requirements"
 OUT_FILE = REPO / "docs" / "reports" / "traceability_matrix.md"
 
 UID_RX = re.compile(r"\b([A-Z][A-Z0-9]{1,15}-\d+)\b")
-MARKER_RX = re.compile(r"(Implements|Verifies):\s*([A-Z0-9\-,\s]+)")
+# Marker values are line-oriented ("Implements: FOO-1, BAR-2" on one line), so
+# the value class allows same-line whitespace (space/tab) but NOT newlines —
+# otherwise the greedy match runs past the marker into following prose and
+# picks up unrelated UID-shaped tokens (e.g. design-doc ids like DES-005).
+MARKER_RX = re.compile(r"(Implements|Verifies):[ \t]*([A-Z0-9,\- \t]+)")
 
 CODE_GLOBS = ["src/**/*.cpp", "src/**/*.hpp", "src/**/*.py", "agents/**/*.py",
-              "scripts/**/*.py", "launch/**/*.py"]
+              "scripts/**/*.py", "launch/**/*.py", "tools/**/*.py"]
 DOC_GLOBS = ["docs/design/**/*.md", "docs/architecture/**/*.md",
              "docs/architecture/target/**/*.yaml", "docs/capabilities/**/*.md",
              "docs/test_plans/**/*.md", "docs/standards/**/*.md"]
