@@ -80,6 +80,8 @@ CPP_PUB = re.compile(r'create_publisher<([^>]+)>\s*\(\s*"([^"]+)"')
 CPP_SUB = re.compile(r'create_subscription<([^>]+)>\s*\(\s*"([^"]+)"')
 CPP_CLIENT = re.compile(r'create_client<([^>]+)>\s*\(\s*"([^"]+)"')
 CPP_SERVICE = re.compile(r'create_service<([^>]+)>\s*\(\s*"([^"]+)"')
+CPP_MF_DECL = re.compile(r'message_filters::Subscriber<([^>]+)>\s+(\w+)\s*;')
+CPP_MF_SUB = re.compile(r'\b(\w+)\.subscribe\(\s*this\s*,\s*"([^"]+)"')
 
 PY_NODE = re.compile(r'super\(\)\.__init__\(\s*["\']([^"\']+)["\']')
 STR_OR_NAME = r'("[^"]+"|\'[^\']+\'|[A-Za-z_]\w*)'
@@ -170,6 +172,13 @@ def parse_sources() -> list[RosNode]:
             node.subs = [(t, short_type(ty)) for ty, t in CPP_SUB.findall(text)]
             node.clients = [(t, short_type(ty)) for ty, t in CPP_CLIENT.findall(text)]
             node.services = [(t, short_type(ty)) for ty, t in CPP_SERVICE.findall(text)]
+            # C++ message_filters::Subscriber<TYPE> member -> name, then
+            # name.subscribe(this, "topic", ...) calls; fall back to a
+            # generic type only if the member declaration isn't found.
+            mf_types = {name: ty for ty, name in CPP_MF_DECL.findall(text)}
+            for name, t in CPP_MF_SUB.findall(text):
+                ty = mf_types.get(name, "message_filters::Subscriber")
+                node.subs.append((t, short_type(ty)))
             nodes.append(node)
         else:
             m = PY_NODE.search(text)

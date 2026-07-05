@@ -9,6 +9,8 @@ __pycache__/
 .idea/
 *.bag
 *.db3
+# CAP-001 WP-2: F3 replay-bag is an intentional test fixture check-in (TP-002 F3)
+!src/mapping/tests/fixtures/**/*.db3
 *.env
 *.log
 flight_logs/

@@ -4,7 +4,7 @@
 
 Target spec: `docs/architecture/target/CAP-001-photogrammetry.yaml` · Stakeholder requirements: STK-1
 
-**8 / 18** target elements present — **10 gap(s) remain**
+**15 / 18** target elements present — **3 gap(s) remain**
 
 ## Containers
 
@@ -14,7 +14,7 @@ Target spec: `docs/architecture/target/CAP-001-photogrammetry.yaml` · Stakehold
 | navigation_node | MAP-1 | ✅ present | ROS2 node parsed from src/ |
 | oakd | — | ✅ present | registered in EXTERNAL_SYSTEMS |
 | mavros | — | ✅ present | registered in EXTERNAL_SYSTEMS |
-| survey_recorder_node | MAP-2 | ❌ missing | no such node in src/ |
+| survey_recorder_node | MAP-2 | ✅ present | ROS2 node parsed from src/ |
 | photogrammetry_pipeline | MAP-4 | ❌ missing | `tools/photogrammetry` does not exist |
 
 ## Flows
@@ -23,11 +23,11 @@ Target spec: `docs/architecture/target/CAP-001-photogrammetry.yaml` · Stakehold
 |---|---|---|---|
 | autonomy_node → navigation_node | MAP-6 | ✅ present | `/mission` |
 | navigation_node → control_node | MAP-1 | ✅ present | `/trajectory` |
-| oakd → survey_recorder_node | MAP-2 | ❌ missing | `/oak/rgb/image_raw` — no such edge in current topic graph |
-| mavros → survey_recorder_node | MAP-2 | ❌ missing | `/mavros/local_position/pose` — no such edge in current topic graph |
-| mavros → survey_recorder_node | MAP-2 | ❌ missing | `/mavros/global_position/global` — no such edge in current topic graph |
-| autonomy_node → survey_recorder_node | MAP-2 | ❌ missing | `/mission` — no such edge in current topic graph |
-| autonomy_node → survey_recorder_node | MAP-2 | ❌ missing | `/mission_status` — no such edge in current topic graph |
+| oakd → survey_recorder_node | MAP-2 | ✅ present | `/oak/rgb/image_raw` |
+| mavros → survey_recorder_node | MAP-2 | ✅ present | `/mavros/local_position/pose` |
+| mavros → survey_recorder_node | MAP-2 | ✅ present | `/mavros/global_position/global` |
+| autonomy_node → survey_recorder_node | MAP-2 | ✅ present | `/mission` |
+| autonomy_node → survey_recorder_node | MAP-2 | ✅ present | `/mission_status` |
 
 ## Behaviors
 
@@ -35,20 +35,13 @@ Target spec: `docs/architecture/target/CAP-001-photogrammetry.yaml` · Stakehold
 |---|---|---|---|
 | Survey mission type in mission manager | MAP-6 | ✅ present | `Implements: MAP-6` in src/autonomy/include/autonomy/autonomy_node.hpp, src/autonomy/include/autonomy/survey_validation.hpp, src/autonomy/src/autonomy_node.cpp |
 | Coverage-pattern trajectory generator in navigation | MAP-1 | ✅ present | `Implements: MAP-1` in src/navigation/include/navigation/survey_planner.hpp, src/navigation/src/survey_planner.cpp |
-| Dataset offload format documented and implemented | MAP-3 | ❌ missing | no `Implements: MAP-3` marker under src/ |
+| Dataset offload format documented and implemented | MAP-3 | ✅ present | `Implements: MAP-3` in src/mapping/include/mapping/dataset_writer.hpp |
 | Onboard post-flight consistency check | MAP-7 | ❌ missing | no `Implements: MAP-7` marker under src/ |
 | Reconstruction pipeline executable on companion | MAP-8 | ❌ missing | no `Implements: MAP-8` marker under src/ |
 
 ## Gap list (implementation handoff input)
 
-- [ ] survey_recorder_node (MAP-2)
 - [ ] photogrammetry_pipeline (MAP-4)
-- [ ] oakd → survey_recorder_node (MAP-2)
-- [ ] mavros → survey_recorder_node (MAP-2)
-- [ ] mavros → survey_recorder_node (MAP-2)
-- [ ] autonomy_node → survey_recorder_node (MAP-2)
-- [ ] autonomy_node → survey_recorder_node (MAP-2)
-- [ ] Dataset offload format documented and implemented (MAP-3)
 - [ ] Onboard post-flight consistency check (MAP-7)
 - [ ] Reconstruction pipeline executable on companion (MAP-8)
 

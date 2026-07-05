@@ -1,0 +1,31 @@
+rosbag2_bagfile_information:
+  version: 5
+  storage_identifier: sqlite3
+  relative_file_paths:
+    - f3_survey_replay_0.db3
+  duration:
+    nanoseconds: 152000000000
+  starting_time:
+    nanoseconds_since_epoch: 1705276800000000000
+  message_count: 7603
+  topics_with_message_count:
+    - topic_metadata:
+        name: /oak/rgb/image_raw
+        type: sensor_msgs/msg/Image
+        serialization_format: cdr
+        offered_qos_profiles: ''
+      message_count: 2281
+    - topic_metadata:
+        name: /mavros/local_position/pose
+        type: geometry_msgs/msg/PoseStamped
+        serialization_format: cdr
+        offered_qos_profiles: ''
+      message_count: 4561
+    - topic_metadata:
+        name: /mavros/global_position/global
+        type: sensor_msgs/msg/NavSatFix
+        serialization_format: cdr
+        offered_qos_profiles: ''
+      message_count: 761
+  compression_format: ''
+  compression_mode: ''

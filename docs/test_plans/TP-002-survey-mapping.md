@@ -19,8 +19,8 @@ contract the implementing agent codes against. Linkage is checked by
 |---|---|---|---|---|---|
 | MAP-6 | Test | SITL | TS-01, TS-02 | WP-1 | implemented |
 | MAP-1 ⚠ | Test | Unit + SITL | TS-03, TS-04 | WP-1 | implemented |
-| MAP-2 | Test | SITL (replay) | TS-05, TS-06 | WP-2 | planned |
-| MAP-3 | Test | Unit | TS-07 | WP-2 | planned |
+| MAP-2 | Test | SITL (replay) | TS-05, TS-06 | WP-2 | implemented |
+| MAP-3 | Test | Unit | TS-07 | WP-2 | implemented |
 | MAP-4 | Test | Ground station | TS-08 | WP-3 | planned |
 | MAP-5 | Test | Unit + SITL e2e | TS-09, TS-12 | WP-3/4 | planned |
 | MAP-7 | Test | Jetson HIL | TS-10 | WP-3 | planned |
