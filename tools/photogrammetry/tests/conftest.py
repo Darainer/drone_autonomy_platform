@@ -86,8 +86,25 @@ def build_dataset(
     extra_pose_column: Optional[str] = None,
     null_gnss_frames: Optional[set] = None,
     finalize_manifest: bool = True,
+    polygon: Optional[list] = None,
+    camera_intrinsics: Optional[dict] = None,
+    altitude: Optional[float] = None,
+    pose_row_fn=None,
 ) -> pathlib.Path:
     """Build a small but schema-valid DES-004 dataset under `root`.
+
+    `polygon`, `camera_intrinsics`, and `altitude` override the
+    corresponding manifest fields (defaults unchanged from T3.1: a 10x10
+    square, a fixed intrinsics dict, and altitude 50.0) -- used by T3.2
+    tests that need a specific survey polygon / camera model to build a
+    dataset whose predicted footprint coverage is controlled (e.g. a
+    REF-RECT-covering or deliberately under-covering dataset).
+
+    `pose_row_fn`, if given, is called as `pose_row_fn(frame_idx, stamp_ns)`
+    and must return a complete poses.csv row dict (all REQUIRED_POSE_COLUMNS
+    keys); it replaces the default synthetic pose generator entirely for
+    this dataset (so `extra_pose_column`/`null_gnss_frames` are ignored when
+    `pose_row_fn` is provided -- the caller's row already owns all columns).
 
     Returns the dataset directory (`root/survey_<mission_id>`).
     """
@@ -113,14 +130,16 @@ def build_dataset(
         writer.writeheader()
         null_gnss_frames = null_gnss_frames or set()
         for frame_idx, stamp_ns in enumerate(stamps):
-            writer.writerow(
-                _pose_row(
+            if pose_row_fn is not None:
+                row = pose_row_fn(frame_idx, stamp_ns)
+            else:
+                row = _pose_row(
                     frame_idx,
                     stamp_ns,
                     extra_pose_column,
                     null_gnss=frame_idx in null_gnss_frames,
                 )
-            )
+            writer.writerow(row)
 
     sha256_map = {relpath: _sha256_of_file(dataset_dir / relpath) for relpath in image_relpaths}
     sha256_map["poses.csv"] = _sha256_of_file(poses_path)
@@ -128,13 +147,15 @@ def build_dataset(
     manifest = {
         "format_version": 1,
         "mission_id": mission_id,
-        "polygon": [[0.0, 0.0], [0.0, 10.0], [10.0, 10.0], [10.0, 0.0]],
-        "altitude": 50.0,
+        "polygon": polygon if polygon is not None else [[0.0, 0.0], [0.0, 10.0], [10.0, 10.0], [10.0, 0.0]],
+        "altitude": altitude if altitude is not None else 50.0,
         "overlaps": {"forward": 80, "side": 70},
         "start_utc": "2026-07-05T12:00:00Z",
         "end_utc": "2026-07-05T12:05:00Z",
         "frame_count": num_frames,
-        "camera_intrinsics": {
+        "camera_intrinsics": camera_intrinsics
+        if camera_intrinsics is not None
+        else {
             "fx": 600.0,
             "fy": 600.0,
             "cx": 320.0,
