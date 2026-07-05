@@ -13,6 +13,12 @@ using Point32 = geometry_msgs::msg::Point32;
 
 constexpr double kEps = 1e-9;
 
+// Below this absolute area (m^2) a polygon is treated as degenerate/zero-area
+// (e.g. all vertices collinear): it has no interior for the coverage planner
+// to sweep, so it must be rejected before dispatch rather than dispatched and
+// silently producing no trajectory.
+constexpr double kMinPolygonAreaM2 = 1e-3;
+
 double cross(const Point32 & o, const Point32 & a, const Point32 & b)
 {
     return (static_cast<double>(a.x) - o.x) * (static_cast<double>(b.y) - o.y) -
@@ -65,6 +71,35 @@ bool segments_intersect(const Point32 & p1, const Point32 & q1, const Point32 & 
     }
 
     return false;
+}
+
+// True if every vertex coordinate is a finite number. NaN/Inf vertices would
+// make the cross-product and area math below silently non-finite and let a
+// malformed polygon pass, so they are rejected up front.
+bool polygon_all_finite(const geometry_msgs::msg::Polygon & polygon)
+{
+    for (const auto & p : polygon.points) {
+        if (!std::isfinite(p.x) || !std::isfinite(p.y)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Absolute polygon area via the shoelace formula. Precondition: vertices are
+// finite (checked separately). Zero (within kMinPolygonAreaM2) means the
+// vertices are collinear / the polygon is degenerate.
+double polygon_area(const geometry_msgs::msg::Polygon & polygon)
+{
+    const auto & pts = polygon.points;
+    const std::size_t n = pts.size();
+    double twice_area = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const Point32 & a = pts[i];
+        const Point32 & b = pts[(i + 1) % n];
+        twice_area += static_cast<double>(a.x) * b.y - static_cast<double>(b.x) * a.y;
+    }
+    return std::abs(twice_area) * 0.5;
 }
 
 }  // namespace
@@ -138,12 +173,27 @@ ValidationResult validate_survey_mission(const drone_autonomy_msgs::msg::Mission
                            std::to_string(n) + ")"};
     }
 
+    if (!polygon_all_finite(polygon)) {
+        return {false, "survey_polygon has a non-finite (NaN/Inf) vertex"};
+    }
+
     if (polygon_self_intersects(polygon)) {
         return {false, "survey_polygon is self-intersecting"};
     }
 
+    if (polygon_area(polygon) < kMinPolygonAreaM2) {
+        return {false, "survey_polygon is degenerate (near-zero area / collinear vertices)"};
+    }
+
     if (!polygon_is_convex(polygon)) {
         return {false, "survey_polygon must be convex (v1, DES-003 D5)"};
+    }
+
+    if (!std::isfinite(mission.survey_altitude_m) || !std::isfinite(mission.forward_overlap) ||
+        !std::isfinite(mission.side_overlap) || !std::isfinite(mission.capture_rate_hz) ||
+        !std::isfinite(mission.survey_speed_ms)) {
+        return {false, "survey mission parameters must be finite numbers "
+                       "(altitude, overlaps, speed, capture_rate)"};
     }
 
     if (mission.survey_altitude_m < kMinAltitudeM || mission.survey_altitude_m > kMaxAltitudeM) {

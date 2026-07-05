@@ -11,6 +11,7 @@
 // a sandbox without ROS2 installed.
 
 #include <chrono>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -76,6 +77,16 @@ Polygon concaveDart()
     return poly;
 }
 
+// Three collinear vertices: a valid vertex count and non-self-intersecting,
+// but zero enclosed area — the coverage planner has nothing to sweep, so it
+// must be rejected as degenerate before dispatch.
+Polygon collinearPolygon()
+{
+    Polygon poly;
+    poly.points = {makePoint(0, 0), makePoint(50, 0), makePoint(100, 0)};
+    return poly;
+}
+
 // TP-002 "common parameters": altitude 40 m, forward 0.75, side 0.60,
 // speed 5 m/s, capture_rate 2 Hz — all inside every DES-003 bound and
 // consistent (s_cap*rate ~= 20.8 m/s at 40 m/55 deg VFOV >> 5 m/s).
@@ -98,6 +109,20 @@ Mission commonSurveyRequest(const Polygon & polygon)
 class SurveyDispatchTest : public ::testing::Test
 {
 protected:
+    // ament_add_gtest links its own gtest_main, so this target must NOT define
+    // its own main(). Initialize/shut down ROS once for the whole suite here.
+    static void SetUpTestSuite()
+    {
+        if (!rclcpp::ok()) {
+            rclcpp::init(0, nullptr);
+        }
+    }
+
+    static void TearDownTestSuite()
+    {
+        rclcpp::shutdown();
+    }
+
     void SetUp() override
     {
         autonomy_node_ = std::make_shared<AutonomyNode>();
@@ -321,11 +346,28 @@ TEST_F(SurveyDispatchTest, RejectsSpeedCaptureRateInconsistency)
     EXPECT_NE(statuses_[0].detail.find("speed"), std::string::npos) << statuses_[0].detail;
 }
 
-int main(int argc, char ** argv)
+// TS-02 — degenerate (zero-area / collinear) polygon (Verifies: MAP-6)
+TEST_F(SurveyDispatchTest, RejectsZeroAreaPolygon)
 {
-    rclcpp::init(argc, argv);
-    ::testing::InitGoogleTest(&argc, argv);
-    const int result = RUN_ALL_TESTS();
-    rclcpp::shutdown();
-    return result;
+    auto request = commonSurveyRequest(collinearPolygon());
+    publishAndWait(request);
+
+    EXPECT_EQ(missions_.size(), 0u);
+    ASSERT_EQ(statuses_.size(), 1u);
+    EXPECT_EQ(statuses_[0].state, "rejected");
+    // Rejected for degeneracy, not misclassified as self-intersecting/convex.
+    EXPECT_NE(statuses_[0].detail.find("degenerate"), std::string::npos) << statuses_[0].detail;
+}
+
+// TS-02 — non-finite (NaN) numeric parameter (Verifies: MAP-6)
+TEST_F(SurveyDispatchTest, RejectsNonFiniteAltitude)
+{
+    auto request = commonSurveyRequest(refRect());
+    request.survey_altitude_m = std::numeric_limits<float>::quiet_NaN();
+    publishAndWait(request);
+
+    EXPECT_EQ(missions_.size(), 0u);
+    ASSERT_EQ(statuses_.size(), 1u);
+    EXPECT_EQ(statuses_[0].state, "rejected");
+    EXPECT_NE(statuses_[0].detail.find("finite"), std::string::npos) << statuses_[0].detail;
 }
