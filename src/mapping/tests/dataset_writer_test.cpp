@@ -464,11 +464,24 @@ TEST_F(DatasetWriterTest, FreeSpaceGuardFailsForAbsurdRequirement)
 TEST_F(DatasetWriterTest, FreeSpaceGuardWorksBeforeDatasetDirExists)
 {
     // D7 is checked before arming, i.e. before survey_<mission_id>/ is
-    // created — the guard must walk up to an existing ancestor.
+    // created — the guard must check exactly one level up (the mount point,
+    // which here is the existing tmp_root_).
     const std::string not_yet_created = (tmp_root_ / "survey_future_mission").string();
     long free_mb = 0;
     EXPECT_TRUE(mapping::hasEnoughFreeSpace(not_yet_created, 1, free_mb));
     EXPECT_GT(free_mb, 0);
+}
+
+TEST_F(DatasetWriterTest, FreeSpaceGuardTripsWhenVolumeNotMounted)
+{
+    // D7 must fail closed if the external data volume (output_dir) isn't
+    // mounted: neither the path nor its immediate parent may exist, and the
+    // guard must NOT walk further up (e.g. to `/`) and pass against some
+    // unrelated ancestor filesystem instead.
+    const std::string unmounted = "/nonexistent_mount_xyz/surveys";
+    long free_mb = 123;
+    EXPECT_FALSE(mapping::hasEnoughFreeSpace(unmounted, 1, free_mb));
+    EXPECT_EQ(free_mb, 0);
 }
 
 }  // namespace

@@ -36,6 +36,7 @@ import pytest
 import rclpy
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node as RclpyNode
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 
 from drone_autonomy_msgs.msg import Mission, MissionStatus
 
@@ -119,6 +120,15 @@ class _BagReplayer:
         if not self._messages:
             return 0.0
         return (self._messages[-1][0] - self._messages[0][0]) / 1e9
+
+    def first_stamp_ns(self):
+        """The bag's first message timestamp (header-stamp time domain, i.e.
+        BASE_NS from generate_f3_bag.py -- a 2024 epoch), not wall/ROS time.
+        Messages are replayed with their original header stamps but paced to
+        wall time, so recorded frame stamps live in this domain; callers must
+        derive the armed window here rather than against arm/disarm ROS time.
+        """
+        return self._messages[0][0] if self._messages else 0
 
     def start(self):
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -209,7 +219,19 @@ class TestSurveyRecorderReplay(unittest.TestCase):
     def setUp(self):
         self.node = RclpyNode('test_survey_recorder_replay_driver')
         self.mission_pub = self.node.create_publisher(Mission, '/mission', 10)
-        self.status_pub = self.node.create_publisher(MissionStatus, '/mission_status', 10)
+        # /mission_status must match the production autonomy_node publisher's
+        # QoS (reliable + transient_local, KeepLast depth 10; see
+        # src/autonomy/src/autonomy_node.cpp) -- survey_recorder_node
+        # subscribes reliable/transient_local, and a volatile publisher is
+        # QoS-incompatible with a transient_local subscriber, so disarm would
+        # never be delivered and the dataset would never finalize.
+        mission_status_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.status_pub = self.node.create_publisher(MissionStatus, '/mission_status', mission_status_qos)
         self.executor = SingleThreadedExecutor()
         self.executor.add_node(self.node)
         self.spin_thread = threading.Thread(target=self.executor.spin, daemon=True)
@@ -241,12 +263,12 @@ class TestSurveyRecorderReplay(unittest.TestCase):
         capture_rate_hz = 2.0
         frame_period_s = 1.0 / capture_rate_hz
 
+        bag_t0_ns = replayer.first_stamp_ns()
         replay_start_wall = time.monotonic()
         replayer.start()
 
         time.sleep(30.0)
         arm_wall = time.monotonic()
-        arm_ros_time = self.node.get_clock().now()
         self._arm(mission_id, capture_rate_hz)
 
         time.sleep(30.0)
@@ -264,10 +286,14 @@ class TestSurveyRecorderReplay(unittest.TestCase):
         rows = _read_poses_csv(dirs[0])
         self.assertGreater(len(rows), 0, 'expected at least one recorded frame in the armed window')
 
-        armed_start_ns = arm_ros_time.nanoseconds
-        # Approximate the disarm ROS time from the wall-clock delta, since we
-        # only captured a ROS Time at arm.
-        armed_end_ns = armed_start_ns + int((disarm_wall - arm_wall) * 1e9)
+        # Recorded frame stamps are the bag's original header stamps (paced
+        # to wall time but not rewritten), i.e. the BASE_NS bag-time domain
+        # from generate_f3_bag.py -- NOT arm/disarm ROS time, which runs on
+        # wall-clock "now" and would be years apart from a fixture bag
+        # recorded at a fixed 2024 epoch. Derive the armed window in the same
+        # bag-time domain via the wall-clock offsets from replay start.
+        armed_start_ns = bag_t0_ns + int((arm_wall - replay_start_wall) * 1e9)
+        armed_end_ns = bag_t0_ns + int((disarm_wall - replay_start_wall) * 1e9)
         tolerance_ns = int(frame_period_s * 1e9)
 
         for row in rows:

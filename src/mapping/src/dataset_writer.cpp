@@ -163,21 +163,29 @@ std::string sha256File(const std::string & path)
 }
 
 // ---------------------------------------------------------------------
-// D7 free-space guard.
+// D7 free-space guard. Guards the external data volume backing output_dir:
+// refuses to arm if the volume isn't mounted (rather than silently checking
+// some unrelated ancestor filesystem, e.g. `/`, and recording onto the
+// system disk instead) and refuses to arm below the configured free-space
+// floor.
 // ---------------------------------------------------------------------
 bool hasEnoughFreeSpace(const std::string & path, long min_free_mb, long & free_mb_out)
 {
     free_mb_out = 0;
 
-    // statvfs requires an existing path; walk up to the nearest existing
-    // ancestor so the guard still works before survey_<mission_id>/ exists.
+    // statvfs requires an existing path, and `path` (output_dir, or the
+    // not-yet-created survey_<mission_id>/ beneath it) may not exist yet.
+    // Check `path` itself, and if that's missing, exactly one level up —
+    // the mount point. Do NOT walk further: if neither exists the external
+    // volume is not mounted, and the guard must fail closed rather than
+    // fall through to a real ancestor filesystem and pass against it.
     std::error_code ec;
     fs::path probe(path);
-    while (!probe.empty() && !fs::exists(probe, ec)) {
+    if (!fs::exists(probe, ec)) {
         probe = probe.parent_path();
-    }
-    if (probe.empty()) {
-        return false;  // fail closed: nothing on this path resolves to a real filesystem
+        if (probe.empty() || !fs::exists(probe, ec)) {
+            return false;  // fail closed: volume not mounted
+        }
     }
 
     struct statvfs st{};

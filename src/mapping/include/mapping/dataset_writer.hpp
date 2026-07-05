@@ -85,10 +85,16 @@ struct FrameRecord
     double sync_err_ms{0.0};
 };
 
-// D7 — refuse to arm below `min_free_mb` free space on the volume backing
-// `path` (the output_dir). Pure/testable: statvfs-based, no ROS deps.
-// Returns false (guard tripped) if the check itself fails (e.g. path does
-// not exist) — fail closed. `free_mb_out` is always populated on success.
+// D7 — guard the external data volume backing `path` (the output_dir):
+// refuse to arm below `min_free_mb` free space on it, and refuse to arm if
+// that volume isn't mounted at all. Pure/testable: statvfs-based, no ROS
+// deps. `path` may not exist yet (survey_<mission_id>/ is created lazily),
+// so the check looks at `path` itself and, failing that, exactly one level
+// up (the mount point) — never further, so an unmounted volume can't fall
+// through to a real ancestor filesystem (e.g. `/`) and pass against the
+// system disk instead. Returns false (guard tripped) if neither exists, or
+// if the check itself fails (e.g. statvfs error) — fail closed. `free_mb_out`
+// is always populated on success (0 otherwise).
 bool hasEnoughFreeSpace(const std::string & path, long min_free_mb, long & free_mb_out);
 
 // sha256 hex digest of a file's contents. Used for manifest.yaml checksums
