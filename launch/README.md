@@ -14,8 +14,8 @@ package under `src/<subsystem>/launch/` and are composed here.
 
 | File | Short description |
 |------|-------------------|
-| [`platform.launch.py`](platform.launch.py) | **Full stack** — all six subsystems including GPU-accelerated perception |
-| [`platform_core.launch.py`](platform_core.launch.py) | **Core stack** — five subsystems; perception excluded (see [note below](#why-perception-is-excluded-from-platform_corelaunchpy)) |
+| [`platform.launch.py`](platform.launch.py) | **Full stack** — all seven subsystems including GPU-accelerated perception |
+| [`platform_core.launch.py`](platform_core.launch.py) | **Core stack** — six subsystems; perception excluded (see [note below](#why-perception-is-excluded-from-platform_corelaunchpy)) |
 
 ---
 
@@ -42,13 +42,13 @@ strict ordering is required.
 
 ### Subsystem composition
 
-`platform.launch.py` explicitly includes each of the six subsystems in
+`platform.launch.py` explicitly includes each of the seven subsystems in
 sequence. The perception subsystem entry point is
 `perception/full_stack.launch.py`.
 
 ```python
 # platform.launch.py (abridged)
-for pkg in ['autonomy', 'communication', 'control',
+for pkg in ['autonomy', 'communication', 'control', 'mapping',
             'navigation', 'perception', 'safety']:
     ld.add_action(IncludeLaunchDescription(...))
 ```
@@ -57,7 +57,7 @@ for pkg in ['autonomy', 'communication', 'control',
 
 ```python
 # platform_core.launch.py (abridged)
-for pkg in ['autonomy', 'communication', 'control', 'navigation', 'safety']:
+for pkg in ['autonomy', 'communication', 'control', 'mapping', 'navigation', 'safety']:
     ld.add_action(IncludeLaunchDescription(...))
 ```
 
@@ -71,6 +71,7 @@ for pkg in ['autonomy', 'communication', 'control', 'navigation', 'safety']:
 | **autonomy** | ✅ included | ✅ included |
 | **communication** | ✅ included | ✅ included |
 | **control** | ✅ included | ✅ included |
+| **mapping** | ✅ included | ✅ included |
 | **navigation** | ✅ included | ✅ included |
 | **perception** | ✅ included | ❌ excluded |
 | **safety** | ✅ included | ✅ included |

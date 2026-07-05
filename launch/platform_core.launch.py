@@ -7,7 +7,9 @@ import os
 def generate_launch_description():
     ld = LaunchDescription()
 
-    for pkg in ['autonomy', 'communication', 'control', 'navigation', 'safety']:
+    # mapping (survey_recorder_node, DES-004) is plain rclcpp with no Jetson deps, so it is
+    # CI-safe here; scripts/smoke_test.sh launches this file and asserts /survey_recorder_node is up.
+    for pkg in ['autonomy', 'communication', 'control', 'mapping', 'navigation', 'safety']:
         ld.add_action(IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
                 os.path.join(get_package_share_directory(pkg), 'launch', f'{pkg}.launch.py')
