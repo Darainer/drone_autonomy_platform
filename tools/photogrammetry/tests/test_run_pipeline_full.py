@@ -8,15 +8,17 @@ drives `_mode_full` in-process with a FAKE low-level ODM runner injected at
 the `odm_runner.run_odm(..., runner=...)` seam (via `run_pipeline._mode_full`'s
 `odm_runner_fn` parameter, defaulted to `odm_runner.run_odm` for real use).
 Using the real `run_odm()` orchestration with only the low-level
-`runner(argv) -> CompletedProcess` faked means geo.txt generation and
-`build_odm_command()` argv construction are exercised for real; only the
-actual `docker run` invocation is stubbed. The fake runner writes
-stub-but-non-empty D6 product files plus a reconstruction-footprint sidecar
-that fully covers the survey polygon, then this test asserts the full TS-08
-contract: exit 0; products/ contains non-empty .laz/.obj(+.mtl)/.tif;
-report/coverage.json has a numeric coverage_pct; and no interactive prompt
-is ever emitted (builtins.input is patched to raise if called at all,
-enforcing STK-1(d) zero-interactive-input end to end).
+`runner(argv) -> CompletedProcess` faked means geo.txt generation,
+`build_odm_command()` argv construction, AND the product COLLECTION step
+(normalizing ODM's per-stage subfolders into products/) are exercised for
+real; only the actual `docker run` invocation is stubbed. The fake runner
+writes ODM's REAL output layout (odm_georeferencing/, odm_texturing/,
+odm_orthophoto/ subfolders) so run_odm's collection is not bypassed, plus an
+ENU reconstruction-footprint sidecar covering the survey polygon. The test
+asserts the full TS-08 contract: exit 0; products/ contains non-empty
+.laz/.obj(+.mtl)/.tif; report/coverage.json has a numeric coverage_pct; and
+no interactive prompt is ever emitted (builtins.input is patched to raise if
+called at all, enforcing STK-1(d) zero-interactive-input end to end).
 """
 from __future__ import annotations
 
@@ -34,28 +36,36 @@ from photogrammetry import odm_runner
 _COVERING_FOOTPRINT_VERTICES = [(-5.0, -5.0), (15.0, -5.0), (15.0, 15.0), (-5.0, 15.0)]
 
 
-def _make_fake_docker_runner(dataset_dir):
+def _write_odm_output_layout(dataset_dir):
+    """Write ODM's REAL per-stage output subfolders under the dataset dir.
+
+    Mirrors what a genuine `docker run opendronemap/odm ...` leaves behind, so
+    run_odm's collection step (odm_* subfolders -> products/) is exercised end
+    to end rather than bypassed by writing products/ directly.
+    """
+    (dataset_dir / "odm_georeferencing").mkdir(parents=True, exist_ok=True)
+    (dataset_dir / "odm_georeferencing" / "odm_georeferenced_model.laz").write_bytes(b"stub-laz")
+    (dataset_dir / "odm_texturing").mkdir(parents=True, exist_ok=True)
+    (dataset_dir / "odm_texturing" / "odm_textured_model_geo.obj").write_bytes(b"stub-obj")
+    (dataset_dir / "odm_texturing" / "odm_textured_model_geo.mtl").write_bytes(b"stub-mtl")
+    (dataset_dir / "odm_texturing" / "odm_textured_model_geo_material0000.png").write_bytes(b"tex")
+    (dataset_dir / "odm_orthophoto").mkdir(parents=True, exist_ok=True)
+    (dataset_dir / "odm_orthophoto" / "odm_orthophoto.tif").write_bytes(b"stub-tif")
+
+
+def _make_fake_docker_runner(dataset_dir, footprint_vertices):
     """A fake `runner(argv) -> CompletedProcess` standing in for real ODM.
 
-    Mimics what a real ODM container run + product-collection step would
-    leave behind: non-empty D6 product files under `<dataset>/products/`
-    plus the `reconstruction_footprint.txt` sidecar `reconstruction_footprint()`
-    reads. Also asserts the argv it receives is non-interactive, matching
-    the TS-08 "argv has no -i/-t/-it" requirement.
+    Writes ODM's real output subfolders (so collection runs) plus an ENU
+    reconstruction-footprint sidecar. Asserts the argv it receives is
+    non-interactive (TS-08 "argv has no -i/-t/-it").
     """
 
     def _fake_runner(argv):
         disallowed = {"-i", "-t", "-it", "-ti", "--interactive", "--tty"}
         assert not (disallowed & set(argv)), f"interactive flag in argv: {argv}"
-
-        products_dir = dataset_dir / "products"
-        products_dir.mkdir(parents=True, exist_ok=True)
-        (products_dir / odm_runner.LAZ_FILENAME).write_bytes(b"stub-laz-bytes")
-        (products_dir / odm_runner.OBJ_FILENAME).write_bytes(b"stub-obj-bytes")
-        (products_dir / odm_runner.MTL_FILENAME).write_bytes(b"stub-mtl-bytes")
-        (products_dir / odm_runner.ORTHOPHOTO_FILENAME).write_bytes(b"stub-tif-bytes")
-        odm_runner.write_footprint_sidecar(dataset_dir, _COVERING_FOOTPRINT_VERTICES)
-
+        _write_odm_output_layout(dataset_dir)
+        odm_runner.write_footprint_sidecar(dataset_dir, footprint_vertices)
         return subprocess.CompletedProcess(argv, returncode=0, stdout="", stderr="")
 
     return _fake_runner
@@ -71,7 +81,11 @@ def test_ts08_mode_full_smoke_with_fake_odm(dataset_factory, monkeypatch, capsys
 
     monkeypatch.setattr("builtins.input", _no_input)
 
-    fake_low_level_runner = _make_fake_docker_runner(dataset_dir)
+    # products/ must not exist before the run -- proves the collection step
+    # (odm_* subfolders -> products/) is what populates it.
+    assert not (dataset_dir / "products").exists()
+
+    fake_low_level_runner = _make_fake_docker_runner(dataset_dir, _COVERING_FOOTPRINT_VERTICES)
     odm_runner_fn = functools.partial(odm_runner.run_odm, runner=fake_low_level_runner)
 
     exit_code = run_pipeline._mode_full(
@@ -86,7 +100,8 @@ def test_ts08_mode_full_smoke_with_fake_odm(dataset_factory, monkeypatch, capsys
     # Pass: exit 0.
     assert exit_code == 0, captured.out + captured.err
 
-    # Pass: products/ contains non-empty .laz, .obj (+material), .tif.
+    # Pass: products/ contains non-empty .laz, .obj (+material), .tif --
+    # collected from ODM's real output subfolders by run_odm.
     products = odm_runner.collect_products(dataset_dir)
     for key in ("laz", "obj", "mtl", "orthophoto"):
         path = products[key]
@@ -142,21 +157,11 @@ def test_mode_full_under_coverage_exits_nonzero(dataset_factory):
     """Products complete but reconstruction footprint under-covers the survey polygon -> fail."""
     dataset_dir = dataset_factory(mission_id="ts08_under_coverage")
 
-    def _fake_runner(argv):
-        products_dir = dataset_dir / "products"
-        products_dir.mkdir(parents=True, exist_ok=True)
-        (products_dir / odm_runner.LAZ_FILENAME).write_bytes(b"stub")
-        (products_dir / odm_runner.OBJ_FILENAME).write_bytes(b"stub")
-        (products_dir / odm_runner.MTL_FILENAME).write_bytes(b"stub")
-        (products_dir / odm_runner.ORTHOPHOTO_FILENAME).write_bytes(b"stub")
-        # A tiny sliver of the manifest's 10x10 survey polygon -- well under
-        # the 95% coverage gate.
-        odm_runner.write_footprint_sidecar(
-            dataset_dir, [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
-        )
-        return subprocess.CompletedProcess(argv, returncode=0, stdout="", stderr="")
-
-    odm_runner_fn = functools.partial(odm_runner.run_odm, runner=_fake_runner)
+    # A tiny sliver of the manifest's 10x10 survey polygon -- well under the
+    # 95% coverage gate. Products still collected from ODM's real layout.
+    under_covering = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    fake_runner = _make_fake_docker_runner(dataset_dir, under_covering)
+    odm_runner_fn = functools.partial(odm_runner.run_odm, runner=fake_runner)
 
     exit_code = run_pipeline._mode_full(
         str(dataset_dir),

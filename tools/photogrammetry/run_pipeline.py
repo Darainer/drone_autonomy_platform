@@ -242,9 +242,11 @@ def _mode_full(
     products_ok = odm_runner.products_complete(dataset_path)
 
     # (c) post-reconstruction coverage QA (D4): reconstruction footprint vs.
-    # the manifest survey polygon.
+    # the manifest survey polygon, BOTH in the local ENU frame (DES-004 D3 --
+    # ODM georeferences via GNSS, but QA is done in local ENU; the poses carry
+    # both lon/lat and ENU x/y so the footprint is reconciled into ENU).
     try:
-        recon_footprint = odm_runner.reconstruction_footprint(dataset_path)
+        recon_footprint = odm_runner.reconstruction_footprint(dataset_path, poses)
         survey_polygon = coverage.survey_polygon_from_manifest(manifest)
         coverage_result = coverage.compute_coverage(recon_footprint, survey_polygon, threshold=min_coverage)
     except (odm_runner.OdmRunnerError, ValueError) as exc:
