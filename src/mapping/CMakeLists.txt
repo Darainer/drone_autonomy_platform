@@ -58,6 +58,13 @@ if(BUILD_TESTING)
     # TP-002 TS-07 — dataset format schema + offload verifiability (Verifies: MAP-3).
     ament_add_gtest(dataset_writer_test tests/dataset_writer_test.cpp)
     target_link_libraries(dataset_writer_test dataset_writer)
+
+    # TP-002 TS-05/TS-06 — sync budget, recording window (Verifies: MAP-2).
+    # ROS-graph replay test; requires the F3 fixture bag
+    # (tests/fixtures/f3_survey_replay/, CAP-001 WP-2 T2.3) and self-skips
+    # until that fixture is checked in.
+    find_package(launch_testing_ament_cmake REQUIRED)
+    add_launch_test(tests/test_survey_recorder_replay.py TIMEOUT 300)
 endif()
 
 ament_package()

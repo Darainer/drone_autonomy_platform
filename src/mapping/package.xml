@@ -20,6 +20,14 @@
 
   <test_depend>ament_cmake_gtest</test_depend>
 
+  <!-- TP-002 TS-05/TS-06 ROS-graph replay test (Verifies: MAP-2) -->
+  <test_depend>launch</test_depend>
+  <test_depend>launch_ros</test_depend>
+  <test_depend>launch_testing</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>rclpy</test_depend>
+  <test_depend>rosbag2_py</test_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
