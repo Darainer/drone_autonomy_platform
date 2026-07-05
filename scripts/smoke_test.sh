@@ -22,7 +22,7 @@ NODES=$(ros2 node list 2>/dev/null || true)
 echo "$NODES"
 
 FAILED=0
-for node in autonomy_node safety_node navigation_node control_node communication_node; do
+for node in autonomy_node safety_node navigation_node control_node communication_node survey_recorder_node; do
     if echo "$NODES" | grep -q "/$node"; then
         echo "PASS: /$node"
     else
