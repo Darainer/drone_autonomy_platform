@@ -47,6 +47,21 @@ RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink && \
     pip3 install transforms3d 2>/dev/null || true
 RUN pip3 install 'numpy<2' pycuda rfdetr onnx onnxsim onnxruntime polygraphy onnx-graphsurgeon
 
+# DES-005 D5: preinstall the arm64 photogrammetry pipeline's pure-Python
+# deps so `tools/photogrammetry` runs on-device without a separate
+# container. The pipeline itself lives at
+# src/drone_autonomy_platform/tools/photogrammetry (this workspace is
+# mounted/copied into the image below, under /ros2_ws/src/drone_autonomy_platform).
+# `numpy<2` is already installed above; shapely 2.x is compatible with it.
+# Post-landing on-device usage (v1 -- manual invocation, DES-005 D5):
+#   cd /ros2_ws/src/drone_autonomy_platform/tools/photogrammetry
+#   python3 run_pipeline.py --mode check --dataset <survey_dir>   # MAP-7, no reconstruction
+#   python3 run_pipeline.py --mode full  --dataset <survey_dir>   # MAP-8
+# `--mode full` shells out to the separate, already multi-arch
+# `opendronemap/odm:3.5.4` container (docker-in-docker / sibling-container
+# pattern, see tools/photogrammetry/odm_runner.py) -- it is not installed here.
+RUN pip3 install shapely Pillow PyYAML
+
 # Node.js + Claude Code
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
