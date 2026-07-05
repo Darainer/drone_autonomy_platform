@@ -44,6 +44,17 @@ def test_f2_fixture_is_valid_dataset():
     assert errors == [], f"F2 fixture failed DES-004 validation: {errors}"
 
 
+def test_f2_fixture_triggers_image_dims_mismatch_warning():
+    # F-6(b): F2's checked-in placeholder JPEGs are 8x8 px while its
+    # manifest declares 640x480 camera_intrinsics -- exactly the mismatch
+    # collect_warnings() exists to flag. This is a WARNING, not an error --
+    # it must not affect the exit-0 assertions in the other tests here.
+    warnings = vd.collect_warnings(F2_FIXTURE)
+    assert len(warnings) == 1
+    assert "8x8" in warnings[0]
+    assert "640x480" in warnings[0]
+
+
 def test_f2_fixture_check_mode_passes_coverage_gate(tmp_path):
     # (b) run_pipeline.py --mode check on a tmp COPY of F2 -- exit 0, verdict
     # "pass", coverage_pct >= 95 in products/report/coverage.json. Copying

@@ -152,7 +152,8 @@ def test_write_geo_txt_skips_null_gnss_rows(dataset_factory):
 
     assert geo_txt_path.is_file()
     lines = geo_txt_path.read_text().strip().splitlines()
-    assert lines[0] == "WGS84"
+    assert lines[0] == odm_runner.GEO_TXT_PROJECTION
+    assert lines[0] == "EPSG:4326"
     # 4 frames, 1 with null lat/lon -> 3 georeferenced image lines.
     assert len(lines) == 1 + 3
     frame_1_image = poses[1].image_filename

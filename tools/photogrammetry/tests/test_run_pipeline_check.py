@@ -123,6 +123,57 @@ def test_check_mode_reports_sync_error_stats(dataset_factory):
     assert stats["max_ms"] == 75.0
 
 
+def test_check_mode_report_includes_image_dims_warning(dataset_factory):
+    # F-6(b): dataset_factory's default 8x8 placeholder JPEGs mismatch the
+    # NADIR_INTRINSICS declared width/height below -- check mode must still
+    # pass (warnings are non-fatal) but the report's `extra` dict must carry
+    # the warning under a `warnings` list, and it must be printed to stderr.
+    altitude = 60.0
+    dataset_dir = dataset_factory(
+        mission_id="dims_warning_check",
+        num_frames=1,
+        polygon=REF_RECT,
+        camera_intrinsics=NADIR_INTRINSICS,
+        altitude=altitude,
+        pose_row_fn=lambda frame_idx, stamp_ns: _nadir_pose_row(frame_idx, stamp_ns, 50.0, 40.0, altitude),
+    )
+
+    result = _run_check_cli(dataset_dir)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "WARNING" in result.stderr
+    assert "8x8" in result.stderr
+
+    report_dir = dataset_dir / "products" / "report"
+    coverage_json = json.loads((report_dir / "coverage.json").read_text())
+    assert coverage_json["verdict"] == "pass"
+    assert len(coverage_json["warnings"]) == 1
+    assert "8x8" in coverage_json["warnings"][0]
+    assert f"{NADIR_INTRINSICS['width']}x{NADIR_INTRINSICS['height']}" in coverage_json["warnings"][0]
+
+
+def test_check_mode_report_no_warnings_when_dims_consistent(dataset_factory):
+    # Same shape as the pass-case above, but camera_intrinsics matches the
+    # actual 8x8 placeholder JPEGs -> no warning expected.
+    altitude = 60.0
+    consistent_intrinsics = {"fx": 0.075, "fy": 0.075, "cx": 4.0, "cy": 4.0, "width": 8, "height": 8}
+    dataset_dir = dataset_factory(
+        mission_id="dims_no_warning_check",
+        num_frames=1,
+        polygon=REF_RECT,
+        camera_intrinsics=consistent_intrinsics,
+        altitude=altitude,
+        pose_row_fn=lambda frame_idx, stamp_ns: _nadir_pose_row(frame_idx, stamp_ns, 50.0, 40.0, altitude),
+    )
+
+    result = _run_check_cli(dataset_dir)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "WARNING" not in result.stderr
+
+    report_dir = dataset_dir / "products" / "report"
+    coverage_json = json.loads((report_dir / "coverage.json").read_text())
+    assert coverage_json["warnings"] == []
+
+
 def test_check_mode_invalid_dataset_exits_nonzero_and_reports_errors(dataset_factory):
     dataset_dir = dataset_factory(mission_id="invalid_ds", finalize_manifest=False)
 

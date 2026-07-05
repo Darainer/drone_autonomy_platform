@@ -16,7 +16,7 @@ import sys
 from typing import Any, Dict, List, Optional
 
 from photogrammetry import coverage, dataset as ds, footprint, odm_runner
-from verify_dataset import verify_dataset
+from verify_dataset import collect_warnings, verify_dataset
 
 DEFAULT_MIN_COVERAGE = coverage.DEFAULT_COVERAGE_THRESHOLD
 SYNC_ERR_WARN_MS = 50.0
@@ -96,6 +96,15 @@ def _mode_check(dataset_dir: str, polygon_from_manifest: bool, min_coverage: flo
     # reconstruction, no image decoding beyond what verify_dataset already
     # does (sha256 + existence checks), per the check-mode invariant.
     errors: List[str] = verify_dataset(dataset_path)
+
+    # F-6(b): non-fatal image-dims-vs-manifest-intrinsics consistency
+    # warning. A single Pillow header-only open (no pixel decode) -- cheap
+    # enough to keep the check-mode no-reconstruction invariant. Never
+    # affects the verdict/exit code below.
+    warnings: List[str] = collect_warnings(dataset_path)
+    for warning in warnings:
+        print(f"WARNING: {warning}", file=sys.stderr)
+
     if errors:
         print(f"INVALID dataset: {dataset_path}", file=sys.stderr)
         for err in errors:
@@ -104,7 +113,7 @@ def _mode_check(dataset_dir: str, polygon_from_manifest: bool, min_coverage: flo
             coverage.write_report(
                 _report_dir(dataset_path),
                 {"coverage_pct": None, "threshold": min_coverage, "verdict": "fail"},
-                extra={"valid": False, "mode": "check", "errors": errors},
+                extra={"valid": False, "mode": "check", "errors": errors, "warnings": warnings},
             )
         except OSError as exc:
             print(f"warning: could not write report: {exc}", file=sys.stderr)
@@ -133,6 +142,7 @@ def _mode_check(dataset_dir: str, polygon_from_manifest: bool, min_coverage: flo
                     "mode": "check",
                     "errors": [str(exc)],
                     "sync_error_stats": sync_stats,
+                    "warnings": warnings,
                 },
             )
         except OSError as write_exc:
@@ -151,6 +161,7 @@ def _mode_check(dataset_dir: str, polygon_from_manifest: bool, min_coverage: flo
             "valid": True,
             "mode": "check",
             "sync_error_stats": sync_stats,
+            "warnings": warnings,
         },
     )
 

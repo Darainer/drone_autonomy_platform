@@ -72,6 +72,16 @@ ODM_IMAGE = "opendronemap/odm:3.5.4"
 GEO_TXT_FILENAME = "geo.txt"
 PRODUCTS_DIRNAME = "products"
 
+# geo.txt projection line (DES-005 D6 / F-7). ODM's documented geo-file
+# format (https://docs.opendronemap.org/geo/) requires the first line to
+# name the coordinate reference system as a PROJ/EPSG-style string (e.g.
+# `EPSG:4326`, `+proj=utm ...`) -- a bare `WGS84` token is NOT among ODM's
+# documented forms and risks a rejected/misparsed geo file. The per-image
+# rows below are `<image> <lon> <lat> <alt>`, i.e. geographic lon/lat/alt in
+# the same datum EPSG:4326 (WGS84) uses, so `EPSG:4326` is both a valid ODM
+# projection string and an accurate label for those columns.
+GEO_TXT_PROJECTION = "EPSG:4326"
+
 # ODM docker mount/name scheme. The dataset dir is mounted as the ODM
 # *project* folder `/datasets/code`; ODM's positional dataset-name argument
 # is therefore `code`, and it expects images under `<name>/images` (already
@@ -129,7 +139,8 @@ def write_geo_txt(dataset_dir, poses: List[PoseRow]) -> pathlib.Path:
     """Generate an ODM `geo.txt` from poses.csv GNSS columns (DES-005 D6).
 
     ODM's geo.txt format: a first line naming the coordinate reference
-    system (`WGS84` for plain lat/lon/alt), followed by one line per image:
+    system as a PROJ/EPSG-style string (`EPSG:4326`, see GEO_TXT_PROJECTION),
+    followed by one line per image:
 
         <image_name> <geo_x=longitude> <geo_y=latitude> <geo_z=altitude>
 
@@ -142,7 +153,7 @@ def write_geo_txt(dataset_dir, poses: List[PoseRow]) -> pathlib.Path:
     dataset_dir = pathlib.Path(dataset_dir)
     geo_txt_path = dataset_dir / GEO_TXT_FILENAME
 
-    lines = ["WGS84"]
+    lines = [GEO_TXT_PROJECTION]
     for pose in poses:
         if pose.lat is None or pose.lon is None:
             continue

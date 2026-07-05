@@ -90,6 +90,56 @@ def test_missing_referenced_image_is_reported(valid_dataset):
     assert any(image_path.name in e for e in errors)
 
 
+def test_collect_warnings_flags_image_dims_manifest_mismatch(dataset_factory):
+    # Default dataset_factory datasets use 8x8 placeholder JPEGs (conftest
+    # `_make_tiny_jpeg`) against the default 640x480 camera_intrinsics --
+    # they mismatch naturally, no special construction needed (F-6(b)).
+    dataset_dir = dataset_factory(mission_id="dims_mismatch")
+
+    warnings = vd.collect_warnings(dataset_dir)
+
+    assert len(warnings) == 1
+    assert "8x8" in warnings[0]
+    assert "640x480" in warnings[0]
+
+    # The mismatch is a WARNING, not an error -- the dataset is still valid
+    # and the CLI still exits 0.
+    assert vd.verify_dataset(dataset_dir) == []
+    result = _run_cli(dataset_dir)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "WARNING" in (result.stdout + result.stderr)
+    assert "8x8" in (result.stdout + result.stderr)
+
+
+def test_collect_warnings_empty_when_dims_match(dataset_factory):
+    # A camera_intrinsics block that matches the actual 8x8 placeholder
+    # JPEGs -> no mismatch -> no warnings.
+    dataset_dir = dataset_factory(
+        mission_id="dims_consistent",
+        camera_intrinsics={"fx": 6.0, "fy": 6.0, "cx": 4.0, "cy": 4.0, "width": 8, "height": 8},
+    )
+
+    assert vd.collect_warnings(dataset_dir) == []
+
+    result = _run_cli(dataset_dir)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "WARNING" not in (result.stdout + result.stderr)
+
+
+def test_collect_warnings_empty_when_manifest_unloadable(dataset_factory):
+    dataset_dir = dataset_factory(mission_id="no_manifest", finalize_manifest=False)
+    assert vd.collect_warnings(dataset_dir) == []
+
+
+def test_collect_warnings_empty_when_first_image_missing(dataset_factory):
+    dataset_dir = dataset_factory(mission_id="missing_first_image")
+    poses = list(csv.DictReader(open(dataset_dir / "poses.csv")))
+    first_image = dataset_dir / "images" / f"{int(poses[0]['frame_idx']):06d}_{poses[0]['stamp_ns']}.jpg"
+    first_image.unlink()
+
+    assert vd.collect_warnings(dataset_dir) == []
+
+
 def test_frame_idx_gap_is_reported(dataset_factory):
     dataset_dir = dataset_factory(mission_id="gap_mission")
 
