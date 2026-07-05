@@ -5,20 +5,51 @@
                  vs. survey polygon, no reconstruction (MAP-7, T3.2).
   --mode full   -- check stage first (fail fast), then ODM reconstruction,
                  then post-reconstruction coverage QA, then report (MAP-4/
-                 MAP-8, T3.3 -- still a TODO stub in this file).
+                 MAP-8, T3.3).
 """
 from __future__ import annotations
 
 import argparse
 import pathlib
+import platform
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from photogrammetry import coverage, dataset as ds, footprint
+from photogrammetry import coverage, dataset as ds, footprint, odm_runner
 from verify_dataset import verify_dataset
 
 DEFAULT_MIN_COVERAGE = coverage.DEFAULT_COVERAGE_THRESHOLD
 SYNC_ERR_WARN_MS = 50.0
+
+# Recognized execution targets (DES-005: "the reference ground station,
+# x86_64" vs. "the Orin Nano class companion, arm64"). `platform.machine()`
+# spells these various ways across platforms/kernels; normalize.
+ARCH_GROUND_STATION = "x86_64"
+ARCH_ONBOARD = "aarch64"
+_ARCH_ALIASES = {
+    "x86_64": ARCH_GROUND_STATION,
+    "amd64": ARCH_GROUND_STATION,
+    "aarch64": ARCH_ONBOARD,
+    "arm64": ARCH_ONBOARD,
+}
+
+
+# Implements: MAP-8
+def detect_execution_target(machine: Optional[str] = None) -> str:
+    """Identify the execution target (ground-station x86_64 vs. onboard arm64/Jetson).
+
+    MAP-8 requires the same package/CLI to run `--mode full` on both the
+    x86_64 ground station and the aarch64 Jetson/Orin companion (the ODM
+    image is itself multi-arch, so no branching on the ODM invocation
+    itself is needed -- this only identifies and logs which target is
+    running, for the report/operator). Returns a normalized arch string
+    (`ARCH_GROUND_STATION` / `ARCH_ONBOARD`), or the raw `platform.machine()`
+    value verbatim if it is an arch this function does not recognize
+    (never raises -- an unrecognized arch just runs the identical pipeline
+    with an unrecognized-but-logged label).
+    """
+    raw = machine if machine is not None else platform.machine()
+    return _ARCH_ALIASES.get(raw, raw)
 
 
 def _sync_error_stats(poses) -> Dict[str, Any]:
@@ -133,10 +164,127 @@ def _mode_check(dataset_dir: str, polygon_from_manifest: bool, min_coverage: flo
     return 0 if coverage_result["verdict"] == "pass" else 1
 
 
-def _mode_full(dataset_dir: str, polygon_from_manifest: bool) -> int:
-    # TODO(T3.3): odm_runner.py invocation + post-reconstruction coverage QA;
-    # this is where the MAP-4 and MAP-8 markers will be added.
-    raise NotImplementedError("--mode full is implemented in T3.3")
+# Implements: MAP-4
+def _mode_full(
+    dataset_dir: str,
+    polygon_from_manifest: bool,
+    min_coverage: float,
+    odm_runner_fn=None,
+) -> int:
+    """DES-005 D1/D4/D6 / MAP-4 (ground station) / MAP-8 (onboard): full reconstruction.
+
+    Sequence (STK-1(d): fully unattended, stdin closed, zero prompts):
+      (a) check stage FIRST (fail fast) -- dataset validity via
+          verify_dataset(); an invalid dataset never reaches ODM;
+      (b) invoke odm_runner (unattended container run) -> collect D6
+          products (.laz/.obj+.mtl/.tif);
+      (c) post-reconstruction coverage QA (D4): reconstruction footprint vs.
+          the manifest survey polygon, via coverage.compute_coverage();
+      (d) write products/report/coverage.json + coverage.md;
+      (e) exit 0 iff products complete AND coverage_pct >= min_coverage.
+
+    `polygon_from_manifest` is accepted for CLI symmetry with `check` mode
+    (the manifest polygon is DES-005's only defined survey-polygon source in
+    v1, same as check mode -- see `_mode_check`'s docstring).
+
+    `odm_runner_fn` is the injectable test seam: `(dataset_dir, manifest,
+    poses) -> odm_runner.OdmRunResult`-shaped callable (defaults to
+    `odm_runner.run_odm`). This lets the TS-08 smoke test substitute a fake
+    ODM runner and drive this function end-to-end without Docker.
+    """
+    del polygon_from_manifest  # only source implemented in v1 (DES-005 D3/D4 symmetry)
+    dataset_path = pathlib.Path(dataset_dir)
+
+    target = detect_execution_target()
+    print(f"full mode: execution target detected as {target} ({platform.machine()})")
+
+    # (a) validity -- fail fast, never invoke ODM on an invalid dataset.
+    errors: List[str] = verify_dataset(dataset_path)
+    if errors:
+        print(f"INVALID dataset: {dataset_path}", file=sys.stderr)
+        for err in errors:
+            print(f"  - {err}", file=sys.stderr)
+        try:
+            coverage.write_report(
+                _report_dir(dataset_path),
+                {"coverage_pct": None, "threshold": min_coverage, "verdict": "fail"},
+                extra={"valid": False, "mode": "full", "errors": errors, "execution_target": target},
+            )
+        except OSError as exc:
+            print(f"warning: could not write report: {exc}", file=sys.stderr)
+        return 1
+
+    manifest = ds.load_manifest(dataset_path)
+    poses = ds.read_poses(dataset_path)
+
+    # (b) ODM reconstruction (unattended -- STK-1(d): stdin closed, no
+    # -i/-t/-it, no interactive prompts on either side of this call).
+    run_odm = odm_runner_fn if odm_runner_fn is not None else odm_runner.run_odm
+    try:
+        run_odm(dataset_path, manifest, poses)
+    except odm_runner.OdmRunnerError as exc:
+        print(f"ODM reconstruction failed: {exc}", file=sys.stderr)
+        try:
+            coverage.write_report(
+                _report_dir(dataset_path),
+                {"coverage_pct": None, "threshold": min_coverage, "verdict": "fail"},
+                extra={
+                    "valid": True,
+                    "mode": "full",
+                    "errors": [str(exc)],
+                    "execution_target": target,
+                },
+            )
+        except OSError as write_exc:
+            print(f"warning: could not write report: {write_exc}", file=sys.stderr)
+        return 1
+
+    products_ok = odm_runner.products_complete(dataset_path)
+
+    # (c) post-reconstruction coverage QA (D4): reconstruction footprint vs.
+    # the manifest survey polygon.
+    try:
+        recon_footprint = odm_runner.reconstruction_footprint(dataset_path)
+        survey_polygon = coverage.survey_polygon_from_manifest(manifest)
+        coverage_result = coverage.compute_coverage(recon_footprint, survey_polygon, threshold=min_coverage)
+    except (odm_runner.OdmRunnerError, ValueError) as exc:
+        print(f"coverage QA failed: {exc}", file=sys.stderr)
+        try:
+            coverage.write_report(
+                _report_dir(dataset_path),
+                {"coverage_pct": None, "threshold": min_coverage, "verdict": "fail"},
+                extra={
+                    "valid": True,
+                    "mode": "full",
+                    "errors": [str(exc)],
+                    "products_complete": products_ok,
+                    "execution_target": target,
+                },
+            )
+        except OSError as write_exc:
+            print(f"warning: could not write report: {write_exc}", file=sys.stderr)
+        return 1
+
+    # (d) write report.
+    coverage.write_report(
+        _report_dir(dataset_path),
+        coverage_result,
+        extra={
+            "valid": True,
+            "mode": "full",
+            "products_complete": products_ok,
+            "execution_target": target,
+        },
+    )
+
+    print(
+        f"full mode: reconstruction coverage {coverage_result['coverage_pct']:.2f}% "
+        f"(threshold {min_coverage:.2f}%) -- verdict {coverage_result['verdict']}, "
+        f"products_complete={products_ok}"
+    )
+
+    # (e) exit 0 iff products complete AND coverage_pct >= min_coverage.
+    return 0 if (products_ok and coverage_result["verdict"] == "pass") else 1
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -167,7 +315,7 @@ def main(argv=None) -> int:
 
     if args.mode == "check":
         return _mode_check(args.dataset, args.polygon_from_manifest, args.min_coverage)
-    return _mode_full(args.dataset, args.polygon_from_manifest)
+    return _mode_full(args.dataset, args.polygon_from_manifest, args.min_coverage)
 
 
 if __name__ == "__main__":
