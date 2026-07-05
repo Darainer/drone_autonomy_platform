@@ -35,6 +35,11 @@ def generate_launch_description():
     ))
     ld.add_action(IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
+            os.path.join(get_package_share_directory('mapping'), 'launch', 'mapping.launch.py')
+        )
+    ))
+    ld.add_action(IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('safety'), 'launch', 'safety.launch.py')
         )
     ))

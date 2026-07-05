@@ -32,7 +32,7 @@ Autonomous drone platform built on ROS2 Humble and NVIDIA Isaac ROS. Runs real-t
 │  │  Jetson Orin Nano                                   │ │
 │  │  ┌────────────────────┐                             │ │
 │  │  │    ROS2 Humble     │                             │ │
-│  │  │    (6 packages)    │                             │ │
+│  │  │    (7 packages)    │                             │ │
 │  │  └─────────┬──────────┘                             │ │
 │  │       USB 3.1│                                      │ │
 │  │  ┌─────────┴──────────┐                             │ │
@@ -69,6 +69,7 @@ src/
 ├── autonomy/        Mission logic, behavior trees
 ├── communication/   MAVLink telemetry, GCS interface
 ├── safety/          Geofence, failsafe, battery monitor, watchdog
+├── mapping/         survey_recorder_node — camera + time-synced pose to a DES-004 dataset
 └── common/          Shared headers
 ```
 
@@ -139,7 +140,7 @@ implementation plan.
 
 | Capability | Stakeholder req | Status | Artifacts |
 |---|---|---|---|
-| CAP-001 — Visual Photogrammetry / Survey Mapping | STK-1 | **Planned, awaiting WP-1 kickoff** — gap 6/18, 4 work packages, designs DES-003/004/005 written | [capability doc](docs/capabilities/CAP-001-photogrammetry.md) · [implementation plan](docs/capabilities/CAP-001-implementation-plan.md) · [test plan](docs/test_plans/TP-002-survey-mapping.md) · [gap report](docs/reports/gap_CAP-001.md) |
+| CAP-001 — Visual Photogrammetry / Survey Mapping | STK-1 | **Planned, awaiting WP-1 kickoff** — gap 15/18, 4 work packages, designs DES-003/004/005 written | [capability doc](docs/capabilities/CAP-001-photogrammetry.md) · [implementation plan](docs/capabilities/CAP-001-implementation-plan.md) · [test plan](docs/test_plans/TP-002-survey-mapping.md) · [gap report](docs/reports/gap_CAP-001.md) |
 
 CAP-001 adds a `survey` mission type and coverage trajectory generator
 (WP-1), an onboard `survey_recorder_node` in a new `src/mapping` package

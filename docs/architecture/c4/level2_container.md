@@ -23,6 +23,9 @@ C4Container
         Container_Boundary(control_pkg, "src/control") {
             Container(control_node, "control_node", "ROS2 / C++", "src/control/src/control_node.cpp")
         }
+        Container_Boundary(mapping_pkg, "src/mapping") {
+            Container(survey_recorder_node, "survey_recorder_node", "ROS2 / C++", "src/mapping/src/survey_recorder_node.cpp")
+        }
         Container_Boundary(navigation_pkg, "src/navigation") {
             Container(navigation_node, "navigation_node", "ROS2 / C++", "src/navigation/src/navigation_node.cpp")
         }
@@ -41,9 +44,15 @@ C4Container
     Rel(rfdetr_node, detection_visualizer, "/detections", "Detection2DArray")
     Rel(rfdetr_node, perception_node, "/detections", "Detection2DArray")
     Rel(mavros, battery_monitor, "/mavros/battery", "sensor_msgs/BatteryState")
+    Rel(mavros, survey_recorder_node, "/mavros/global_position/global", "sensor_msgs/NavSatFix")
+    Rel(mavros, survey_recorder_node, "/mavros/local_position/pose", "geometry_msgs/PoseStamped")
     Rel(mavros, communication_node, "/mavros/state", "mavros_msgs/State")
     Rel(mavros, safety_node, "/mavros/state", "mavros_msgs/State")
+    Rel(autonomy_node, survey_recorder_node, "/mission", "drone_autonomy_msgs/Mission")
     Rel(autonomy_node, navigation_node, "/mission", "drone_autonomy_msgs/Mission")
+    Rel(autonomy_node, survey_recorder_node, "/mission_status", "drone_autonomy_msgs/MissionStatus")
+    Rel(oakd, survey_recorder_node, "/oak/rgb/camera_info", "sensor_msgs/CameraInfo")
+    Rel(oakd, survey_recorder_node, "/oak/rgb/image_raw", "sensor_msgs/Image")
     Rel(oakd, detection_visualizer, "/oak/rgb/image_raw", "Image")
     Rel(oakd, perception_node, "/oak/rgb/image_raw", "sensor_msgs/Image")
     Rel(oakd, rfdetr_node, "/oak/rgb/image_raw", "Image")

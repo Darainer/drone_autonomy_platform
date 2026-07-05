@@ -1,8 +1,11 @@
 FROM ros:humble
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libopencv-dev \
     python3-colcon-common-extensions \
+    ros-humble-cv-bridge \
     ros-humble-mavros-msgs \
+    ros-humble-message-filters \
     ros-humble-nav2-core \
     ros-humble-vision-msgs \
  && rm -rf /var/lib/apt/lists/*
