@@ -114,7 +114,7 @@ OAK-D Camera                     Jetson Orin
                     └──────────────────┘
 
                     ┌──────────────────┐
-  /attitude_command▶│ communication    │──▶ MAVLink → GCS
+  /attitude_command▶│ communication    │──▶ (GCS/MAVLink bridge — planned)
   /mavros/* ───────▶│     _node        │
   /safety_status ──▶│                  │
                     └──────────────────┘
@@ -138,6 +138,8 @@ OAK-D Camera                     Jetson Orin
   /mission(+status)▶│                  │
                     └──────────────────┘
 ```
+
+Message definitions: [`msgs/ros2`](msgs/ros2) (`drone_autonomy_msgs`)
 
 ---
 

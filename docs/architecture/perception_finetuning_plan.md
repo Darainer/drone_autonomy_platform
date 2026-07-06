@@ -18,44 +18,76 @@ This plan implements Phases 2-3 of the model deployment strategy defined in [per
 
 ## Target Class Taxonomy
 
+### Strategy: Rework COCO, Don't Reinvent
+
+The deployed model is RF-DETR-Small with stock **COCO-pretrained** weights (see the
+80-class `COCO_CLASSES` list in
+[`src/perception/src/rfdetr_node.py`](../../src/perception/src/rfdetr_node.py)).
+Rather than defining an unrelated, from-scratch class set, this taxonomy reworks the
+original COCO classes:
+
+1. **Keep** the COCO classes that are relevant to the survey/agriculture ODD, unchanged
+   (same id, name, and semantics as stock COCO).
+2. **Drop** the COCO classes that are irrelevant to this ODD (indoor objects, sports
+   gear, food, kitchenware, etc. — ids not listed below).
+3. **Add** domain-specific classes that COCO has no equivalent for, appended **after**
+   the kept COCO id range (ids 80+), rather than interleaved with it.
+
+> **Starting point, not final.** This mapping (what to keep/drop/split/merge, and which
+> new classes to add) is a starting point only. Experiments are needed to determine
+> which pretraining and specialization datasets/class descriptions actually make sense
+> — e.g., whether `person` + `bicycle` should stay as two detections fused downstream
+> into "cyclist," or whether a merged `cyclist` class should be trained directly; the
+> same question applies to `person` + `motorcycle` riders.
+
 ### Primary Target Classes
 
-| Class ID | Class Name | Description | Priority |
-|----------|------------|-------------|----------|
-| 0 | `tractor` | Agricultural tractors | Critical |
-| 1 | `harvester` | Combine harvesters | Critical |
-| 2 | `sprayer` | Crop sprayers | High |
-| 3 | `vehicle_car` | Civilian cars, SUVs | Medium |
-| 4 | `vehicle_truck` | Pickup trucks, cargo trucks | High |
-| 5 | `livestock_cattle` | Cattle | Medium |
-| 6 | `livestock_sheep` | Sheep | Medium |
-| 7 | `livestock_horse` | Horses | Medium |
-| 8 | `obstacle_tree` | Trees | Critical |
-| 9 | `obstacle_building` | Buildings, sheds | High |
-| 10 | `obstacle_fence` | Fencelines | High |
-| 11 | `infra_powerline` | Power lines / towers | Critical |
-| 12 | `infra_wind_turbine` | Wind turbines | High |
+| Class ID | Class Name | Origin | Description | Priority |
+|----------|------------|--------|--------------|----------|
+| 0 | `person` | COCO (kept) | Pedestrians, farm/field workers, bystanders — Detect-and-Avoid | Critical |
+| 1 | `bicycle` | COCO (kept) | Bicycles; road traffic is part of the ODD. COCO has no separate "cyclist" class — a rider is `person` + `bicycle`. Whether to keep this split or merge into a `cyclist` class is a training-time decision, see caveat above | Critical |
+| 2 | `car` | COCO (kept) | Civilian cars, SUVs | High |
+| 3 | `motorcycle` | COCO (kept) | Motorcycles, mopeds — road traffic/ODD | Critical |
+| 7 | `truck` | COCO (kept) | Pickup trucks, cargo trucks | High |
+| 17 | `horse` | COCO (kept) | Horses (livestock) | Medium |
+| 18 | `sheep` | COCO (kept) | Sheep (livestock) | Medium |
+| 19 | `cow` | COCO (kept) | Cattle (livestock) | Medium |
+| 80 | `tractor` | New (domain) | Agricultural tractors | Critical |
+| 81 | `harvester` | New (domain) | Combine harvesters | Critical |
+| 82 | `sprayer` | New (domain) | Crop sprayers | High |
+| 83 | `obstacle_tree` | New (domain) | Trees | Critical |
+| 84 | `obstacle_building` | New (domain) | Buildings, sheds | High |
+| 85 | `obstacle_fence` | New (domain) | Fencelines | High |
+| 86 | `infra_powerline` | New (domain) | Power lines / towers | Critical |
+| 87 | `infra_wind_turbine` | New (domain) | Wind turbines | High |
+
+All other COCO ids (airplane, bus, train, boat, traffic light, indoor furniture, sports
+gear, food, kitchenware, etc.) are dropped from the fine-tuning label space — they do
+not occur in the survey/agriculture ODD.
 
 ### Class Hierarchy
 
 ```
 targets/
-├── machinery/
+├── road_traffic/          (COCO, kept — road users, part of the ODD)
+│   ├── person
+│   ├── bicycle
+│   ├── motorcycle
+│   ├── car
+│   └── truck
+├── livestock/              (COCO, kept)
+│   ├── horse
+│   ├── sheep
+│   └── cow
+├── machinery/              (new, domain-specific)
 │   ├── tractor
 │   ├── harvester
 │   └── sprayer
-├── vehicles/
-│   ├── vehicle_car
-│   └── vehicle_truck
-├── livestock/
-│   ├── livestock_cattle
-│   ├── livestock_sheep
-│   └── livestock_horse
-├── obstacles/
+├── obstacles/              (new, domain-specific)
 │   ├── obstacle_tree
 │   ├── obstacle_building
 │   └── obstacle_fence
-└── infrastructure/
+└── infrastructure/         (new, domain-specific)
     ├── infra_powerline
     └── infra_wind_turbine
 ```
@@ -210,7 +242,7 @@ Collect examples of:
 | Field | Format | Required |
 |-------|--------|----------|
 | Bounding box | COCO [x, y, width, height] | Yes |
-| Class label | Integer (0-16) | Yes |
+| Class label | Integer (kept COCO ids 0-79, plus domain ids 80-87 — see Target Class Taxonomy) | Yes |
 | Occlusion level | Float (0.0-1.0) | Yes |
 | Truncation | Boolean | Yes |
 | Difficulty | easy/medium/hard | Yes |
@@ -302,9 +334,11 @@ datasets/
   },
   "licenses": [],
   "categories": [
-    {"id": 0, "name": "tractor", "supercategory": "machinery"},
-    {"id": 1, "name": "harvester", "supercategory": "machinery"},
-    {"id": 5, "name": "livestock_cattle", "supercategory": "livestock"}
+    {"id": 0, "name": "person", "supercategory": "road_traffic"},
+    {"id": 1, "name": "bicycle", "supercategory": "road_traffic"},
+    {"id": 19, "name": "cow", "supercategory": "livestock"},
+    {"id": 80, "name": "tractor", "supercategory": "machinery"},
+    {"id": 81, "name": "harvester", "supercategory": "machinery"}
   ],
   "images": [
     {
@@ -324,7 +358,7 @@ datasets/
     {
       "id": 1,
       "image_id": 1,
-      "category_id": 5,
+      "category_id": 19,
       "bbox": [100, 200, 50, 30],
       "area": 1500,
       "iscrowd": 0,
@@ -484,7 +518,7 @@ wandb.agent(sweep_id, function=train_with_config, count=30)
 |--------|--------|-------------|
 | **mAP@0.5** | ≥60% | COCO evaluation |
 | **mAP@0.5:0.95** | ≥50% | COCO evaluation |
-| **Critical class AP** | ≥70% | Per-class (tractor, harvester, obstacle_tree, infra_powerline) |
+| **Critical class AP** | ≥70% | Per-class (person, bicycle, motorcycle, tractor, harvester, obstacle_tree, infra_powerline) |
 | **Small object AP** | ≥40% | Objects <32×32 pixels |
 | **Inference latency** | ≤25ms | TensorRT on Orin |
 
@@ -519,8 +553,8 @@ print("Per-class AP@0.5:")
 for i, ap in enumerate(metrics.box.ap50):
     print(f"  {class_names[i]}: {ap:.3f}")
 
-# Critical class check (see Target Class Taxonomy: tractor, harvester, obstacle_tree, infra_powerline)
-critical_classes = [0, 1, 8, 11]  # tractor, harvester, obstacle_tree, infra_powerline
+# Critical class check (see Target Class Taxonomy: person, bicycle, motorcycle, tractor, harvester, obstacle_tree, infra_powerline)
+critical_classes = [0, 1, 3, 80, 81, 83, 86]  # person, bicycle, motorcycle, tractor, harvester, obstacle_tree, infra_powerline
 critical_ap = [metrics.box.ap50[i] for i in critical_classes]
 assert min(critical_ap) >= 0.70, "Critical class AP below threshold"
 ```
@@ -528,7 +562,7 @@ assert min(critical_ap) >= 0.70, "Critical class AP below threshold"
 ### Confusion Matrix Analysis
 
 Generate and review:
-- Inter-class confusion (vehicle_car vs. vehicle_truck, tractor vs. harvester)
+- Inter-class confusion (tractor vs. harvester, person vs. cyclist [`person`+`bicycle`])
 - False positive sources (background objects)
 - False negative patterns (occlusion, distance, angle)
 
