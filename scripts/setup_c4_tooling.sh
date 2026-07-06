@@ -12,15 +12,16 @@ if ! command -v java >/dev/null; then
     exit 1
 fi
 
+SUDO=""
+[ "$(id -u)" != 0 ] && SUDO="sudo"
+
 if ! command -v dot >/dev/null; then
-    SUDO=""
-    [ "$(id -u)" != 0 ] && SUDO="sudo"
     $SUDO apt-get install -y -qq graphviz
 fi
 
 if [ ! -s "$PLANTUML_JAR" ]; then
-    mkdir -p "$(dirname "$PLANTUML_JAR")"
-    curl -fsSL -o "$PLANTUML_JAR" \
+    $SUDO mkdir -p "$(dirname "$PLANTUML_JAR")"
+    $SUDO curl -fsSL -o "$PLANTUML_JAR" \
         "https://repo1.maven.org/maven2/net/sourceforge/plantuml/plantuml/${PLANTUML_VERSION}/plantuml-${PLANTUML_VERSION}.jar"
 fi
 
