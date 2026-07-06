@@ -5,7 +5,7 @@
 [![ROS2](https://img.shields.io/badge/ROS2-Humble-blue)](https://docs.ros.org/en/humble/)
 [![Platform](https://img.shields.io/badge/Platform-NVIDIA%20Orin-green)](https://developer.nvidia.com/embedded/jetson-orin)
 
-Autonomous drone platform built on ROS2 Humble and NVIDIA Isaac ROS. Runs real-time RF-DETR object detection and visual SLAM on a Jetson Orin Nano with a Luxonis OAK-D camera, communicating with a Pixhawk 6X flight controller over MAVLink.
+Autonomous drone platform built on ROS2 Humble and NVIDIA Isaac ROS. Runs real-time RF-DETR object detection and visual SLAM on a Jetson Orin Nano with a Luxonis OAK-D camera, communicating with a Pixhawk 6X flight controller over MAVLink. Focus is on partially autonomous civilian missions only (surveying and agricultural autonomy applications).
 
 ---
 
@@ -106,16 +106,17 @@ OAK-D Camera                     Jetson Orin
                     └──────────────────┘
 
                     ┌──────────────────┐
-  ~/mission ──────▶│ navigation_node  │──▶ ~/trajectory
+  /mission ───────▶│ navigation_node  │──▶ /trajectory
                     └──────────────────┘
 
                     ┌──────────────────┐
-  ~/trajectory ──▶│  control_node    │──▶ /mavros/setpoint_*
+  /trajectory ────▶│  control_node    │──▶ /attitude_command
                     └──────────────────┘
 
                     ┌──────────────────┐
-  /mavros/* ──────▶│ communication    │──▶ MAVLink → GCS
-  /safety_status ─▶│     _node        │
+  /attitude_command▶│ communication    │──▶ MAVLink → GCS
+  /mavros/* ───────▶│     _node        │
+  /safety_status ──▶│                  │
                     └──────────────────┘
 
                     ┌──────────────────┐
@@ -127,8 +128,8 @@ OAK-D Camera                     Jetson Orin
                     └──────────────────┘
 
                     ┌──────────────────┐
-  ~/survey_request ▶│ autonomy_node   │──▶ ~/mission
-                    │ (BehaviorTree)  │    ~/mission_status (reliable, transient_local)
+  /survey_request ─▶│ autonomy_node   │──▶ /mission
+                    │ (BehaviorTree)  │    /mission_status (reliable, transient_local)
                     └──────────────────┘
 
                     ┌──────────────────┐

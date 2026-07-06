@@ -10,7 +10,7 @@ description: Create or update architecture documentation under docs/architecture
 | Path | Content | Maintained |
 |---|---|---|
 | `c4/` | C4 model views (context/container/component) + topic inventory | **Generated** — `python scripts/generate_c4.py`, never hand-edit |
-| `use_cases/*.md` | Mission-level use cases (ISR, SAR, swarm, …) | By hand |
+| `use_cases/*.md` | Mission-level use cases (surveying, agriculture, SAR, …) | By hand |
 | `*.md` | Subsystem architectures (perception, telemetry, hardware, PX4) | By hand |
 
 ## Rules

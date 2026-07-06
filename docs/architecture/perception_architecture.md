@@ -1,8 +1,12 @@
-# Perception Architecture: RT-DETR RGB Pipeline
+# Perception Architecture: RF-DETR RGB Pipeline
 
 ## Overview
 
-This document specifies the real-time object detection pipeline for ISR and target acquisition missions using RT-DETR (Real-Time Detection Transformer) on NVIDIA Jetson Orin. The architecture prioritizes detection performance on the RGB image path with single-camera input, leveraging Isaac ROS and TensorRT acceleration.
+This document specifies the real-time object detection pipeline for surveying and agricultural autonomy applications using RF-DETR on NVIDIA Jetson Orin. The architecture prioritizes detection performance on the RGB image path with single-camera input, leveraging Isaac ROS and TensorRT acceleration.
+
+**Primary Objectives:**
+- **Detect and Avoid (DAA)**: A detect and avoid system is the primary reason to have onboard perception. The operational domain may contain a variety of flying and land-based moving objects, and the system must be able to dynamically react to obstructions along its planned flight path for safety.
+- **Odometry**: The visual odometry is important to support mapping applications.
 
 ### Design Goals
 
@@ -15,16 +19,16 @@ This document specifies the real-time object detection pipeline for ISR and targ
 
 ### Scope
 
-- **In scope:** RGB camera pipeline, RT-DETR detection, object tracking, Isaac ROS integration
+- **In scope:** RGB camera pipeline, RF-DETR detection, object tracking, Isaac ROS integration
 - **Out of scope:** IR/thermal fusion (future), multi-camera batching (future), classical vision fallback (future)
 
 ---
 
-## RT-DETR Model Architecture
+## RF-DETR Model Architecture
 
-### Why RT-DETR Over YOLO
+### Why RF-DETR Over YOLO
 
-| Criteria | RT-DETR | YOLOv8/11 |
+| Criteria | RF-DETR | YOLOv8/11 |
 |----------|---------|-----------|
 | Architecture | Transformer (global context) | CNN (local features) |
 | Post-processing | NMS-free (end-to-end) | Requires NMS |
@@ -32,13 +36,13 @@ This document specifies the real-time object detection pipeline for ISR and targ
 | Latency adaptability | Adjustable decoder layers | Fixed architecture |
 | Isaac ROS support | Native `isaac_ros_rtdetr` | Requires custom integration |
 
-RT-DETR provides better detection of small, distant targets critical for ISR missions while maintaining real-time performance through its efficient hybrid encoder design.
+RF-DETR provides better detection of small, distant targets critical for surveying and agricultural autonomy missions while maintaining real-time performance through its efficient hybrid encoder design.
 
 ### Architecture Components
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         RT-DETR Architecture                             │
+│                         RF-DETR Architecture                             │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌──────────────┐    ┌─────────────────────────┐    ┌────────────────┐  │
@@ -59,7 +63,7 @@ RT-DETR provides better detection of small, distant targets critical for ISR mis
 
 - Extracts multi-scale feature maps {S3, S4, S5} from input image
 - Optimized for inference speed with grouped convolutions
-- RT-DETR-L uses larger HGNetV2 variant for higher accuracy
+- RF-DETR-S uses larger HGNetV2 variant for higher accuracy
 
 #### Efficient Hybrid Encoder
 
@@ -85,18 +89,19 @@ This decoupled design reduces computational cost compared to full multi-scale at
 
 | Variant | Backbone | AP (COCO) | Params | FPS (T4) | Recommendation |
 |---------|----------|-----------|--------|----------|----------------|
-| RT-DETR-R18 | ResNet-18 | 46.5% | 20M | 217 | Latency-critical edge |
-| RT-DETR-R34 | ResNet-34 | 48.9% | 31M | 161 | Balanced edge |
-| RT-DETR-R50 | ResNet-50 | 53.1% | 42M | 108 | General purpose |
-| **RT-DETR-L** | HGNetV2 | **53.0%** | 32M | **114** | **Selected** |
-| RT-DETR-X | HGNetV2 | 54.8% | 67M | 74 | Maximum accuracy |
+| **RF-DETR-S** | ResNet-18 | 46.5% | 20M | 217 | **Selected** |
+| RF-DETR-R34 | ResNet-34 | 48.9% | 31M | 161 | Balanced edge |
+| RF-DETR-R50 | ResNet-50 | 53.1% | 42M | 108 | General purpose |
+| RF-DETR-S | HGNetV2 | 53.0% | 32M | 114 | High accuracy |
+| RF-DETR-X | HGNetV2 | 54.8% | 67M | 74 | Maximum accuracy |
 
-### Selected Configuration: RT-DETR-L
+### Selected Configuration: RF-DETR-S
 
 **Rationale:**
-- 53% mAP exceeds 50% accuracy target
-- 114 FPS on T4 → estimated **23ms on Jetson AGX Orin** with TensorRT
-- HGNetV2 backbone optimized for edge deployment
+- 46.5% mAP provides a solid baseline with maximum efficiency
+- 217 FPS on T4 implies ~100 FPS on Jetson Orin Nano (comfortably meets 30 Hz requirement)
+- End-to-end NMS-free architecture provides predictable latency bound
+- Smaller model footprint leaves more compute headroom for concurrent cuVSLAM and mapping pipelines
 - Native Isaac ROS support via SyntheticaDETR weights
 
 ### Pretrained Weights Strategy
@@ -104,8 +109,8 @@ This decoupled design reduces computational cost compared to full multi-scale at
 | Phase | Model | Dataset | Purpose |
 |-------|-------|---------|---------|
 | **Phase 1 (Current)** | SyntheticaDETR | NVIDIA synthetic | Baseline deployment, validate pipeline |
-| **Phase 2 (Planned)** | RT-DETR-L fine-tuned | COCO + domain data | Improved general detection |
-| **Phase 3 (Planned)** | Custom RT-DETR-L | Mission-specific dataset | ISR/TA optimized targets |
+| **Phase 2 (Planned)** | RF-DETR-S fine-tuned | COCO + domain data | Improved general detection |
+| **Phase 3 (Planned)** | Custom RF-DETR-S | Mission-specific dataset | Surveying/Ag optimized targets |
 
 #### Phase 1: SyntheticaDETR Deployment
 
@@ -121,12 +126,12 @@ isaac_ros_rtdetr/scripts/install_rtdetr_models.sh
 
 #### Phase 2-3: Fine-Tuning Roadmap
 
-**Target Classes for ISR/Target Acquisition:**
-- Military vehicles (tanks, APCs, trucks, technicals)
-- Personnel (standing, prone, grouped)
-- Aircraft (rotary, fixed-wing, UAVs)
-- Watercraft (patrol boats, rigid inflatables)
-- Infrastructure (SAM sites, radar installations, bunkers)
+**Target Classes for Surveying/Agricultural Autonomy:**
+- Agricultural machinery (tractors, harvesters, sprayers)
+- Infrastructure (power lines, wind turbines, cell towers)
+- Livestock (cattle, sheep, horses)
+- Vehicles (cars, pickup trucks)
+- Obstacles (trees, buildings, fences)
 
 **Dataset Requirements:**
 | Requirement | Specification |
@@ -147,7 +152,7 @@ model = RTDETR("rtdetr-l.pt")
 
 # Fine-tune on custom dataset
 results = model.train(
-    data="isr_targets.yaml",
+    data="surveying_targets.yaml",
     epochs=100,
     imgsz=720,
     batch=16,
@@ -171,7 +176,7 @@ model.export(format="engine", half=True, device=0)
 │                           Perception Subsystem                               │
 │                                                                              │
 │  ┌─────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌────────────┐ │
-│  │ Camera  │   │  Image   │   │ RT-DETR  │   │ RT-DETR  │   │  Object    │ │
+│  │ Camera  │   │  Image   │   │ RF-DETR  │   │ RF-DETR  │   │  Object    │ │
 │  │ Driver  │──▶│ Encoder  │──▶│ Inference│──▶│ Decoder  │──▶│  Tracker   │ │
 │  │         │   │          │   │          │   │          │   │            │ │
 │  └─────────┘   └──────────┘   └──────────┘   └──────────┘   └────────────┘ │
@@ -217,7 +222,7 @@ model.export(format="engine", half=True, device=0)
                     │   TensorRTNode          │
                     │  (isaac_ros_tensor_rt)  │
                     │                         │
-                    │  engine: rtdetr_l.plan  │
+                    │  engine: rfdetr_s.engine  │
                     └───────────┬─────────────┘
                                 │ TensorList
                                 │ /tensor_output
@@ -248,7 +253,7 @@ model.export(format="engine", half=True, device=0)
 |-------|--------------|------|-------------|
 | `/oak/rgb/image_raw` | `sensor_msgs/Image` | 30 Hz | Raw RGB from OAK-D camera |
 | `/encoded_tensor` | `isaac_ros_tensor_list_interfaces/TensorList` | 30 Hz | Resized, normalized image tensor |
-| `/tensor_pub` | `isaac_ros_tensor_list_interfaces/TensorList` | 30 Hz | Preprocessed for RT-DETR |
+| `/tensor_pub` | `isaac_ros_tensor_list_interfaces/TensorList` | 30 Hz | Preprocessed for RF-DETR |
 | `/tensor_output` | `isaac_ros_tensor_list_interfaces/TensorList` | 30 Hz | Raw inference output |
 | `/detections` | `vision_msgs/Detection2DArray` | 30 Hz | Decoded bounding boxes + classes |
 | `/tracked_objects` | `vision_msgs/Detection2DArray` | 30 Hz | Detections with persistent track IDs |
@@ -302,7 +307,7 @@ def generate_launch_description():
                     ('encoded_tensor', 'encoded_tensor'),
                 ]
             ),
-            # RT-DETR preprocessor
+            # RF-DETR preprocessor
             ComposableNode(
                 package='isaac_ros_rtdetr',
                 plugin='nvidia::isaac_ros::rtdetr::RtDetrPreprocessorNode',
@@ -322,7 +327,7 @@ def generate_launch_description():
                 plugin='nvidia::isaac_ros::dnn_inference::TensorRTNode',
                 name='tensor_rt',
                 parameters=[{
-                    'engine_file_path': '/workspaces/isaac_ros-dev/models/rtdetr_l.plan',
+                    'engine_file_path': '/workspaces/isaac_ros-dev/models/rfdetr_s.engine',
                     'input_tensor_names': ['images', 'orig_target_sizes'],
                     'input_binding_names': ['images', 'orig_target_sizes'],
                     'output_tensor_names': ['labels', 'boxes', 'scores'],
@@ -334,14 +339,14 @@ def generate_launch_description():
                     ('tensor_sub', 'tensor_output'),
                 ]
             ),
-            # RT-DETR decoder
+            # RF-DETR decoder
             ComposableNode(
                 package='isaac_ros_rtdetr',
                 plugin='nvidia::isaac_ros::rtdetr::RtDetrDecoderNode',
                 name='rtdetr_decoder',
                 parameters=[{
                     'confidence_threshold': 0.7,
-                    'labels': ['person', 'vehicle', 'aircraft', 'watercraft'],
+                    'labels': ['person', 'car', 'truck', 'cow', 'sheep', 'horse'],
                 }],
                 remappings=[
                     ('tensor_sub', 'tensor_output'),
@@ -359,10 +364,10 @@ def generate_launch_description():
 
 | Node | Parameter | Value | Description |
 |------|-----------|-------|-------------|
-| DnnImageEncoder | `network_image_width/height` | 640 | RT-DETR input size |
+| DnnImageEncoder | `network_image_width/height` | 640 | RF-DETR input size |
 | DnnImageEncoder | `image_mean` | [0.485, 0.456, 0.406] | ImageNet normalization |
 | DnnImageEncoder | `image_stddev` | [0.229, 0.224, 0.225] | ImageNet normalization |
-| TensorRT | `engine_file_path` | `/models/rtdetr_l.plan` | TensorRT engine |
+| TensorRT | `engine_file_path` | `/models/rfdetr_s.engine` | TensorRT engine |
 | RtDetrDecoder | `confidence_threshold` | 0.7 | Detection threshold |
 
 ---
@@ -441,9 +446,9 @@ Each tracked object includes:
 |-----------|-------------|---------------|--------|
 | Camera capture | 30 | 33 (30 Hz) | -3 |
 | Image encoding | 20 | 15 | +5 |
-| RT-DETR preprocessing | 5 | 3 | +2 |
+| RF-DETR preprocessing | 5 | 3 | +2 |
 | **TensorRT inference** | **50** | **23** | **+27** |
-| RT-DETR decoding | 5 | 2 | +3 |
+| RF-DETR decoding | 5 | 2 | +3 |
 | ByteTrack | 50 | 35 | +15 |
 | **Total** | **150** | **111** | **+39** |
 
@@ -454,7 +459,7 @@ Each tracked object includes:
 | COMP-3: Object Detection | 100ms | 43ms | ✅ 57% margin |
 | COMP-4: Object Tracking | 50ms | 35ms | ✅ 30% margin |
 | PLAT-1: Sensor → Perception | 150ms | 111ms | ✅ 26% margin |
-| E2E-2: Threat Response | 250ms | ~200ms | ✅ 20% margin |
+| E2E-2: Obstacle Avoidance | 250ms | ~200ms | ✅ 20% margin |
 
 ---
 
@@ -504,14 +509,14 @@ model.export(
 EOF
 
 # Move engine to deployment path
-mv rtdetr-l.engine /workspaces/isaac_ros-dev/models/rtdetr_l.plan
+mv rtdetr-l.engine /workspaces/isaac_ros-dev/models/rfdetr_s.engine
 ```
 
 ### Engine File Management
 
 | File | Path | Size | Description |
 |------|------|------|-------------|
-| `rtdetr_l.plan` | `/models/` | ~120MB | TensorRT FP16 engine |
+| `rfdetr_s.engine` | `/models/` | ~120MB | TensorRT FP16 engine |
 | `rtdetr_l.onnx` | `/models/` | ~130MB | ONNX intermediate (backup) |
 | `labels.txt` | `/models/` | 1KB | Class label mapping |
 
@@ -534,7 +539,7 @@ mv rtdetr-l.engine /workspaces/isaac_ros-dev/models/rtdetr_l.plan
 | Threshold | Precision | Recall | Use Case |
 |-----------|-----------|--------|----------|
 | 0.9 | High | Low | Minimize false positives (targeting) |
-| 0.7 | Balanced | Balanced | **Default for ISR** |
+| 0.7 | Balanced | Balanced | **Default for Surveying** |
 | 0.5 | Low | High | Maximum detection (search) |
 
 ### Resolution Trade-offs
@@ -546,7 +551,7 @@ mv rtdetr-l.engine /workspaces/isaac_ros-dev/models/rtdetr_l.plan
 | 720×720 | 30ms | Better |
 | 960×960 | 50ms | Best |
 
-For long-range ISR, consider SAHI (Slicing Aided Hyper Inference) tiled inference as future enhancement.
+For high-altitude surveying, consider SAHI (Slicing Aided Hyper Inference) tiled inference as future enhancement.
 
 ---
 
@@ -565,8 +570,8 @@ For long-range ISR, consider SAHI (Slicing Aided Hyper Inference) tiled inferenc
 
 ## References
 
-- [RT-DETR Paper](https://arxiv.org/abs/2304.08069) - DETRs Beat YOLOs on Real-time Object Detection
+- [RF-DETR Paper](https://arxiv.org/abs/2304.08069) - DETRs Beat YOLOs on Real-time Object Detection
 - [Isaac ROS Object Detection](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_rtdetr/index.html)
-- [Ultralytics RT-DETR](https://docs.ultralytics.com/models/rtdetr/)
+- [Ultralytics RF-DETR](https://docs.ultralytics.com/models/rtdetr/)
 - [ByteTrack Paper](https://arxiv.org/abs/2110.06864) - ByteTrack: Multi-Object Tracking by Associating Every Detection Box
 - [Latency Requirements](latency_requirements.md) - Platform latency specifications

@@ -23,7 +23,7 @@ Collaborative mapping fundamentally transforms how distributed forces operate by
 
 ### Bandwidth Efficiency in Contested Environments
 
-Modern peer adversaries possess sophisticated electronic warfare capabilities that degrade, deny, and disrupt tactical communications. Traditional approaches to map sharing—transmitting full imagery or point clouds—consume bandwidth measured in megabytes and require sustained connectivity that cannot be guaranteed. The fingerprint-based synchronization protocol reduces this to kilobytes by transmitting only compact hashes during normal operations and compressed deltas when differences are detected. A 50-tile map covering 125,000 square meters can be verified with a 2 KB message rather than a 5 MB transmission. This 2,500× reduction in bandwidth enables continued operations when links are degraded to narrowband fallbacks, contested by jamming, or operating under strict emissions control (EMCON).
+Remote agricultural environments often possess limited communication infrastructure that degrades or disrupts tactical communications. Traditional approaches to map sharing—transmitting full imagery or point clouds—consume bandwidth measured in megabytes and require sustained connectivity that cannot be guaranteed. The fingerprint-based synchronization protocol reduces this to kilobytes by transmitting only compact hashes during normal operations and compressed deltas when differences are detected. A 50-tile map covering 125,000 square meters can be verified with a 2 KB message rather than a 5 MB transmission. This 2,500× reduction in bandwidth enables continued operations when links are degraded to narrowband fallbacks or contested by environmental interference.
 
 ### Semantic Understanding for Tactical Decision-Making
 
@@ -296,4 +296,4 @@ Detailed implementation specifications (code, message formats, node configuratio
 - [Latency Requirements](../latency_requirements.md) - Platform timing budgets
 - [Perception Architecture](../perception_architecture.md) - Camera-LiDAR fusion pipeline
 - [Swarm Operations](swarm_operations.md) - Multi-agent coordination
-- [ISR Use Case](isr.md) - Intelligence gathering integration
+

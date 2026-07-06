@@ -16,7 +16,7 @@ python scripts/check_traceability.py
 <<<
 
 [[SECTION]]
-TITLE: End-to-End Latency (ISR)
+TITLE: End-to-End Latency (Surveying)
 
 [TEXT]
 STATEMENT: >>>
@@ -27,7 +27,7 @@ End-to-end latency is the time from a photon hitting the sensor to the drone
 [REQUIREMENT]
 UID: E2E-1
 STATUS: Approved
-TAGS: latency, isr
+TAGS: latency, surveying
 TITLE: Sensor to GCS Display Latency
 STATEMENT: >>>
 The time from image capture on the sensor to display of that image on the
@@ -41,11 +41,12 @@ half a second of display lag.
 [REQUIREMENT]
 UID: E2E-2
 STATUS: Approved
-TAGS: latency, isr, safety-critical
-TITLE: Sensor to Action Latency (Threat Response)
+TAGS: latency, surveying, safety-critical
+TITLE: Sensor to Action Latency (Obstacle Avoidance)
 STATEMENT: >>>
-The time from detection of a threat to initiation of a defensive action
-(e.g., an evasive maneuver) shall not exceed 250 ms.
+The time from detection of an obstacle to initiation of an avoidance action
+shall not exceed 250 milliseconds. This ensures the platform can avoid
+fast-moving obstacles.
 <<<
 RATIONALE: >>>
 Critical safety requirement: reaction time bounds survivability against
@@ -55,7 +56,7 @@ fast-moving threats.
 [REQUIREMENT]
 UID: E2E-3
 STATUS: Approved
-TAGS: latency, isr
+TAGS: latency, surveying
 TITLE: Sensor to Action Latency (Target Tracking)
 STATEMENT: >>>
 The time from detection of a target to a course adjustment that tracks the

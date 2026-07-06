@@ -1,8 +1,8 @@
-# RT-DETR Fine-Tuning Plan: Data Collection & Model Training
+# RF-DETR Fine-Tuning Plan: Data Collection & Model Training
 
 ## Overview
 
-This document defines the data collection strategy and fine-tuning process for adapting RT-DETR-L to ISR and target acquisition mission requirements. The goal is to transition from SyntheticaDETR pretrained weights to a domain-specific model optimized for aerial detection of military-relevant targets.
+This document defines the data collection strategy and fine-tuning process for adapting RF-DETR-S to surveying and agricultural autonomy mission requirements. The goal is to transition from SyntheticaDETR pretrained weights to a domain-specific model optimized for aerial detection of civilian surveying and agricultural targets.
 
 ### Relationship to Architecture
 
@@ -11,8 +11,8 @@ This plan implements Phases 2-3 of the model deployment strategy defined in [per
 | Phase | Model | Status |
 |-------|-------|--------|
 | Phase 1 | SyntheticaDETR (pretrained) | Current deployment |
-| **Phase 2** | RT-DETR-L + COCO + domain data | **This plan** |
-| **Phase 3** | Custom RT-DETR-L (mission-specific) | **This plan** |
+| **Phase 2** | RF-DETR-S + COCO + domain data | **This plan** |
+| **Phase 3** | Custom RF-DETR-S (mission-specific) | **This plan** |
 
 ---
 
@@ -22,52 +22,42 @@ This plan implements Phases 2-3 of the model deployment strategy defined in [per
 
 | Class ID | Class Name | Description | Priority |
 |----------|------------|-------------|----------|
-| 0 | `person_standing` | Individual standing/walking | High |
-| 1 | `person_prone` | Individual prone/crawling | High |
-| 2 | `person_group` | Group of 3+ individuals | High |
+| 0 | `tractor` | Agricultural tractors | Critical |
+| 1 | `harvester` | Combine harvesters | Critical |
+| 2 | `sprayer` | Crop sprayers | High |
 | 3 | `vehicle_car` | Civilian cars, SUVs | Medium |
 | 4 | `vehicle_truck` | Pickup trucks, cargo trucks | High |
-| 5 | `vehicle_technical` | Armed pickup trucks | Critical |
-| 6 | `vehicle_apc` | Armored personnel carriers | Critical |
-| 7 | `vehicle_tank` | Main battle tanks | Critical |
-| 8 | `vehicle_artillery` | Towed/self-propelled artillery | Critical |
-| 9 | `aircraft_rotary` | Helicopters | High |
-| 10 | `aircraft_fixed` | Fixed-wing aircraft | High |
-| 11 | `aircraft_uav` | Small UAVs/drones | Medium |
-| 12 | `watercraft_patrol` | Patrol boats | Medium |
-| 13 | `watercraft_rib` | Rigid inflatable boats | Medium |
-| 14 | `infrastructure_radar` | Radar installations | High |
-| 15 | `infrastructure_sam` | SAM sites | Critical |
-| 16 | `infrastructure_bunker` | Bunkers, fortifications | Medium |
+| 5 | `livestock_cattle` | Cattle | Medium |
+| 6 | `livestock_sheep` | Sheep | Medium |
+| 7 | `livestock_horse` | Horses | Medium |
+| 8 | `obstacle_tree` | Trees | Critical |
+| 9 | `obstacle_building` | Buildings, sheds | High |
+| 10 | `obstacle_fence` | Fencelines | High |
+| 11 | `infra_powerline` | Power lines / towers | Critical |
+| 12 | `infra_wind_turbine` | Wind turbines | High |
 
 ### Class Hierarchy
 
 ```
 targets/
-├── personnel/
-│   ├── person_standing
-│   ├── person_prone
-│   └── person_group
-├── ground_vehicles/
-│   ├── civilian/
-│   │   ├── vehicle_car
-│   │   └── vehicle_truck
-│   └── military/
-│       ├── vehicle_technical
-│       ├── vehicle_apc
-│       ├── vehicle_tank
-│       └── vehicle_artillery
-├── aircraft/
-│   ├── aircraft_rotary
-│   ├── aircraft_fixed
-│   └── aircraft_uav
-├── watercraft/
-│   ├── watercraft_patrol
-│   └── watercraft_rib
+├── machinery/
+│   ├── tractor
+│   ├── harvester
+│   └── sprayer
+├── vehicles/
+│   ├── vehicle_car
+│   └── vehicle_truck
+├── livestock/
+│   ├── livestock_cattle
+│   ├── livestock_sheep
+│   └── livestock_horse
+├── obstacles/
+│   ├── obstacle_tree
+│   ├── obstacle_building
+│   └── obstacle_fence
 └── infrastructure/
-    ├── infrastructure_radar
-    ├── infrastructure_sam
-    └── infrastructure_bunker
+    ├── infra_powerline
+    └── infra_wind_turbine
 ```
 
 ---
@@ -146,7 +136,7 @@ targets/
 | Parameter | Specification |
 |-----------|---------------|
 | Engine | Unity 2022 LTS + Perception package |
-| Assets | Sketchfab military models, Turbosquid vehicles |
+| Assets | Sketchfab agricultural models, Turbosquid vehicles |
 | Terrains | Desert, urban, forest, coastal, snow |
 | Weather | Clear, overcast, rain, fog, dust |
 | Lighting | Dawn, day, dusk, night (NVG simulation) |
@@ -207,11 +197,10 @@ output:
 #### 3.2 Hard Negative Mining
 
 Collect examples of:
-- Civilian vehicles similar to military targets
+- Civilian vehicles similar to agricultural targets
 - Natural objects resembling targets (rock formations, vegetation patterns)
 - Decoys and mock targets
-- Partial/damaged vehicles
-- Thermal vs. visual appearance discrepancies (future IR fusion)
+- Partial/damaged equipment
 
 ---
 
@@ -267,7 +256,7 @@ Collect examples of:
 
 ```
 datasets/
-├── isr_targets_v1/
+├── survey_targets_v1/
 │   ├── annotations/
 │   │   ├── train.json          # COCO format
 │   │   ├── val.json
@@ -306,7 +295,7 @@ datasets/
 ```json
 {
   "info": {
-    "description": "ISR Target Detection Dataset v1",
+    "description": "Survey Target Detection Dataset v1",
     "version": "1.0",
     "year": 2026,
     "contributor": "Drone Autonomy Platform",
@@ -415,21 +404,21 @@ custom:
 
 ### Phase 2 Training: Foundation Fine-Tune
 
-**Objective:** Adapt RT-DETR-L from COCO weights to aerial domain
+**Objective:** Adapt RF-DETR-S from COCO weights to aerial domain
 
 ```python
 # phase2_finetune.py
 from ultralytics import RTDETR
 import wandb
 
-wandb.init(project="isr-rtdetr", name="phase2-foundation")
+wandb.init(project="survey-rtdetr", name="phase2-foundation")
 
 # Load COCO pretrained model
 model = RTDETR("rtdetr-l.pt")
 
 # Phase 2a: Freeze backbone, train head
 results = model.train(
-    data="isr_targets_v1.yaml",
+    data="survey_targets_v1.yaml",
     epochs=50,
     imgsz=640,
     batch=32,
@@ -466,7 +455,7 @@ results = model.train(
 # Phase 2b: Unfreeze and full fine-tune
 model = RTDETR("runs/detect/phase2a/weights/best.pt")
 results = model.train(
-    data="isr_targets_v1.yaml",
+    data="survey_targets_v1.yaml",
     epochs=100,
     imgsz=640,
     batch=16,             # Smaller batch for full model
@@ -533,7 +522,7 @@ sweep_config = {
     }
 }
 
-sweep_id = wandb.sweep(sweep_config, project="isr-rtdetr")
+sweep_id = wandb.sweep(sweep_config, project="survey-rtdetr")
 wandb.agent(sweep_id, function=train_with_config, count=30)
 ```
 
@@ -573,7 +562,7 @@ model = RTDETR("models/phase3_best.pt")
 
 # Run validation
 metrics = model.val(
-    data="isr_targets_v1.yaml",
+    data="survey_targets_v1.yaml",
     split="test",
     imgsz=640,
     batch=1,
@@ -746,7 +735,7 @@ def select_samples_for_annotation(predictions, budget=1000):
 
 - [perception_architecture.md](perception_architecture.md) - Pipeline architecture
 - [latency_requirements.md](latency_requirements.md) - Latency budgets
-- [isr.md](use_cases/isr.md) - ISR mission requirements
+
 - [target_acquisition.md](use_cases/target_acquisition.md) - Target acquisition requirements
 - [VisDrone Dataset](https://github.com/VisDrone/VisDrone-Dataset)
 - [DOTA Dataset](https://captain-whu.github.io/DOTA/)
