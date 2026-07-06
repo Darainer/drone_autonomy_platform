@@ -32,11 +32,15 @@ Central). One-time setup per machine/container:
 bash scripts/setup_c4_tooling.sh   # installs graphviz + plantuml jar
 ```
 
-The generator finds PlantUML via `$PLANTUML_JAR`, then `plantuml` on PATH,
-then `/opt/plantuml/plantuml.jar`. SVGs are rendered with `-nometadata`, so
-output is byte-stable for a given PlantUML + Graphviz version — keep the
-pinned version in `scripts/setup_c4_tooling.sh` in sync everywhere (CI,
-containers), otherwise `--check` can report false SVG drift.
+The jar is just a file, so it's fetched to a user-writable location
+(`~/.local/share/plantuml/plantuml.jar`, no root needed). Only
+`apt-get install graphviz` needs sudo, and only if `dot` isn't already on
+PATH. The generator finds PlantUML via, in order: `$PLANTUML_JAR`,
+`plantuml` on PATH, the user-writable default, `/opt/plantuml/plantuml.jar`
+(legacy fallback for prebuilt container images). SVGs are rendered with
+`-nometadata`, so output is byte-stable for a given PlantUML + Graphviz
+version — keep the pinned version in `scripts/setup_c4_tooling.sh` in sync
+everywhere (CI, containers), otherwise `--check` can report false SVG drift.
 
 ## Commands
 

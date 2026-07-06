@@ -15,11 +15,11 @@ interface tables into docs/architecture/c4/:
 
 Rendering needs Java, Graphviz, and the PlantUML jar (>= 1.2023.x so the C4
 stdlib is bundled). The jar is located via, in order: $PLANTUML_JAR, a
-`plantuml` executable on PATH, /opt/plantuml/plantuml.jar. Install with:
+`plantuml` executable on PATH, ~/.local/share/plantuml/plantuml.jar,
+/opt/plantuml/plantuml.jar (legacy/container fallback, no sudo needed for
+the jar — only `apt-get install graphviz` requires root). Set up both with:
 
-    sudo apt-get install -y graphviz
-    curl -sSL -o /opt/plantuml/plantuml.jar \\
-        https://repo1.maven.org/maven2/net/sourceforge/plantuml/plantuml/1.2025.4/plantuml-1.2025.4.jar
+    bash scripts/setup_c4_tooling.sh
 
 Usage:
     python scripts/generate_c4.py              # (re)generate all views + SVGs
@@ -555,12 +555,16 @@ def find_plantuml(required: bool) -> list[str] | None:
     if shutil.which("dot") is None:
         problems.append("Graphviz `dot` not found — install with: sudo apt-get install graphviz")
     cmd = None
+    xdg_data = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    default_jar = Path(xdg_data) / "plantuml" / "plantuml.jar"
     jar = os.environ.get("PLANTUML_JAR")
     if jar and Path(jar).exists():
         cmd = ["java", "-jar", jar]
     elif shutil.which("plantuml"):
         cmd = ["plantuml"]
-    elif Path("/opt/plantuml/plantuml.jar").exists():
+    elif default_jar.exists():
+        cmd = ["java", "-jar", str(default_jar)]
+    elif Path("/opt/plantuml/plantuml.jar").exists():  # legacy / container images
         cmd = ["java", "-jar", "/opt/plantuml/plantuml.jar"]
     else:
         problems.append(
