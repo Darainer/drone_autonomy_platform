@@ -2,40 +2,40 @@
 
 ## Use Case Description
 
-Multi-platform collaborative construction and sharing of semantically-enriched high-definition maps using fused camera and LiDAR sensing. Map segments are compressed and fingerprinted for efficient transmission between aerial drones, ground vehicles, and command assets over bandwidth-constrained tactical data links.
+Multi-platform collaborative construction and sharing of semantically-enriched high-definition maps using fused camera and LiDAR sensing. Map segments are compressed and fingerprinted for efficient transmission between aerial drones, ground vehicles, and a base station over bandwidth-constrained rural data links.
 
 ### Operational Scenario
 
 A heterogeneous team of assets collaboratively builds and shares situational awareness:
 - **Aerial drones** provide wide-area coverage, overhead perspective, and RGB/thermal semantic classification
 - **Ground vehicles/UGVs** provide high-density ground-level scans with detailed facade and obstacle semantics
-- **Command post** aggregates, fuses, and distributes combined maps to all networked assets
+- **Base station** aggregates, fuses, and distributes combined maps to all networked assets
 
-Each platform builds local HD map segments by fusing geometric structure from LiDAR with semantic understanding from camera-based perception. Compact fingerprint hashes enable efficient delta synchronization—platforms exchange only what has changed, preserving precious tactical bandwidth while maintaining shared situational awareness across the force.
+Each platform builds local HD map segments by fusing geometric structure from LiDAR with semantic understanding from camera-based perception. Compact fingerprint hashes enable efficient delta synchronization—platforms exchange only what has changed, preserving precious bandwidth on rural links while maintaining shared situational awareness across the fleet.
 
 ---
 
-## Military Value and Operational Significance
+## Operational Value and Significance
 
-### Force Multiplication Through Shared Understanding
+### Fleet Multiplication Through Shared Understanding
 
-Collaborative mapping fundamentally transforms how distributed forces operate by creating a single, coherent picture of the battlespace that updates in real-time as any platform makes new observations. When an aerial drone detects a new structure or a ground vehicle identifies a concealed fighting position, that knowledge propagates to every connected asset within seconds. This eliminates the traditional fog of war that arises when individual platforms operate with incomplete, stale, or contradictory information. A convoy approaching an urban area receives the detailed street-level mapping that a preceding UGV collected, while simultaneously benefiting from the overhead route analysis an orbiting UAV generated. The whole becomes dramatically greater than the sum of its parts.
+Collaborative mapping fundamentally transforms how a distributed survey fleet operates by creating a single, coherent picture of the worksite that updates in real-time as any platform makes new observations. When an aerial drone detects a new structure or a ground vehicle identifies a newly-appeared obstacle, that knowledge propagates to every connected asset within seconds. This eliminates the stale or contradictory information that arises when individual platforms operate in isolation. A ground survey vehicle approaching a work site receives the detailed street-level mapping that a preceding UGV collected, while simultaneously benefiting from the overhead route analysis an orbiting UAV generated. The whole becomes dramatically greater than the sum of its parts.
 
-### Bandwidth Efficiency in Contested Environments
+### Bandwidth Efficiency in Connectivity-Limited Environments
 
-Remote agricultural environments often possess limited communication infrastructure that degrades or disrupts tactical communications. Traditional approaches to map sharing—transmitting full imagery or point clouds—consume bandwidth measured in megabytes and require sustained connectivity that cannot be guaranteed. The fingerprint-based synchronization protocol reduces this to kilobytes by transmitting only compact hashes during normal operations and compressed deltas when differences are detected. A 50-tile map covering 125,000 square meters can be verified with a 2 KB message rather than a 5 MB transmission. This 2,500× reduction in bandwidth enables continued operations when links are degraded to narrowband fallbacks or contested by environmental interference.
+Remote agricultural and rural environments often possess limited communication infrastructure that degrades or disrupts data links. Traditional approaches to map sharing—transmitting full imagery or point clouds—consume bandwidth measured in megabytes and require sustained connectivity that cannot be guaranteed. The fingerprint-based synchronization protocol reduces this to kilobytes by transmitting only compact hashes during normal operations and compressed deltas when differences are detected. A 50-tile map covering 125,000 square meters can be verified with a 2 KB message rather than a 5 MB transmission. This 2,500× reduction in bandwidth enables continued operations when links are degraded to narrowband fallbacks or disrupted by terrain and weather.
 
-### Semantic Understanding for Tactical Decision-Making
+### Semantic Understanding for Operational Decision-Making
 
-Raw geometric mapping tells you where objects are; semantic mapping tells you what they mean. By fusing camera-based perception with LiDAR structure, the HD map encodes not just that an obstacle exists, but whether it is a civilian vehicle, military fighting position, traversable vegetation, or impassable building. This semantic layer enables autonomous systems to make tactically-relevant decisions without operator intervention. A UGV can distinguish between a parked car (bypass) and an abandoned technical (report and avoid). An aerial drone can prioritize imaging of semantically-tagged points of interest while ignoring irrelevant terrain. Commanders viewing the fused map see the battlefield through a lens of tactical meaning rather than raw sensor data.
+Raw geometric mapping tells you where objects are; semantic mapping tells you what they mean. By fusing camera-based perception with LiDAR structure, the HD map encodes not just that an obstacle exists, but whether it is a parked vehicle, a hazardous structure, traversable vegetation, or impassable building. This semantic layer enables autonomous systems to make operationally-relevant decisions without operator intervention. A UGV can distinguish between a parked car (bypass) and downed infrastructure (report and avoid). An aerial drone can prioritize imaging of semantically-tagged points of interest while ignoring irrelevant terrain. Site supervisors viewing the fused map see the worksite through a lens of operational meaning rather than raw sensor data.
 
 ### Resilience Through Distributed Redundancy
 
-When mapping responsibility is distributed across multiple platforms, the loss of any single asset does not eliminate the accumulated knowledge. Each platform maintains a local copy of the collaborative map, and the Merkle tree structure enables rapid verification that maps remain synchronized even after periods of disconnection. A drone that loses communications for ten minutes can rejoin the network, compare fingerprints, and receive only the tiles that changed during its absence. If a ground vehicle is destroyed, its observations persist in the maps of every platform it synchronized with. This architectural resilience directly supports operations in high-attrition environments where platform loss must be anticipated rather than avoided.
+When mapping responsibility is distributed across multiple platforms, the loss of any single asset does not eliminate the accumulated knowledge. Each platform maintains a local copy of the collaborative map, and the Merkle tree structure enables rapid verification that maps remain synchronized even after periods of disconnection. A drone that loses communications for ten minutes can rejoin the network, compare fingerprints, and receive only the tiles that changed during its absence. If a ground vehicle is lost or disabled (e.g., mechanical failure, rollover), its observations persist in the maps of every platform it synchronized with. This architectural resilience directly supports operations in remote-area environments where platform loss must be anticipated rather than avoided.
 
-### Cross-Domain Integration
+### Cross-Platform Integration
 
-The standardized map format and synchronization protocol are agnostic to platform type, enabling true cross-domain integration. The same HD map that guides autonomous ground vehicles can be consumed by dismounted infantry with augmented reality displays, air defense systems plotting engagement zones, or artillery units planning fire missions. Semantic tags bridge the gap between sensor modalities—a thermal-identified heat signature from an aerial platform can be correlated with the LiDAR structure observed by a ground vehicle, creating a fused understanding neither platform could achieve alone.
+The standardized map format and synchronization protocol are agnostic to platform type, enabling true cross-platform integration. The same HD map that guides autonomous ground vehicles can be consumed by field inspectors with augmented reality displays, farm management systems planning treatment zones, or emergency responders planning access routes. Semantic tags bridge the gap between sensor modalities—a thermal-identified heat signature from an aerial platform can be correlated with the LiDAR structure observed by a ground vehicle, creating a fused understanding neither platform could achieve alone.
 
 ---
 
@@ -47,12 +47,12 @@ The standardized map format and synchronization protocol are agnostic to platfor
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │   ┌──────────────┐        ┌──────────────┐        ┌──────────────┐          │
-│   │  Aerial UAV  │◄──────►│  Ground UGV  │◄──────►│ Command Post │          │
+│   │  Aerial UAV  │◄──────►│  Ground UGV  │◄──────►│ Base Station │          │
 │   │              │        │              │        │              │          │
 │   │ • 3D LiDAR   │  Mesh  │ • 3D LiDAR   │  Mesh  │ • Map Server │          │
 │   │ • RGB Camera │  Net   │ • RGB Camera │  Net   │ • Fusion     │          │
 │   │ • Thermal    │        │ • Wheel Odom │        │ • Planning   │          │
-│   │ • IMU/GPS    │        │ • IMU        │        │ • C2 Overlay │          │
+│   │ • IMU/GPS    │        │ • IMU        │        │ • Ops Overlay│          │
 │   └──────┬───────┘        └──────┬───────┘        └──────┬───────┘          │
 │          │                       │                       │                   │
 │          ▼                       ▼                       ▼                   │
@@ -93,11 +93,11 @@ The camera-LiDAR fusion pipeline projects semantic labels from camera perception
 | Category | Classes | Source Priority |
 |----------|---------|-----------------|
 | **Terrain** | Road, trail, grass, sand, water, mud | Camera (texture) > LiDAR (geometry) |
-| **Structures** | Building, wall, fence, bunker, tower | LiDAR (geometry) > Camera (texture) |
-| **Vehicles** | Civilian car, truck, military vehicle, technical | Camera (classification) + LiDAR (dimensions) |
-| **Personnel** | Dismounted, prone, group | Camera (detection) + thermal (confirmation) |
+| **Structures** | Building, wall, fence, silo, tower | LiDAR (geometry) > Camera (texture) |
+| **Vehicles** | Car, truck, farm equipment, heavy machinery | Camera (classification) + LiDAR (dimensions) |
+| **Personnel** | Standing, seated/downed, group | Camera (detection) + thermal (confirmation) |
 | **Vegetation** | Tree, bush, crops, dense forest | Camera (texture) + LiDAR (penetration) |
-| **Tactical** | Fighting position, IED indicator, checkpoint | Camera (classification) + context |
+| **Hazards** | Downed line, washout, blocked access | Camera (classification) + context |
 
 ### Semantic Confidence Model
 
@@ -120,7 +120,7 @@ The local HD map uses a hierarchical tile-based structure optimized for partial 
 | **Geometry** | Occupancy voxels, ground mesh | 10 Hz (LiDAR rate) |
 | **Semantics** | Class labels, confidence scores | 5 Hz (camera rate) |
 | **Dynamic** | Tracked moving objects | 10 Hz |
-| **Tactical** | POIs, annotations, overlays | Event-driven |
+| **Annotations** | POIs, annotations, overlays | Event-driven |
 
 ### Voxel Encoding
 
@@ -171,9 +171,9 @@ Each tile fingerprint incorporates:
 | Approach | 50-Tile Map Size | Suitable Bandwidth |
 |----------|------------------|-------------------|
 | Raw point cloud | ~500 MB | Fiber only |
-| Compressed tiles | ~5 MB | High-bandwidth tactical |
-| Fingerprints only | ~2 KB | Any tactical link |
-| Delta sync (10% changed) | ~500 KB | Degraded tactical |
+| Compressed tiles | ~5 MB | High-bandwidth rural link |
+| Fingerprints only | ~2 KB | Any rural link |
+| Delta sync (10% changed) | ~500 KB | Degraded rural link |
 
 ---
 
@@ -207,8 +207,8 @@ IDLE ──► ANNOUNCE ──► COMPARE ──► TRANSFER ──► COMPLETE
 
 | Data Link | Bandwidth | Sync Interval | Tiles/Sync | Coverage Rate |
 |-----------|-----------|---------------|------------|---------------|
-| Tactical mesh (high) | 2 Mbps | 1 sec | 10 tiles | 2,500 m²/sec |
-| Tactical mesh (degraded) | 256 kbps | 5 sec | 2 tiles | 100 m²/sec |
+| Field mesh (high) | 2 Mbps | 1 sec | 10 tiles | 2,500 m²/sec |
+| Field mesh (degraded) | 256 kbps | 5 sec | 2 tiles | 100 m²/sec |
 | Satellite (BLOS) | 64 kbps | 30 sec | 1 tile | 83 m²/min |
 | Radio relay | 1 Mbps | 2 sec | 5 tiles | 625 m²/sec |
 
@@ -223,7 +223,7 @@ IDLE ──► ANNOUNCE ──► COMPARE ──► TRANSFER ──► COMPLETE
 | **Perspective** | Overhead view, good for building footprints, roads, area coverage |
 | **Semantic strength** | Wide-area classification, vehicle/personnel detection at range |
 | **LiDAR density** | Lower due to altitude, but covers large swath |
-| **Priority tiles** | Ahead of ground vehicles, around objectives, along routes |
+| **Priority tiles** | Ahead of ground vehicles, around points of interest, along routes |
 
 ### Ground UGV
 
@@ -232,7 +232,7 @@ IDLE ──► ANNOUNCE ──► COMPARE ──► TRANSFER ──► COMPLETE
 | **Perspective** | Ground-level, good for facades, obstacles, traversability detail |
 | **Semantic strength** | Close-range classification, texture detail, under-canopy visibility |
 | **LiDAR density** | High at close range, detailed obstacle mapping |
-| **Priority tiles** | Immediate path, flank security, choke points |
+| **Priority tiles** | Immediate path, nearby hazards, narrow passages |
 
 ### Map Fusion Strategy
 
@@ -274,8 +274,8 @@ IDLE ──► ANNOUNCE ──► COMPARE ──► TRANSFER ──► COMPLETE
 
 - [ ] Optimal tile size for different operational tempos?
 - [ ] How to handle GNSS-denied alignment between platforms?
-- [ ] Priority scheme for contested bandwidth scenarios?
-- [ ] Semantic class taxonomy alignment across joint/coalition forces?
+- [ ] Priority scheme for constrained bandwidth scenarios?
+- [ ] Semantic class taxonomy alignment across multiple operators/fleets?
 - [ ] Loop closure across multi-platform observations?
 - [ ] Thermal-visual-LiDAR registration in dynamic thermal environments?
 

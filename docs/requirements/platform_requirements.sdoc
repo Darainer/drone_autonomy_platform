@@ -44,26 +44,28 @@ STATUS: Approved
 TAGS: latency, surveying, safety-critical
 TITLE: Sensor to Action Latency (Obstacle Avoidance)
 STATEMENT: >>>
-The time from detection of an obstacle to initiation of an avoidance action
-shall not exceed 250 milliseconds. This ensures the platform can avoid
-fast-moving obstacles.
+The time from detection of an obstacle in the flight path to initiation of an
+avoidance action (e.g., an evasive maneuver) shall not exceed 250 ms.
 <<<
 RATIONALE: >>>
-Critical safety requirement: reaction time bounds survivability against
-fast-moving threats.
+Safety-critical reaction bound: at the platform's typical 10 m/s survey
+transit speed, 250 ms corresponds to 2.5 m traveled before the avoidance
+action begins, preserving sufficient margin to alter the flight path around
+static or moving obstacles.
 <<<
 
 [REQUIREMENT]
 UID: E2E-3
 STATUS: Approved
 TAGS: latency, surveying
-TITLE: Sensor to Action Latency (Target Tracking)
+TITLE: Sensor to Action Latency (Feature Tracking)
 STATEMENT: >>>
-The time from detection of a target to a course adjustment that tracks the
-target shall not exceed 300 ms.
+The time from detection of a tracked surface feature (e.g., a crop row or
+survey line landmark) to a course adjustment that follows the feature shall
+not exceed 300 ms.
 <<<
 RATIONALE: >>>
-Required to maintain lock on moving targets.
+Required to maintain accurate survey lines / row following.
 <<<
 
 [[/SECTION]]
@@ -107,7 +109,7 @@ The object detection model shall produce detections within 100 ms of
 receiving an input frame.
 <<<
 RATIONALE: >>>
-Drives the RT-DETR/RF-DETR pipeline design in
+Drives the RF-DETR pipeline design in
 docs/architecture/perception_architecture.md.
 <<<
 RELATIONS:
