@@ -4,17 +4,27 @@ Generate C4-model architecture views from the ROS2 source code.
 
 Scans src/ for rclcpp / rclpy node definitions (create_publisher,
 create_subscription, create_client, create_service, message_filters) and
-emits Mermaid C4 diagrams + interface tables into docs/architecture/c4/:
+emits C4-PlantUML diagram sources, SVGs rendered with Graphviz, and
+interface tables into docs/architecture/c4/:
 
-    level1_context.md          — L1 system context (operator, GCS, PX4, sensors)
-    level2_container.md        — L2 container view (every ROS2 node, topic flows)
-    level3_component_<pkg>.md  — L3 component view per src/ package
-    topics.md                  — full topic/service inventory with link status
-    README.md                  — index
+    level1_context.{puml,svg,md}         — L1 system context (operator, GCS, PX4, sensors)
+    level2_container.{puml,svg,md}       — L2 container view (every ROS2 node, topic flows)
+    level3_component_<pkg>.{puml,svg,md} — L3 component view per src/ package
+    topics.md                            — full topic/service inventory with link status
+    README.md                            — index
+
+Rendering needs Java, Graphviz, and the PlantUML jar (>= 1.2023.x so the C4
+stdlib is bundled). The jar is located via, in order: $PLANTUML_JAR, a
+`plantuml` executable on PATH, /opt/plantuml/plantuml.jar. Install with:
+
+    sudo apt-get install -y graphviz
+    curl -sSL -o /opt/plantuml/plantuml.jar \\
+        https://repo1.maven.org/maven2/net/sourceforge/plantuml/plantuml/1.2025.4/plantuml-1.2025.4.jar
 
 Usage:
-    python scripts/generate_c4.py            # (re)generate all views
-    python scripts/generate_c4.py --check    # exit 1 if views are stale (CI/drift check)
+    python scripts/generate_c4.py              # (re)generate all views + SVGs
+    python scripts/generate_c4.py --check      # exit 1 if views are stale (CI/drift check)
+    python scripts/generate_c4.py --no-render  # skip SVG rendering (no Java/Graphviz needed)
 
 Topic matching rules:
   * remappings= entries in launch_ros Node(...) actions (src/**/launch/*.py
@@ -30,8 +40,12 @@ Topic matching rules:
 from __future__ import annotations
 
 import argparse
+import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 
@@ -42,6 +56,10 @@ OUT_DIR = REPO / "docs" / "architecture" / "c4"
 GENERATED_HEADER = (
     "<!-- GENERATED FILE — do not edit by hand. "
     "Regenerate with: python scripts/generate_c4.py -->\n"
+)
+PUML_HEADER = (
+    "' GENERATED FILE — do not edit by hand. "
+    "Regenerate with: python scripts/generate_c4.py\n"
 )
 
 # External systems recognised by topic/service prefix.
@@ -311,7 +329,14 @@ def build_edges(nodes: list[RosNode]):
     return edges, topic_rows, remap_warnings, dangling
 
 
-# ── mermaid rendering ───────────────────────────────────────────────────────
+# ── C4-PlantUML rendering ───────────────────────────────────────────────────
+
+REL_TAGS = [
+    'AddRelTag("needs_remap", $lineStyle=DashedLine(), '
+    '$legendText="needs remap (basename match only)")',
+    'AddRelTag("service", $lineStyle=DottedLine(), $legendText="service call")',
+]
+
 
 def sanitize(alias: str) -> str:
     return re.sub(r"\W", "_", alias)
@@ -322,52 +347,78 @@ def used_externals(edges) -> list[tuple[str, str, str]]:
     return [(a, n, d) for a, n, d, _rx in EXTERNAL_SYSTEMS if a in aliases]
 
 
-def render_context() -> str:
-    return f"""{GENERATED_HEADER}# C4 Level 1 — System Context
+def rel_line(src: str, dst: str, label: str, tech: str, kind: str, indent: str = "") -> str:
+    tag = {"remap": "needs_remap", "service": "service"}.get(kind)
+    tags = f', $tags="{tag}"' if tag else ""
+    return f'{indent}Rel({sanitize(src)}, {sanitize(dst)}, "{label}", "{tech}"{tags})'
 
-```mermaid
-C4Context
-    title System Context — Drone Autonomy Platform
 
-    Person(operator, "Drone Operator", "Plans missions, monitors telemetry, retains override authority")
-    System(platform, "Drone Autonomy Platform", "ROS2 autonomy stack on Jetson Orin (this repository)")
-    System_Ext(gcs, "Ground Control Station", "QGroundControl / custom GCS")
-    System_Ext(px4, "PX4 Flight Controller", "Autopilot firmware, reached via MAVROS/MAVLink")
-    System_Ext(oakd, "OAK-D Camera", "RGB + stereo depth sensor")
+def diagram_md(title: str, stem: str, intro: str = "", extra: str = "") -> str:
+    """Markdown page embedding the rendered SVG and linking its .puml source."""
+    parts = [GENERATED_HEADER + f"# {title}", ""]
+    if intro:
+        parts += [intro, ""]
+    parts += [f"![{title}]({stem}.svg)", "",
+              f"Diagram source: [`{stem}.puml`]({stem}.puml) "
+              "(C4-PlantUML, rendered with Graphviz)."]
+    if extra:
+        parts += ["", extra]
+    return "\n".join(parts) + "\n"
 
-    Rel(operator, gcs, "Operates")
-    BiRel(gcs, px4, "MAVLink C2 + telemetry", "radio datalink")
-    BiRel(platform, px4, "Setpoints, mode commands, vehicle state", "MAVROS / DDS")
-    Rel(oakd, platform, "RGB + stereo depth images", "ROS2 topics")
-```
 
-The context view is maintained from the `EXTERNAL_SYSTEMS` table and the
-static context template in `scripts/generate_c4.py` — update those when an
-external actor or system changes.
+def render_context() -> tuple[str, str]:
+    puml = f"""{PUML_HEADER}@startuml
+!include <C4/C4_Context>
+
+title System Context — Drone Autonomy Platform
+
+Person(operator, "Drone Operator", "Plans missions, monitors telemetry, retains override authority")
+System(platform, "Drone Autonomy Platform", "ROS2 autonomy stack on Jetson Orin (this repository)")
+System_Ext(gcs, "Ground Control Station", "QGroundControl / custom GCS")
+System_Ext(px4, "PX4 Flight Controller", "Autopilot firmware, reached via MAVROS/MAVLink")
+System_Ext(oakd, "OAK-D Camera", "RGB + stereo depth sensor")
+
+Rel(operator, gcs, "Operates")
+BiRel(gcs, px4, "MAVLink C2 + telemetry", "radio datalink")
+BiRel(platform, px4, "Setpoints, mode commands, vehicle state", "MAVROS / DDS")
+Rel(oakd, platform, "RGB + stereo depth images", "ROS2 topics")
+
+SHOW_LEGEND()
+@enduml
 """
+    md = diagram_md(
+        "C4 Level 1 — System Context", "level1_context",
+        extra=("The context view is maintained from the `EXTERNAL_SYSTEMS` table and the\n"
+               "static context template in `scripts/generate_c4.py` — update those when an\n"
+               "external actor or system changes."),
+    )
+    return puml, md
 
 
-def render_container(nodes: list[RosNode], edges) -> str:
+def render_container(nodes: list[RosNode], edges) -> tuple[str, str]:
     by_pkg: dict[str, list[RosNode]] = defaultdict(list)
     for n in nodes:
         by_pkg[n.package].append(n)
 
-    lines = ["C4Container",
-             "    title Container View — ROS2 nodes of the Drone Autonomy Platform", ""]
-    for alias, name, desc in used_externals(edges):
-        lines.append(f'    System_Ext({alias}, "{name}", "{desc}")')
+    lines = [PUML_HEADER + "@startuml",
+             "!include <C4/C4_Container>", "",
+             "title Container View — ROS2 nodes of the Drone Autonomy Platform", ""]
+    lines += REL_TAGS
     lines.append("")
-    lines.append('    System_Boundary(platform, "Drone Autonomy Platform") {')
+    for alias, name, desc in used_externals(edges):
+        lines.append(f'System_Ext({alias}, "{name}", "{desc}")')
+    lines.append("")
+    lines.append('System_Boundary(platform, "Drone Autonomy Platform") {')
     for pkg in sorted(by_pkg):
-        lines.append(f'        Container_Boundary({sanitize(pkg)}_pkg, "src/{pkg}") {{')
+        lines.append(f'    Container_Boundary({sanitize(pkg)}_pkg, "src/{pkg}") {{')
         for n in sorted(by_pkg[pkg], key=lambda x: x.name):
             rel = n.file.relative_to(REPO)
             lines.append(
-                f'            Container({sanitize(n.name)}, "{n.name}", '
+                f'        Container({sanitize(n.name)}, "{n.name}", '
                 f'"ROS2 / {n.lang}", "{rel}")'
             )
-        lines.append("        }")
-    lines.append("    }")
+        lines.append("    }")
+    lines.append("}")
     lines.append("")
     seen = set()
     for src, dst, label, tech, kind in edges:
@@ -375,63 +426,64 @@ def render_container(nodes: list[RosNode], edges) -> str:
         if key in seen:
             continue
         seen.add(key)
-        rel = "Rel" if kind != "remap" else "Rel"
-        lines.append(f'    {rel}({sanitize(src)}, {sanitize(dst)}, "{label}", "{tech}")')
-    lines.append("")
-    lines.append('    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="2")')
+        lines.append(rel_line(src, dst, label, tech, kind))
+    lines += ["", "SHOW_LEGEND()", "@enduml"]
+    puml = "\n".join(lines) + "\n"
 
-    diagram = "\n".join(lines)
-    return f"""{GENERATED_HEADER}# C4 Level 2 — Container View (ROS2 Nodes)
-
-Every deployable ROS2 node in `src/`, grouped by package, with topic and
-service flows extracted from the source. Edges labelled *needs remap* match
-by topic basename only — see `topics.md` for details.
-
-```mermaid
-{diagram}
-```
-"""
+    md = diagram_md(
+        "C4 Level 2 — Container View (ROS2 Nodes)", "level2_container",
+        intro=("Every deployable ROS2 node in `src/`, grouped by package, with topic and\n"
+               "service flows extracted from the source. Dashed edges are *needs remap*\n"
+               "candidates matched by topic basename only — see [`topics.md`](topics.md)\n"
+               "for details."),
+    )
+    return puml, md
 
 
-def render_component(pkg: str, nodes: list[RosNode], all_nodes, edges) -> str:
+def render_component(pkg: str, nodes: list[RosNode], all_nodes, edges) -> tuple[str, str]:
     pkg_node_names = {n.name for n in nodes}
     pkg_edges = [e for e in edges if e[0] in pkg_node_names or e[1] in pkg_node_names]
     neighbors = ({e[0] for e in pkg_edges} | {e[1] for e in pkg_edges}) - pkg_node_names
     node_by_name = {n.name: n for n in all_nodes}
     ext_by_alias = {a: (n, d) for a, n, d, _ in EXTERNAL_SYSTEMS}
 
-    lines = ["C4Component", f"    title Component View — src/{pkg}", ""]
+    lines = [PUML_HEADER + "@startuml",
+             "!include <C4/C4_Component>", "",
+             f"title Component View — src/{pkg}", ""]
+    lines += REL_TAGS
+    lines.append("")
     for nb in sorted(neighbors):
         if nb in ext_by_alias:
             name, desc = ext_by_alias[nb]
-            lines.append(f'    System_Ext({nb}, "{name}", "{desc}")')
+            lines.append(f'System_Ext({nb}, "{name}", "{desc}")')
         elif nb in node_by_name:
             lines.append(
-                f'    Container({sanitize(nb)}, "{nb}", "ROS2 node", '
+                f'Container({sanitize(nb)}, "{nb}", "ROS2 node", '
                 f'"src/{node_by_name[nb].package}")'
             )
     lines.append("")
-    lines.append(f'    Container_Boundary({sanitize(pkg)}, "src/{pkg}") {{')
+    lines.append(f'Container_Boundary({sanitize(pkg)}, "src/{pkg}") {{')
     for n in sorted(nodes, key=lambda x: x.name):
         iface = f"{len(n.pubs)} pub / {len(n.subs)} sub"
         if n.clients:
             iface += f" / {len(n.clients)} srv client"
         lines.append(
-            f'        Component({sanitize(n.name)}, "{n.name}", '
+            f'    Component({sanitize(n.name)}, "{n.name}", '
             f'"ROS2 node ({n.lang})", "{iface}")'
         )
-    lines.append("    }")
+    lines.append("}")
     lines.append("")
     seen = set()
-    for src, dst, label, tech, _kind in pkg_edges:
+    for src, dst, label, tech, kind in pkg_edges:
         key = (src, dst, label)
         if key in seen:
             continue
         seen.add(key)
-        lines.append(f'    Rel({sanitize(src)}, {sanitize(dst)}, "{label}", "{tech}")')
-    diagram = "\n".join(lines)
+        lines.append(rel_line(src, dst, label, tech, kind))
+    lines += ["", "SHOW_LEGEND()", "@enduml"]
+    puml = "\n".join(lines) + "\n"
 
-    table = ["", "## Interfaces", "",
+    table = ["## Interfaces", "",
              "| Node | Direction | Topic / Service | Type |", "|---|---|---|---|"]
     for n in sorted(nodes, key=lambda x: x.name):
         for t, ty in n.pubs:
@@ -443,12 +495,13 @@ def render_component(pkg: str, nodes: list[RosNode], all_nodes, edges) -> str:
         for t, ty in n.services:
             table.append(f"| `{n.name}` | service server | `{t}` | `{ty}` |")
     notes = [note for n in nodes for note in n.notes]
-    notes_md = ""
+    extra = "\n".join(table)
     if notes:
-        notes_md = "\n## Parser notes\n\n" + "\n".join(f"- {x}" for x in notes) + "\n"
+        extra += "\n\n## Parser notes\n\n" + "\n".join(f"- {x}" for x in notes)
 
-    return (f"{GENERATED_HEADER}# C4 Level 3 — Component View: `src/{pkg}`\n\n"
-            f"```mermaid\n{diagram}\n```\n" + "\n".join(table) + "\n" + notes_md)
+    md = diagram_md(f"C4 Level 3 — Component View: `src/{pkg}`",
+                    f"level3_component_{pkg}", extra=extra)
+    return puml, md
 
 
 def render_topics(topic_rows, remap_warnings, dangling) -> str:
@@ -474,13 +527,18 @@ def render_index(pkgs: list[str]) -> str:
     )
     return f"""{GENERATED_HEADER}# C4 Architecture Views (generated)
 
-Generated from the ROS2 source by `scripts/generate_c4.py`. Regenerate after
-any change to nodes, topics, services, or launch remappings:
+Generated from the ROS2 source by `scripts/generate_c4.py` as C4-PlantUML
+(`.puml`) sources rendered to SVG with Graphviz and embedded in the Markdown
+pages. Regenerate after any change to nodes, topics, services, or launch
+remappings:
 
 ```bash
-python scripts/generate_c4.py          # regenerate
+python scripts/generate_c4.py          # regenerate views + SVGs
 python scripts/generate_c4.py --check  # verify views match the code (CI)
 ```
+
+Rendering needs Java + Graphviz + the PlantUML jar — see the docstring of
+`scripts/generate_c4.py` (or `.claude/skills/c4/SKILL.md`) for setup.
 
 - [Level 1 — System Context](level1_context.md)
 - [Level 2 — Container View (ROS2 nodes)](level2_container.md)
@@ -489,9 +547,52 @@ python scripts/generate_c4.py --check  # verify views match the code (CI)
 """
 
 
+# ── SVG rendering (PlantUML + Graphviz) ─────────────────────────────────────
+
+def find_plantuml(required: bool) -> list[str] | None:
+    """Return the PlantUML invocation, or None (only when not required)."""
+    problems = []
+    if shutil.which("dot") is None:
+        problems.append("Graphviz `dot` not found — install with: sudo apt-get install graphviz")
+    cmd = None
+    jar = os.environ.get("PLANTUML_JAR")
+    if jar and Path(jar).exists():
+        cmd = ["java", "-jar", jar]
+    elif shutil.which("plantuml"):
+        cmd = ["plantuml"]
+    elif Path("/opt/plantuml/plantuml.jar").exists():
+        cmd = ["java", "-jar", "/opt/plantuml/plantuml.jar"]
+    else:
+        problems.append(
+            "PlantUML not found — set $PLANTUML_JAR, or fetch the jar "
+            "(see docstring of scripts/generate_c4.py)"
+        )
+    if problems:
+        msg = "; ".join(problems)
+        if required:
+            sys.exit(f"error: {msg}\n(use --no-render to skip SVG rendering)")
+        print(f"note: {msg}")
+        return None
+    return cmd
+
+
+def render_svgs(cmd: list[str], puml_dir: Path) -> None:
+    """Render every .puml in puml_dir to .svg alongside it."""
+    pumls = sorted(str(p) for p in puml_dir.glob("*.puml"))
+    if not pumls:
+        return
+    res = subprocess.run(
+        cmd + ["-tsvg", "-nometadata", "-charset", "UTF-8", *pumls],
+        capture_output=True, text=True,
+    )
+    if res.returncode != 0:
+        sys.exit(f"error: PlantUML rendering failed:\n{res.stdout}\n{res.stderr}")
+
+
 # ── main ────────────────────────────────────────────────────────────────────
 
 def generate() -> dict[str, str]:
+    """Return {filename: content} for all text outputs (.md and .puml)."""
     nodes = parse_sources()
     if not nodes:
         sys.exit("error: no ROS2 nodes found under src/")
@@ -500,48 +601,85 @@ def generate() -> dict[str, str]:
     for n in nodes:
         by_pkg[n.package].append(n)
 
-    files = {
-        "level1_context.md": render_context(),
-        "level2_container.md": render_container(nodes, edges),
-        "topics.md": render_topics(topic_rows, remap_warnings, dangling),
-        "README.md": render_index(list(by_pkg)),
-    }
+    files: dict[str, str] = {}
+    files["level1_context.puml"], files["level1_context.md"] = render_context()
+    files["level2_container.puml"], files["level2_container.md"] = \
+        render_container(nodes, edges)
     for pkg, pkg_nodes in by_pkg.items():
-        files[f"level3_component_{pkg}.md"] = render_component(pkg, pkg_nodes, nodes, edges)
+        stem = f"level3_component_{pkg}"
+        files[f"{stem}.puml"], files[f"{stem}.md"] = \
+            render_component(pkg, pkg_nodes, nodes, edges)
+    files["topics.md"] = render_topics(topic_rows, remap_warnings, dangling)
+    files["README.md"] = render_index(list(by_pkg))
     return files
+
+
+def check(files: dict[str, str], renderer: list[str] | None) -> int:
+    stale = []
+    for name, content in files.items():
+        path = OUT_DIR / name
+        if not path.exists() or path.read_text() != content:
+            stale.append(name)
+
+    svg_names = {n[:-5] + ".svg" for n in files if n.endswith(".puml")}
+    if renderer is None:
+        print("note: SVG rendering skipped or unavailable — checking .md/.puml only")
+        for svg in sorted(svg_names):
+            if not (OUT_DIR / svg).exists():
+                stale.append(f"{svg} (missing)")
+    else:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            for name, content in files.items():
+                if name.endswith(".puml"):
+                    (tmp_dir / name).write_text(content)
+            render_svgs(renderer, tmp_dir)
+            for svg in sorted(svg_names):
+                committed = OUT_DIR / svg
+                if not committed.exists() or \
+                        committed.read_bytes() != (tmp_dir / svg).read_bytes():
+                    stale.append(svg)
+
+    # flag committed views that would no longer be generated
+    if OUT_DIR.exists():
+        expected = set(files) | svg_names
+        for path in sorted(OUT_DIR.iterdir()):
+            if path.suffix in (".md", ".puml", ".svg") and path.name not in expected:
+                stale.append(f"{path.name} (orphaned)")
+
+    if stale:
+        print("C4 views are stale — run: python scripts/generate_c4.py")
+        for s in stale:
+            print(f"  - {s}")
+        return 1
+    print("C4 views are up to date.")
+    return 0
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--check", action="store_true",
                     help="exit 1 if generated views differ from files on disk")
+    ap.add_argument("--no-render", action="store_true",
+                    help="skip SVG rendering (only regenerate/check .md and .puml)")
     args = ap.parse_args()
 
     files = generate()
+    renderer = None if args.no_render else find_plantuml(required=not args.check)
 
     if args.check:
-        stale = []
-        for name, content in files.items():
-            path = OUT_DIR / name
-            if not path.exists() or path.read_text() != content:
-                stale.append(name)
-        # flag committed views that would no longer be generated
-        if OUT_DIR.exists():
-            for path in OUT_DIR.glob("*.md"):
-                if path.name not in files:
-                    stale.append(f"{path.name} (orphaned)")
-        if stale:
-            print("C4 views are stale — run: python scripts/generate_c4.py")
-            for s in stale:
-                print(f"  - {s}")
-            return 1
-        print("C4 views are up to date.")
-        return 0
+        return check(files, renderer)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for name, content in files.items():
         (OUT_DIR / name).write_text(content)
         print(f"wrote {OUT_DIR.relative_to(REPO) / name}")
+    if renderer is None:
+        print("warning: SVGs NOT re-rendered — committed diagrams may be stale")
+    else:
+        render_svgs(renderer, OUT_DIR)
+        for puml in sorted(OUT_DIR.glob("*.puml")):
+            print(f"wrote {puml.relative_to(REPO).with_suffix('.svg')}")
     return 0
 
 

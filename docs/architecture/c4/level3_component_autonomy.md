@@ -1,21 +1,9 @@
 <!-- GENERATED FILE — do not edit by hand. Regenerate with: python scripts/generate_c4.py -->
 # C4 Level 3 — Component View: `src/autonomy`
 
-```mermaid
-C4Component
-    title Component View — src/autonomy
+![C4 Level 3 — Component View: `src/autonomy`](level3_component_autonomy.svg)
 
-    Container(navigation_node, "navigation_node", "ROS2 node", "src/navigation")
-    Container(survey_recorder_node, "survey_recorder_node", "ROS2 node", "src/mapping")
-
-    Container_Boundary(autonomy, "src/autonomy") {
-        Component(autonomy_node, "autonomy_node", "ROS2 node (C++)", "2 pub / 1 sub")
-    }
-
-    Rel(autonomy_node, survey_recorder_node, "/mission", "drone_autonomy_msgs/Mission")
-    Rel(autonomy_node, navigation_node, "/mission", "drone_autonomy_msgs/Mission")
-    Rel(autonomy_node, survey_recorder_node, "/mission_status", "drone_autonomy_msgs/MissionStatus")
-```
+Diagram source: [`level3_component_autonomy.puml`](level3_component_autonomy.puml) (C4-PlantUML, rendered with Graphviz).
 
 ## Interfaces
 
