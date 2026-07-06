@@ -1,4 +1,4 @@
-# Latency Requirements for ISR
+# Latency Requirements for Surveying & Agricultural Autonomy
 
 > **Note:** The requirement statements in this document have been migrated to
 > [docs/requirements/platform_requirements.sdoc](../requirements/platform_requirements.sdoc),
@@ -6,7 +6,7 @@
 > This document remains as narrative context; update the `.sdoc` file when a
 > requirement changes (see the `requirements` skill).
 
-This document defines the latency requirements for the Intelligence, Surveillance, and Reconnaissance (ISR) use case. Latency is a critical factor in the performance of an ISR system, as it determines how quickly the drone can react to new information and threats.
+This document defines the latency requirements for the Surveying and Agricultural Autonomy use cases. Latency is a critical factor in the performance of an autonomous mapping or crop-spraying system, as it determines how quickly the drone can react to new environmental information and obstacles.
 
 ## 1. End-to-End Latency Requirements
 
@@ -14,9 +14,9 @@ End-to-end latency is defined as the time from when a photon hits the sensor to 
 
 | ID | Requirement | Max Latency (ms) | Rationale |
 |---|---|---|---|
-| E2E-1 | **Sensor to GCS Display** | 500 | The time from when an image is captured to when it is displayed on the ground control station (GCS). This is important for real-time situational awareness. |
-| E2E-2 | **Sensor to Action (Threat Response)** | 250 | The time from when a threat is detected to when the drone takes a defensive action (e.g., maneuvers to avoid a missile). This is a critical safety requirement. |
-| E2E-3 | **Sensor to Action (Target Tracking)** | 300 | The time from when a target is detected to when the drone adjusts its course to track the target. This is important for maintaining a lock on moving targets. |
+| E2E-1 | **Sensor to GCS Display** | 500 | The time from when an image is captured to when it is displayed on the ground control station (GCS). This is important for real-time situational awareness during surveys. |
+| E2E-2 | **Sensor to Action (Obstacle Avoidance)** | 250 | The time from when an obstacle is detected to when the drone takes an avoidance action. At a typical flight speed of 10 m/s, a 250 ms latency means the drone travels 2.5 meters before reacting, leaving sufficient distance to safely alter its planned flight path. |
+| E2E-3 | **Sensor to Action (Feature Tracking)** | 300 | The time from when a key feature (like a crop line) is detected to when the drone adjusts its course to track the feature. This is important for maintaining accurate survey lines. |
 
 ## 2. Component-Level Latency Requirements
 
@@ -46,7 +46,7 @@ The platform processing requirements define the latency requirements for the pro
 
 ## 4. Latency Budget
 
-The following table shows a sample latency budget for the "Sensor to Action (Threat Response)" requirement (E2E-2).
+The following table shows a sample latency budget for the "Sensor to Action (Obstacle Avoidance)" requirement (E2E-2).
 
 | Component | Max Latency (ms) |
 |---|---|

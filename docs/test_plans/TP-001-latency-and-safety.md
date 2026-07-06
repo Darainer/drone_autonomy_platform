@@ -5,7 +5,7 @@
 
 ## Scope
 
-Verification planning for the ISR latency budget (E2E-*, COMP-*, PLAT-*) and
+Verification planning for the surveying latency budget (E2E-*, COMP-*, PLAT-*) and
 the battery failsafe (SAF-*). Created with the `test-plan` skill; linkage is
 checked by `scripts/check_traceability.py`.
 

@@ -221,7 +221,7 @@ gst-launch-1.0 ... udpsink host=100.x.x.x port=5600
 | 5G | 10-30ms |
 | Total (with encoding) | 100-200ms |
 
-**Note:** Not suitable for FPV piloting. Use for monitoring/ISR only.
+**Note:** Not suitable for FPV piloting. Use for monitoring/surveying only.
 
 ---
 

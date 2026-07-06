@@ -20,8 +20,8 @@ runtime wiring.
 | UID | How this design satisfies it |
 |---|---|
 | PLAT-2 | Perception output can only become a control command within 30 ms if the decision→control→bridge topic chain is actually connected. |
-| E2E-2 | Threat response (sensor→action ≤ 250 ms) requires the full mission→trajectory→attitude-command flow to reach the flight-controller bridge. |
-| E2E-3 | Target-tracking course adjustments flow over the same chain. |
+| E2E-2 | Obstacle avoidance (sensor→action ≤ 250 ms) requires the full mission→trajectory→attitude-command flow to reach the flight-controller bridge. |
+| E2E-3 | Feature-tracking course adjustments flow over the same chain. |
 
 ## Current state
 
