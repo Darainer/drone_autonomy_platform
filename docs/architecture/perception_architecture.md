@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document specifies the real-time object detection pipeline for surveying and agricultural autonomy applications using RF-DETR on NVIDIA Jetson Orin. The architecture prioritizes detection performance on the RGB image path with single-camera input, leveraging Isaac ROS and TensorRT acceleration.
+This document specifies the real-time object detection pipeline for surveying and agricultural autonomy applications using RF-DETR on NVIDIA Jetson Orin. The architecture prioritizes detection performance on the RGB image path with single-camera input, running as a custom TensorRT-accelerated ROS2 node.
 
 **Primary Objectives:**
 - **Detect and Avoid (DAA)**: A detect and avoid system is the primary reason to have onboard perception. The operational domain may contain a variety of flying and land-based moving objects, and the system must be able to dynamically react to obstructions along its planned flight path for safety.
@@ -19,7 +19,7 @@ This document specifies the real-time object detection pipeline for surveying an
 
 ### Scope
 
-- **In scope:** RGB camera pipeline, RF-DETR detection, object tracking, Isaac ROS integration
+- **In scope:** RGB camera pipeline, RF-DETR detection (custom TensorRT node), object tracking
 - **Out of scope:** IR/thermal fusion (future), multi-camera batching (future), classical vision fallback (future)
 
 ---
@@ -33,96 +33,59 @@ This document specifies the real-time object detection pipeline for surveying an
 | Architecture | Transformer (global context) | CNN (local features) |
 | Post-processing | NMS-free (end-to-end) | Requires NMS |
 | Small object detection | Superior (attention mechanism) | Good |
-| Latency adaptability | Adjustable decoder layers | Fixed architecture |
-| Isaac ROS support | Native `isaac_ros_rtdetr` | Requires custom integration |
+| License | Apache 2.0 | AGPL-3.0 (Ultralytics) / commercial |
+| Jetson integration | Custom TensorRT ROS2 node (`rfdetr_node.py`) | No native Isaac ROS package either; would require the same custom-node approach |
 
-RF-DETR provides better detection of small, distant targets critical for surveying and agricultural autonomy missions while maintaining real-time performance through its efficient hybrid encoder design.
+RF-DETR (Roboflow's real-time detection transformer) provides strong detection of small, distant targets relevant to surveying and agricultural missions while remaining real-time on Jetson-class hardware. There is no native Isaac ROS package for RF-DETR (or RT-DETR); the deployed pipeline runs it through a hand-written TensorRT node rather than Isaac ROS composable nodes (see [History](#history-earlier-isaac-ros-design) below).
 
-### Architecture Components
+### Model Architecture
+
+RF-DETR-Small is a DINOv2-backboned, real-time detection transformer: a vision-transformer backbone feeds a lightweight decoder that emits detections directly, without a separate NMS post-processing pass. The deployed node's docstring summarizes it as "NMS-free (end-to-end), Apache 2.0 licensed, and uses a DINOv2 backbone" (`src/perception/src/rfdetr_node.py`). For full architectural detail beyond what's needed to operate the deployed engine, see the [RF-DETR repository](https://github.com/roboflow/rf-detr).
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         RF-DETR Architecture                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌──────────────┐    ┌─────────────────────────┐    ┌────────────────┐  │
-│  │   Backbone   │    │  Efficient Hybrid       │    │   Transformer  │  │
-│  │  (HGNetV2)   │───▶│      Encoder            │───▶│    Decoder     │  │
-│  │              │    │                         │    │                │  │
-│  └──────────────┘    └─────────────────────────┘    └────────────────┘  │
-│         │                      │                           │            │
-│         ▼                      ▼                           ▼            │
-│  Multi-scale          AIFI: Intra-scale           IoU-aware Query      │
-│  Features             CCFM: Cross-scale           Selection + Heads    │
-│  {S3, S4, S5}         Feature Fusion                                   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                    RF-DETR-Small (deployed)                │
+├───────────────────────────────────────────────────────────┤
+│                                                             │
+│   ┌───────────────┐      ┌────────────────────────────┐   │
+│   │  DINOv2        │────▶│  Detection decoder          │   │
+│   │  backbone      │     │  (NMS-free, end-to-end)     │   │
+│   └───────────────┘      └────────────────────────────┘   │
+│         │                            │                     │
+│         ▼                            ▼                     │
+│   512×512 input               300 detections               │
+│                                (boxes + 91-way logits)       │
+│                                                             │
+└───────────────────────────────────────────────────────────┘
 ```
-
-#### Backbone: HGNetV2
-
-- Extracts multi-scale feature maps {S3, S4, S5} from input image
-- Optimized for inference speed with grouped convolutions
-- RF-DETR-S uses larger HGNetV2 variant for higher accuracy
-
-#### Efficient Hybrid Encoder
-
-| Component | Function | Benefit |
-|-----------|----------|---------|
-| **AIFI** (Attention-based Intra-scale Feature Interaction) | Self-attention within each scale | Captures global context efficiently |
-| **CCFM** (CNN-based Cross-scale Feature-fusion Module) | Fuses features across scales | Multi-scale object detection |
-
-This decoupled design reduces computational cost compared to full multi-scale attention while preserving detection quality.
-
-#### Transformer Decoder
-
-- Iteratively refines object queries using cross-attention with encoder features
-- **IoU-aware query selection**: Initializes queries from high-confidence encoder features
-- **Auxiliary prediction heads**: Each decoder layer outputs predictions for deep supervision
-- **NMS-free**: Outputs final detections directly without post-processing
 
 ---
 
 ## Model Selection
 
-### Variant Comparison
+### Deployed Model: RF-DETR-Small
 
-| Variant | Backbone | AP (COCO) | Params | FPS (T4) | Recommendation |
-|---------|----------|-----------|--------|----------|----------------|
-| **RF-DETR-S** | ResNet-18 | 46.5% | 20M | 217 | **Selected** |
-| RF-DETR-R34 | ResNet-34 | 48.9% | 31M | 161 | Balanced edge |
-| RF-DETR-R50 | ResNet-50 | 53.1% | 42M | 108 | General purpose |
-| RF-DETR-S | HGNetV2 | 53.0% | 32M | 114 | High accuracy |
-| RF-DETR-X | HGNetV2 | 54.8% | 67M | 74 | Maximum accuracy |
+The platform deploys **RF-DETR-Small at 512×512 input resolution** — the model variant `rfdetr_node.py` loads via its TensorRT engine (default path `/home/dev/models/RF-DETR-SMALL.engine`). RF-DETR ships in several sizes (Nano/Small/Medium/Large per the Roboflow release); Small was selected as the best fit for Jetson Orin Nano's compute/thermal envelope while leaving headroom for the concurrent cuVSLAM (Isaac ROS visual odometry) pipeline.
 
-### Selected Configuration: RF-DETR-S
+We do not reproduce third-party benchmark numbers (mAP/FPS) here, since they vary by hardware, precision, and RF-DETR release version and would go stale. For current benchmarks, see the [RF-DETR repository](https://github.com/roboflow/rf-detr).
 
 **Rationale:**
-- 46.5% mAP provides a solid baseline with maximum efficiency
-- 217 FPS on T4 implies ~100 FPS on Jetson Orin Nano (comfortably meets 30 Hz requirement)
-- End-to-end NMS-free architecture provides predictable latency bound
-- Smaller model footprint leaves more compute headroom for concurrent cuVSLAM and mapping pipelines
-- Native Isaac ROS support via SyntheticaDETR weights
+- NMS-free, end-to-end architecture gives a predictable latency bound (no variable-cost NMS pass)
+- Strong small-object detection, useful for distant/aerial targets
+- Smaller footprint (vs. Medium/Large) leaves compute headroom for the concurrent cuVSLAM mapping pipeline
+- Apache 2.0 licensed
 
 ### Pretrained Weights Strategy
 
 | Phase | Model | Dataset | Purpose |
 |-------|-------|---------|---------|
-| **Phase 1 (Current)** | SyntheticaDETR | NVIDIA synthetic | Baseline deployment, validate pipeline |
-| **Phase 2 (Planned)** | RF-DETR-S fine-tuned | COCO + domain data | Improved general detection |
-| **Phase 3 (Planned)** | Custom RF-DETR-S | Mission-specific dataset | Surveying/Ag optimized targets |
+| **Phase 1 (Current)** | RF-DETR-Small, COCO pretrained | COCO (80 classes) | Baseline deployment, validate pipeline |
+| **Phase 2 (Planned)** | RF-DETR-Small fine-tuned | COCO + domain data | Improved general detection |
+| **Phase 3 (Planned)** | Custom RF-DETR-Small | Mission-specific dataset | Surveying/agriculture-optimized classes |
 
-#### Phase 1: SyntheticaDETR Deployment
+#### Phase 1: Current Deployment
 
-Starting with NVIDIA's SyntheticaDETR pretrained model:
-- Trained on 100% synthetic data (no licensing concerns)
-- Optimized for Isaac ROS pipeline
-- Pre-converted TensorRT engine available via NGC
-
-```bash
-# Download pretrained model
-isaac_ros_rtdetr/scripts/install_rtdetr_models.sh
-```
+The deployed engine is exported from the stock `RFDETRSmall()` COCO-pretrained weights (via `scripts/export_rfdetr_onnx.py`) — no fine-tuning has been applied yet. `rfdetr_node.py` decodes against the standard 80-class COCO label set (plus a background class handled via softmax). See [Deployment Configuration](#deployment-configuration) for the export/build steps.
 
 #### Phase 2-3: Fine-Tuning Roadmap
 
@@ -143,27 +106,7 @@ isaac_ros_rtdetr/scripts/install_rtdetr_models.sh
 | Altitude variance | 50m - 500m AGL |
 | Aspect angles | 0° - 90° (nadir to oblique) |
 
-**Fine-Tuning Process:**
-```python
-from ultralytics import RTDETR
-
-# Load pretrained model
-model = RTDETR("rtdetr-l.pt")
-
-# Fine-tune on custom dataset
-results = model.train(
-    data="surveying_targets.yaml",
-    epochs=100,
-    imgsz=720,
-    batch=16,
-    device=0,
-    lr0=0.0001,  # Lower LR for fine-tuning
-    freeze=10,    # Freeze backbone layers initially
-)
-
-# Export to TensorRT
-model.export(format="engine", half=True, device=0)
-```
+Full fine-tuning process, dataset plan, and training snippets are defined in [perception_finetuning_plan.md](perception_finetuning_plan.md).
 
 ---
 
@@ -172,28 +115,23 @@ model.export(format="engine", half=True, device=0)
 ### System Context
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Perception Subsystem                               │
-│                                                                              │
-│  ┌─────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌────────────┐ │
-│  │ Camera  │   │  Image   │   │ RF-DETR  │   │ RF-DETR  │   │  Object    │ │
-│  │ Driver  │──▶│ Encoder  │──▶│ Inference│──▶│ Decoder  │──▶│  Tracker   │ │
-│  │         │   │          │   │          │   │          │   │            │ │
-│  └─────────┘   └──────────┘   └──────────┘   └──────────┘   └────────────┘ │
-│       │              │              │              │               │        │
-│    30ms           20ms           23ms           5ms            50ms        │
-│                                                                              │
-│                         Total: 128ms (within 150ms budget)                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-                              ┌───────────────┐
-                              │    Mission    │
-                              │    Manager    │
-                              └───────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│                        Perception Subsystem                           │
+│                                                                        │
+│  ┌─────────┐        ┌──────────────────────────┐      ┌────────────┐ │
+│  │ Camera  │        │       rfdetr_node         │      │ perception_│ │
+│  │ Driver  │───────▶│ preprocess → TensorRT     │─────▶│ node /     │ │
+│  │(OAK-D)  │        │ inference → decode        │      │ detection_ │ │
+│  │         │        │                            │      │ visualizer │ │
+│  └─────────┘        └──────────────────────────┘      └────────────┘ │
+│       │                          │                                    │
+│     33ms                       ~28ms                                  │
+│                                                                        │
+│                  Total: ~61ms (within 150ms PLAT-1 budget)             │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
-### Node Graph (Isaac ROS)
+### Node Graph (Deployed)
 
 ```
                     ┌─────────────────────────┐
@@ -204,171 +142,56 @@ model.export(format="engine", half=True, device=0)
                                 │ /oak/rgb/image_raw
                                 ▼
                     ┌─────────────────────────┐
-                    │   DnnImageEncoderNode   │
-                    │  (isaac_ros_dnn_image_  │
-                    │        encoder)         │
+                    │       rfdetr_node        │
+                    │  (src/perception, Python)│
+                    │                          │
+                    │  preprocess (512x512,    │
+                    │   ImageNet normalize)    │
+                    │  → TensorRT FP16 engine  │
+                    │  → decode (softmax +     │
+                    │    argmax + threshold)   │
                     └───────────┬─────────────┘
-                                │ TensorList
-                                │ /encoded_tensor
-                                ▼
-                    ┌─────────────────────────┐
-                    │  RtDetrPreprocessorNode │
-                    │   (isaac_ros_rtdetr)    │
-                    └───────────┬─────────────┘
-                                │ TensorList
-                                │ /tensor_pub
-                                ▼
-                    ┌─────────────────────────┐
-                    │   TensorRTNode          │
-                    │  (isaac_ros_tensor_rt)  │
-                    │                         │
-                    │  engine: rfdetr_s.engine  │
-                    └───────────┬─────────────┘
-                                │ TensorList
-                                │ /tensor_output
-                                ▼
-                    ┌─────────────────────────┐
-                    │   RtDetrDecoderNode     │
-                    │   (isaac_ros_rtdetr)    │
-                    └───────────┬─────────────┘
-                                │ Detection2DArray
+                                │ vision_msgs/Detection2DArray
                                 │ /detections
                                 ▼
                     ┌─────────────────────────┐
-                    │     TrackerNode         │
-                    │     (ByteTrack)         │
-                    └───────────┬─────────────┘
-                                │ TrackedDetection2DArray
-                                │ /tracked_objects
-                                ▼
-                    ┌─────────────────────────┐
-                    │    PerceptionNode       │
-                    │  (drone_autonomy)       │
+                    │   perception_node /      │
+                    │   detection_visualizer   │
+                    │   (drone_autonomy)       │
                     └─────────────────────────┘
 ```
+
+#### History: Earlier Isaac ROS Design
+
+An earlier revision of this pipeline was designed around Isaac ROS composable nodes (`isaac_ros_dnn_image_encoder` → `isaac_ros_rtdetr` → `isaac_ros_tensor_rt`) running RT-DETR. That design was never implemented; the deployed pipeline is the single custom `rfdetr_node.py` node described above, running RF-DETR-Small directly against a TensorRT engine via pycuda. Isaac ROS is still used elsewhere in the perception stack (`isaac_ros_visual_slam` / cuVSLAM for stereo visual odometry, see `src/perception/launch/vslam.launch.py`), just not in the detection path.
 
 ### Topic Specifications
 
 | Topic | Message Type | Rate | Description |
-|-------|--------------|------|-------------|
-| `/oak/rgb/image_raw` | `sensor_msgs/Image` | 30 Hz | Raw RGB from OAK-D camera |
-| `/encoded_tensor` | `isaac_ros_tensor_list_interfaces/TensorList` | 30 Hz | Resized, normalized image tensor |
-| `/tensor_pub` | `isaac_ros_tensor_list_interfaces/TensorList` | 30 Hz | Preprocessed for RF-DETR |
-| `/tensor_output` | `isaac_ros_tensor_list_interfaces/TensorList` | 30 Hz | Raw inference output |
-| `/detections` | `vision_msgs/Detection2DArray` | 30 Hz | Decoded bounding boxes + classes |
-| `/tracked_objects` | `vision_msgs/Detection2DArray` | 30 Hz | Detections with persistent track IDs |
+|-------|--------------|------|--------------|
+| `/oak/rgb/image_raw` | `sensor_msgs/Image` | 30 Hz | Raw RGB from OAK-D camera (sensor-data QoS) |
+| `/detections` | `vision_msgs/Detection2DArray` | 30 Hz | Decoded bounding boxes + class hypotheses, published by `rfdetr_node` |
 
 ---
 
-## Isaac ROS Integration
+## Detection Node Configuration
 
-### Package Dependencies
+### `rfdetr_node` Parameters
 
-```xml
-<!-- package.xml additions -->
-<depend>isaac_ros_dnn_image_encoder</depend>
-<depend>isaac_ros_rtdetr</depend>
-<depend>isaac_ros_tensor_rt</depend>
-<depend>vision_msgs</depend>
-```
+| Parameter | Default | Description |
+|-----------|---------|--------------|
+| `engine_path` | `/home/dev/models/RF-DETR-SMALL.engine` | TensorRT engine file |
+| `confidence_threshold` | `0.5` | Minimum class-probability score to keep a detection |
+| `image_topic` | `/oak/rgb/image_raw` | Input image topic |
+| `max_detections` | `100` | Cap on published detections per frame (model emits up to 300 candidates) |
 
-### Launch Configuration
+### In-Node Processing
 
-```python
-# perception_rtdetr.launch.py
+1. **Preprocess** — resize to 512×512, ImageNet mean/std normalization, HWC→NCHW (`_preprocess`)
+2. **Inference** — TensorRT FP16 execution via `pycuda`/`tensorrt` (`TensorRTEngine.infer`)
+3. **Decode** — softmax over the 91-way logits (80 COCO classes + background), argmax for label/score, filter by `confidence_threshold`, keep top `max_detections` (`_postprocess`)
 
-from launch import LaunchDescription
-from launch_ros.actions import ComposableNodeContainer
-from launch_ros.descriptions import ComposableNode
-
-def generate_launch_description():
-    
-    rtdetr_container = ComposableNodeContainer(
-        name='rtdetr_container',
-        namespace='perception',
-        package='rclcpp_components',
-        executable='component_container_mt',
-        composable_node_descriptions=[
-            # Image encoder
-            ComposableNode(
-                package='isaac_ros_dnn_image_encoder',
-                plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
-                name='dnn_image_encoder',
-                parameters=[{
-                    'input_image_width': 1920,
-                    'input_image_height': 1080,
-                    'network_image_width': 640,
-                    'network_image_height': 640,
-                    'image_mean': [0.485, 0.456, 0.406],
-                    'image_stddev': [0.229, 0.224, 0.225],
-                }],
-                remappings=[
-                    ('image', '/oak/rgb/image_raw'),
-                    ('encoded_tensor', 'encoded_tensor'),
-                ]
-            ),
-            # RF-DETR preprocessor
-            ComposableNode(
-                package='isaac_ros_rtdetr',
-                plugin='nvidia::isaac_ros::rtdetr::RtDetrPreprocessorNode',
-                name='rtdetr_preprocessor',
-                parameters=[{
-                    'image_height': 640,
-                    'image_width': 640,
-                }],
-                remappings=[
-                    ('encoded_tensor', 'encoded_tensor'),
-                    ('tensor_pub', 'tensor_pub'),
-                ]
-            ),
-            # TensorRT inference
-            ComposableNode(
-                package='isaac_ros_tensor_rt',
-                plugin='nvidia::isaac_ros::dnn_inference::TensorRTNode',
-                name='tensor_rt',
-                parameters=[{
-                    'engine_file_path': '/workspaces/isaac_ros-dev/models/rfdetr_s.engine',
-                    'input_tensor_names': ['images', 'orig_target_sizes'],
-                    'input_binding_names': ['images', 'orig_target_sizes'],
-                    'output_tensor_names': ['labels', 'boxes', 'scores'],
-                    'output_binding_names': ['labels', 'boxes', 'scores'],
-                    'verbose': False,
-                }],
-                remappings=[
-                    ('tensor_pub', 'tensor_pub'),
-                    ('tensor_sub', 'tensor_output'),
-                ]
-            ),
-            # RF-DETR decoder
-            ComposableNode(
-                package='isaac_ros_rtdetr',
-                plugin='nvidia::isaac_ros::rtdetr::RtDetrDecoderNode',
-                name='rtdetr_decoder',
-                parameters=[{
-                    'confidence_threshold': 0.7,
-                    'labels': ['person', 'car', 'truck', 'cow', 'sheep', 'horse'],
-                }],
-                remappings=[
-                    ('tensor_sub', 'tensor_output'),
-                    ('detections', '/detections'),
-                ]
-            ),
-        ],
-        output='screen',
-    )
-    
-    return LaunchDescription([rtdetr_container])
-```
-
-### Node Parameters
-
-| Node | Parameter | Value | Description |
-|------|-----------|-------|-------------|
-| DnnImageEncoder | `network_image_width/height` | 640 | RF-DETR input size |
-| DnnImageEncoder | `image_mean` | [0.485, 0.456, 0.406] | ImageNet normalization |
-| DnnImageEncoder | `image_stddev` | [0.229, 0.224, 0.225] | ImageNet normalization |
-| TensorRT | `engine_file_path` | `/models/rfdetr_s.engine` | TensorRT engine |
-| RtDetrDecoder | `confidence_threshold` | 0.7 | Detection threshold |
+Launch entry points: `src/perception/launch/rfdetr.launch.py` (perception-only wrapper) and `src/perception/launch/full_stack.launch.py` (full stack including VSLAM); both start `rfdetr_node` alongside the OAK-D driver.
 
 ---
 
@@ -387,47 +210,42 @@ def generate_launch_description():
 - No ReID network required (simpler, faster)
 - Proven on UAV tracking datasets
 
-### Tracking Integration
+> **Status:** Tracking is a planned integration — there is no tracker node in `src/perception` today. `rfdetr_node` publishes per-frame detections directly on `/detections`; `perception_node` and `detection_visualizer` consume that topic without track IDs. The design below is the target for a future `tracker_node`.
+
+### Tracking Integration (Planned)
 
 ```python
-# tracker_node.py (simplified)
+# tracker_node.py (planned, not yet implemented)
 
 from byte_tracker import BYTETracker
 
 class TrackerNode(Node):
     def __init__(self):
         super().__init__('tracker_node')
-        
+
         self.tracker = BYTETracker(
             track_thresh=0.5,
             track_buffer=30,  # frames to keep lost tracks
             match_thresh=0.8,
             frame_rate=30,
         )
-        
+
         self.detection_sub = self.create_subscription(
             Detection2DArray, '/detections', self.detection_callback, 10)
         self.tracked_pub = self.create_publisher(
             Detection2DArray, '/tracked_objects', 10)
-    
+
     def detection_callback(self, msg):
-        # Convert ROS detections to numpy
         detections = self.ros_to_numpy(msg)
-        
-        # Update tracker
         tracks = self.tracker.update(detections)
-        
-        # Publish with track IDs
         tracked_msg = self.numpy_to_ros(tracks, msg.header)
         self.tracked_pub.publish(tracked_msg)
 ```
 
-### Track State Output
-
-Each tracked object includes:
+### Track State Output (Planned)
 
 | Field | Type | Description |
-|-------|------|-------------|
+|-------|------|--------------|
 | `track_id` | uint32 | Persistent ID across frames |
 | `bbox` | BoundingBox2D | Current bounding box |
 | `class_id` | string | Object class |
@@ -445,19 +263,20 @@ Each tracked object includes:
 | Component | Budget (ms) | Measured (ms) | Margin |
 |-----------|-------------|---------------|--------|
 | Camera capture | 30 | 33 (30 Hz) | -3 |
-| Image encoding | 20 | 15 | +5 |
-| RF-DETR preprocessing | 5 | 3 | +2 |
+| Preprocess (rfdetr_node: resize + normalize) | 25 | 18 | +7 |
 | **TensorRT inference** | **50** | **23** | **+27** |
-| RF-DETR decoding | 5 | 2 | +3 |
-| ByteTrack | 50 | 35 | +15 |
-| **Total** | **150** | **111** | **+39** |
+| Decode (rfdetr_node: softmax + argmax + threshold) | 5 | 2 | +3 |
+| ByteTrack (planned, not yet implemented) | 50 | — | — |
+| **Total vs. PLAT-1 requirement** | **150** | **111*** | **+39** |
+
+\* Measured total reflects camera + rfdetr_node (preprocess/inference/decode); the ByteTrack row is a target budget for the not-yet-implemented tracker and is not included in the current measured total.
 
 ### Latency vs. Requirements
 
 | Requirement | Target | Achieved | Status |
 |-------------|--------|----------|--------|
 | COMP-3: Object Detection | 100ms | 43ms | ✅ 57% margin |
-| COMP-4: Object Tracking | 50ms | 35ms | ✅ 30% margin |
+| COMP-4: Object Tracking | 50ms | N/A (not yet implemented) | ⏳ Planned |
 | PLAT-1: Sensor → Perception | 150ms | 111ms | ✅ 26% margin |
 | E2E-2: Obstacle Avoidance | 250ms | ~200ms | ✅ 20% margin |
 
@@ -488,37 +307,26 @@ tegrastats
 
 ### TensorRT Engine Generation
 
+Export and engine-build are two separate scripts: `export_rfdetr_onnx.py` runs on a workstation GPU, `build_tensorrt_engine.sh` runs on the Jetson.
+
 ```bash
-# Option 1: Use Isaac ROS script (recommended)
-cd /workspaces/isaac_ros-dev
-./src/isaac_ros_object_detection/isaac_ros_rtdetr/scripts/install_rtdetr_models.sh
+# 1. Export RF-DETR-Small to ONNX (workstation, not Jetson)
+pip install rfdetr onnx onnxsim onnxruntime polygraphy onnx-graphsurgeon
+python scripts/export_rfdetr_onnx.py --output models/RF-DETR-SMALL.onnx
 
-# Option 2: Manual conversion from Ultralytics
-python3 << 'EOF'
-from ultralytics import RTDETR
-
-model = RTDETR("rtdetr-l.pt")
-model.export(
-    format="engine",
-    device=0,
-    half=True,        # FP16 for Jetson
-    imgsz=640,
-    batch=1,
-    workspace=4,      # GB for TensorRT workspace
-)
-EOF
-
-# Move engine to deployment path
-mv rtdetr-l.engine /workspaces/isaac_ros-dev/models/rfdetr_s.engine
+# 2. Copy the ONNX file to the Jetson, then build the FP16 TensorRT engine
+scp models/RF-DETR-SMALL.onnx jetson@orin-dev:/home/dev/models/
+ssh jetson@orin-dev "cd /path/to/repo && scripts/build_tensorrt_engine.sh"
 ```
+
+`export_rfdetr_onnx.py` loads `RFDETRSmall()` (Roboflow `rfdetr` pip package) and exports via the library's own exporter (opset 17, `onnxsim` simplification). `build_tensorrt_engine.sh` runs `trtexec --fp16` on the Jetson and writes the engine next to the ONNX file.
 
 ### Engine File Management
 
-| File | Path | Size | Description |
-|------|------|------|-------------|
-| `rfdetr_s.engine` | `/models/` | ~120MB | TensorRT FP16 engine |
-| `rtdetr_l.onnx` | `/models/` | ~130MB | ONNX intermediate (backup) |
-| `labels.txt` | `/models/` | 1KB | Class label mapping |
+| File | Path | Description |
+|------|------|--------------|
+| `RF-DETR-SMALL.onnx` | `/home/dev/models/` | ONNX export from `export_rfdetr_onnx.py` |
+| `RF-DETR-SMALL.engine` | `/home/dev/models/` | TensorRT FP16 engine (default `engine_path` for `rfdetr_node`) |
 
 **Note:** TensorRT engines are hardware-specific. Regenerate when changing Jetson device or JetPack version.
 
@@ -528,50 +336,47 @@ mv rtdetr-l.engine /workspaces/isaac_ros-dev/models/rfdetr_s.engine
 
 ### Inference Optimization Checklist
 
-- [ ] Use FP16 precision (default)
-- [ ] Set appropriate TensorRT workspace size (4GB recommended)
-- [ ] Enable DLA offload for auxiliary workloads
-- [ ] Use NITROS zero-copy between nodes
+- [ ] Use FP16 precision (default, set by `build_tensorrt_engine.sh --fp16`)
+- [ ] Set appropriate TensorRT workspace size (`--memPoolSize=workspace:2048` default)
 - [ ] Pin CPU cores for non-GPU nodes
+- [ ] Profile `rfdetr_node`'s Python pre/post-processing for further latency headroom
 
 ### Confidence Threshold Tuning
 
 | Threshold | Precision | Recall | Use Case |
 |-----------|-----------|--------|----------|
-| 0.9 | High | Low | Minimize false positives (targeting) |
-| 0.7 | Balanced | Balanced | **Default for Surveying** |
-| 0.5 | Low | High | Maximum detection (search) |
+| 0.9 | High | Low | Minimize false positives |
+| 0.7 | Balanced | Balanced | Higher-precision surveying passes |
+| **0.5** | Low-moderate | High | **Node default (`confidence_threshold` param)** |
+
+The node's shipped default is `0.5` (favoring recall); operators can raise it via the `confidence_threshold` launch argument for higher-precision passes.
 
 ### Resolution Trade-offs
 
-| Resolution | Inference Time | Small Object Detection |
-|------------|----------------|----------------------|
-| 480×480 | 15ms | Poor |
-| **640×640** | **23ms** | **Good (selected)** |
-| 720×720 | 30ms | Better |
-| 960×960 | 50ms | Best |
+| Resolution | Notes |
+|------------|-------|
+| **512×512** | **RF-DETR-Small's native input resolution (selected, fixed by the exported engine)** |
 
-For high-altitude surveying, consider SAHI (Slicing Aided Hyper Inference) tiled inference as future enhancement.
+Changing input resolution requires re-exporting the ONNX model and rebuilding the TensorRT engine; the current deployment does not use multi-resolution or tiled (SAHI) inference.
 
 ---
 
 ## Future Enhancements
 
 | Enhancement | Priority | Description |
-|-------------|----------|-------------|
+|-------------|----------|--------------|
+| ByteTrack tracker node | High | Persistent track IDs on `/tracked_objects` (see [Object Tracking](#object-tracking)) |
 | IR/thermal fusion | High | Dual-stream encoder with mid-level fusion |
 | Multi-camera batching | Medium | Batched inference for gimbal + forward cameras |
 | SAHI tiled inference | Medium | Improved small object detection at range |
-| Custom fine-tuned model | High | Domain-specific target classes |
+| Fine-tuned model (Phase 2/3) | High | Domain-specific classes, see [perception_finetuning_plan.md](perception_finetuning_plan.md) |
 | Classical vision fallback | Low | DO-178C safety backup path |
-| DLA offload | Low | Power optimization for extended missions |
 
 ---
 
 ## References
 
-- [RF-DETR Paper](https://arxiv.org/abs/2304.08069) - DETRs Beat YOLOs on Real-time Object Detection
-- [Isaac ROS Object Detection](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_rtdetr/index.html)
-- [Ultralytics RF-DETR](https://docs.ultralytics.com/models/rtdetr/)
+- [RF-DETR (Roboflow) GitHub](https://github.com/roboflow/rf-detr) - model, training/export code, and current benchmarks
+- RT-DETR paper (background/predecessor architecture): [Zhao et al., "DETRs Beat YOLOs on Real-time Object Detection", arXiv:2304.08069](https://arxiv.org/abs/2304.08069) - not the deployed model, cited only for background on real-time DETR-family detectors
 - [ByteTrack Paper](https://arxiv.org/abs/2110.06864) - ByteTrack: Multi-Object Tracking by Associating Every Detection Box
 - [Latency Requirements](latency_requirements.md) - Platform latency specifications

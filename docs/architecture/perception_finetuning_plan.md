@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document defines the data collection strategy and fine-tuning process for adapting RF-DETR-S to surveying and agricultural autonomy mission requirements. The goal is to transition from SyntheticaDETR pretrained weights to a domain-specific model optimized for aerial detection of civilian surveying and agricultural targets.
+This document defines the data collection strategy and fine-tuning process for adapting RF-DETR-Small to surveying and agricultural autonomy mission requirements. The goal is to transition from stock COCO-pretrained weights to a domain-specific model optimized for aerial detection of civilian surveying and agricultural targets.
 
 ### Relationship to Architecture
 
@@ -10,9 +10,9 @@ This plan implements Phases 2-3 of the model deployment strategy defined in [per
 
 | Phase | Model | Status |
 |-------|-------|--------|
-| Phase 1 | SyntheticaDETR (pretrained) | Current deployment |
-| **Phase 2** | RF-DETR-S + COCO + domain data | **This plan** |
-| **Phase 3** | Custom RF-DETR-S (mission-specific) | **This plan** |
+| Phase 1 | RF-DETR-Small, COCO pretrained | Current deployment |
+| **Phase 2** | RF-DETR-Small + COCO + domain data | **This plan** |
+| **Phase 3** | Custom RF-DETR-Small (mission-specific) | **This plan** |
 
 ---
 
@@ -71,7 +71,7 @@ targets/
 | **Synthetic (Unity/Unreal)** | Generated | 50,000 images | Unlimited variety, perfect labels | Domain gap |
 | **Flight test footage** | Real | 10,000 images | Real sensor characteristics | Limited scenarios |
 | **Public datasets** | Real | 20,000 images | Pre-annotated, diverse | May not match use case |
-| **Partner/DoD data** | Real | 15,000 images | Mission-relevant | Access restrictions |
+| **Partner/co-op data** | Real | 15,000 images | Mission-relevant (agricultural co-ops, survey firms) | Access restrictions |
 
 **Total Target: 95,000+ annotated images**
 
@@ -137,9 +137,9 @@ targets/
 |-----------|---------------|
 | Engine | Unity 2022 LTS + Perception package |
 | Assets | Sketchfab agricultural models, Turbosquid vehicles |
-| Terrains | Desert, urban, forest, coastal, snow |
+| Terrains | Farmland, orchard, rangeland, coastal, snow |
 | Weather | Clear, overcast, rain, fog, dust |
-| Lighting | Dawn, day, dusk, night (NVG simulation) |
+| Lighting | Dawn, day, dusk, low-light operations |
 | Camera | 1080p, 60° FOV (matching target sensor) |
 
 **Synthetic Data Parameters:**
@@ -154,7 +154,7 @@ camera:
 targets:
   count_range: [1, 15]       # objects per frame
   occlusion_levels: [0, 0.3, 0.5, 0.7]
-  spacing: "realistic"       # tactical dispersion
+  spacing: "realistic"       # field/yard layout dispersion
   
 augmentation:
   motion_blur: true
@@ -168,8 +168,8 @@ output:
 ```
 
 **Domain Randomization Checklist:**
-- [ ] Vehicle paint schemes (camo patterns, civilian colors)
-- [ ] Personnel poses and clothing
+- [ ] Vehicle/machinery paint schemes and liveries
+- [ ] Personnel poses and clothing (farm/field workers)
 - [ ] Shadow angles (sun position)
 - [ ] Ground texture variation
 - [ ] Atmospheric haze/dust
@@ -191,15 +191,14 @@ output:
 - Minimum 3 examples per class per terrain type
 - Multiple aspect angles (0°, 45°, 90°, 135°, 180°)
 - Range variation (near: 50m, mid: 150m, far: 400m)
-- Partial occlusion scenarios
-- Camouflage/concealment examples
+- Partial occlusion scenarios (foliage, structures, other machinery)
 
 #### 3.2 Hard Negative Mining
 
 Collect examples of:
-- Civilian vehicles similar to agricultural targets
+- Agricultural machinery lookalikes (construction equipment, generic trailers)
 - Natural objects resembling targets (rock formations, vegetation patterns)
-- Decoys and mock targets
+- Parked/idle machinery and equipment stored under tarps or covers
 - Partial/damaged equipment
 
 ---
@@ -303,9 +302,9 @@ datasets/
   },
   "licenses": [],
   "categories": [
-    {"id": 0, "name": "person_standing", "supercategory": "personnel"},
-    {"id": 1, "name": "person_prone", "supercategory": "personnel"},
-    {"id": 5, "name": "vehicle_technical", "supercategory": "ground_vehicles"}
+    {"id": 0, "name": "tractor", "supercategory": "machinery"},
+    {"id": 1, "name": "harvester", "supercategory": "machinery"},
+    {"id": 5, "name": "livestock_cattle", "supercategory": "livestock"}
   ],
   "images": [
     {
@@ -397,102 +396,57 @@ custom:
 | Component | Specification |
 |-----------|---------------|
 | GPU | NVIDIA A100 80GB (training) |
-| Framework | Ultralytics + PyTorch 2.x |
-| Distributed | DDP across 4 GPUs |
+| Framework | `rfdetr` (Roboflow) + PyTorch 2.x |
 | Experiment tracking | Weights & Biases |
 | Model registry | MLflow |
 
 ### Phase 2 Training: Foundation Fine-Tune
 
-**Objective:** Adapt RF-DETR-S from COCO weights to aerial domain
+**Objective:** Adapt RF-DETR-Small from COCO weights to the aerial survey/agriculture domain.
+
+RF-DETR fine-tunes via the Roboflow `rfdetr` package (the same package used for export in
+`scripts/export_rfdetr_onnx.py`), against a COCO-format dataset. Keep this snippet as a
+starting point — check the [rfdetr docs](https://github.com/roboflow/rf-detr) for the full
+set of supported training arguments before relying on any option not shown here.
 
 ```python
 # phase2_finetune.py
-from ultralytics import RTDETR
+from rfdetr import RFDETRSmall
 import wandb
 
-wandb.init(project="survey-rtdetr", name="phase2-foundation")
+wandb.init(project="survey-rfdetr", name="phase2-foundation")
 
-# Load COCO pretrained model
-model = RTDETR("rtdetr-l.pt")
+# Load COCO-pretrained RF-DETR-Small
+model = RFDETRSmall()
 
-# Phase 2a: Freeze backbone, train head
-results = model.train(
-    data="survey_targets_v1.yaml",
+# Fine-tune on the Phase 2 dataset (COCO-format directory, see Dataset Structure below)
+model.train(
+    dataset_dir="datasets/survey_targets_v1",
     epochs=50,
-    imgsz=640,
-    batch=32,
-    device=[0, 1, 2, 3],
-    workers=8,
-    
-    # Optimizer
-    optimizer="AdamW",
-    lr0=0.0001,           # Lower LR for fine-tuning
-    lrf=0.01,             # Final LR ratio
-    warmup_epochs=5,
-    weight_decay=0.0001,
-    
-    # Regularization
-    dropout=0.0,
-    
-    # Backbone freeze
-    freeze=10,            # Freeze first 10 layers
-    
-    # Augmentation
-    augment=True,
-    mosaic=0.5,
-    mixup=0.1,
-    
-    # Validation
-    val=True,
-    plots=True,
-    
-    # Checkpointing
-    save=True,
-    save_period=5,
-)
-
-# Phase 2b: Unfreeze and full fine-tune
-model = RTDETR("runs/detect/phase2a/weights/best.pt")
-results = model.train(
-    data="survey_targets_v1.yaml",
-    epochs=100,
-    imgsz=640,
-    batch=16,             # Smaller batch for full model
-    device=[0, 1, 2, 3],
-    
-    lr0=0.00001,          # Even lower LR
-    freeze=0,             # Unfreeze all
-    
-    resume=False,
+    batch_size=16,
+    lr=1e-4,              # lower LR for fine-tuning from COCO weights
+    output_dir="runs/phase2_foundation",
 )
 ```
 
 ### Phase 3 Training: Mission-Specific
 
-**Objective:** Specialize for operational target classes
+**Objective:** Specialize for operational target classes.
 
 ```python
 # phase3_finetune.py
+from rfdetr import RFDETRSmall
 
-# Start from Phase 2 best weights
-model = RTDETR("models/phase2_best.pt")
+# Start from the Phase 2 fine-tuned checkpoint
+model = RFDETRSmall(pretrain_weights="runs/phase2_foundation/best.pth")
 
 # Fine-tune on mission-specific data
-results = model.train(
-    data="mission_targets_v1.yaml",
+model.train(
+    dataset_dir="datasets/flight_test_v1",
     epochs=50,
-    imgsz=640,
-    batch=16,
-    
-    lr0=0.00001,
-    freeze=15,            # Freeze more layers
-    
-    # Class weighting for imbalanced data
-    cls_pw=1.5,           # Positive weight for rare classes
-    
-    # Hard example mining
-    close_mosaic=10,      # Disable mosaic last 10 epochs
+    batch_size=16,
+    lr=1e-5,               # lower LR for the smaller, mission-specific dataset
+    output_dir="runs/phase3_mission",
 )
 ```
 
@@ -502,10 +456,6 @@ results = model.train(
 |-----------|--------------|--------|
 | Learning rate | [1e-5, 1e-3] | Log uniform |
 | Batch size | [8, 16, 32] | Grid |
-| Freeze layers | [0, 5, 10, 15] | Grid |
-| Weight decay | [1e-5, 1e-3] | Log uniform |
-| Mosaic prob | [0.0, 0.5, 1.0] | Grid |
-| Dropout | [0.0, 0.1, 0.2] | Grid |
 
 ```python
 # hyperparameter_sweep.py
@@ -513,16 +463,14 @@ import wandb
 
 sweep_config = {
     "method": "bayes",
-    "metric": {"name": "metrics/mAP50-95", "goal": "maximize"},
+    "metric": {"name": "mAP50-95", "goal": "maximize"},
     "parameters": {
-        "lr0": {"distribution": "log_uniform_values", "min": 1e-5, "max": 1e-3},
-        "batch": {"values": [8, 16, 32]},
-        "freeze": {"values": [0, 5, 10, 15]},
-        "weight_decay": {"distribution": "log_uniform_values", "min": 1e-5, "max": 1e-3},
+        "lr": {"distribution": "log_uniform_values", "min": 1e-5, "max": 1e-3},
+        "batch_size": {"values": [8, 16, 32]},
     }
 }
 
-sweep_id = wandb.sweep(sweep_config, project="survey-rtdetr")
+sweep_id = wandb.sweep(sweep_config, project="survey-rfdetr")
 wandb.agent(sweep_id, function=train_with_config, count=30)
 ```
 
@@ -536,7 +484,7 @@ wandb.agent(sweep_id, function=train_with_config, count=30)
 |--------|--------|-------------|
 | **mAP@0.5** | ≥60% | COCO evaluation |
 | **mAP@0.5:0.95** | ≥50% | COCO evaluation |
-| **Critical class AP** | ≥70% | Per-class (tank, APC, SAM) |
+| **Critical class AP** | ≥70% | Per-class (tractor, harvester, obstacle_tree, infra_powerline) |
 | **Small object AP** | ≥40% | Objects <32×32 pixels |
 | **Inference latency** | ≤25ms | TensorRT on Orin |
 
@@ -553,22 +501,17 @@ wandb.agent(sweep_id, function=train_with_config, count=30)
 
 ```python
 # evaluate_model.py
-from ultralytics import RTDETR
+from rfdetr import RFDETRSmall
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
-# Load model
-model = RTDETR("models/phase3_best.pt")
+# Load fine-tuned model
+model = RFDETRSmall(pretrain_weights="models/phase3_best.pth")
 
-# Run validation
+# Run validation (consult the rfdetr docs for the exact eval entrypoint/args)
 metrics = model.val(
-    data="survey_targets_v1.yaml",
+    dataset_dir="datasets/survey_targets_v1",
     split="test",
-    imgsz=640,
-    batch=1,
-    device=0,
-    plots=True,
-    save_json=True,
 )
 
 # Per-class analysis
@@ -576,8 +519,8 @@ print("Per-class AP@0.5:")
 for i, ap in enumerate(metrics.box.ap50):
     print(f"  {class_names[i]}: {ap:.3f}")
 
-# Critical class check
-critical_classes = [5, 6, 7, 8, 15]  # technical, apc, tank, artillery, sam
+# Critical class check (see Target Class Taxonomy: tractor, harvester, obstacle_tree, infra_powerline)
+critical_classes = [0, 1, 8, 11]  # tractor, harvester, obstacle_tree, infra_powerline
 critical_ap = [metrics.box.ap50[i] for i in critical_classes]
 assert min(critical_ap) >= 0.70, "Critical class AP below threshold"
 ```
@@ -585,7 +528,7 @@ assert min(critical_ap) >= 0.70, "Critical class AP below threshold"
 ### Confusion Matrix Analysis
 
 Generate and review:
-- Inter-class confusion (car vs. truck, APC vs. tank)
+- Inter-class confusion (vehicle_car vs. vehicle_truck, tractor vs. harvester)
 - False positive sources (background objects)
 - False negative patterns (occlusion, distance, angle)
 
@@ -598,37 +541,20 @@ Generate and review:
 ```bash
 #!/bin/bash
 # export_and_validate.sh
+# Same two-stage flow as scripts/export_rfdetr_onnx.py + scripts/build_tensorrt_engine.sh,
+# but pointed at a fine-tuned Phase 3 checkpoint instead of stock COCO weights.
+# export_rfdetr_onnx.py currently loads stock RFDETRSmall() weights only — loading a
+# fine-tuned checkpoint requires extending it to pass pretrain_weights= through to
+# RFDETRSmall(), per the rfdetr docs (https://github.com/roboflow/rf-detr).
 
-MODEL_PATH="models/phase3_best.pt"
-OUTPUT_DIR="deploy/"
+ONNX_PATH="models/phase3_best.onnx"
 
-# Export to ONNX
-python -c "
-from ultralytics import RTDETR
-model = RTDETR('${MODEL_PATH}')
-model.export(format='onnx', imgsz=640, opset=17, simplify=True)
-"
+# 1. Export the fine-tuned checkpoint to ONNX (workstation GPU)
+python scripts/export_rfdetr_onnx.py --output "${ONNX_PATH}"
 
-# Convert to TensorRT on Jetson
-ssh jetson@orin-dev "
-cd /workspaces/isaac_ros-dev
-trtexec \
-    --onnx=/models/phase3_best.onnx \
-    --saveEngine=/models/phase3_best.plan \
-    --fp16 \
-    --workspace=4096 \
-    --minShapes=images:1x3x640x640 \
-    --optShapes=images:1x3x640x640 \
-    --maxShapes=images:1x3x640x640
-"
-
-# Validate on Jetson
-ssh jetson@orin-dev "
-python validate_tensorrt.py \
-    --engine /models/phase3_best.plan \
-    --test-images /data/test_images/ \
-    --expected-latency 25
-"
+# 2. Build the TensorRT engine on the Jetson
+scp "${ONNX_PATH}" jetson@orin-dev:/home/dev/models/phase3_best.onnx
+ssh jetson@orin-dev "cd /path/to/repo && scripts/build_tensorrt_engine.sh /home/dev/models/phase3_best.onnx"
 ```
 
 ### Deployment Checklist
@@ -646,7 +572,7 @@ python validate_tensorrt.py \
 
 | Version | Date | Dataset | mAP@0.5 | Notes |
 |---------|------|---------|---------|-------|
-| v0.1 | 2026-01 | SyntheticaDETR | 45% | Baseline pretrained |
+| v0.1 | 2026-01 | RF-DETR-Small (COCO pretrained) | 45% | Baseline pretrained |
 | v1.0 | 2026-Q2 | Phase 2 dataset | 55% | Foundation fine-tune |
 | v2.0 | 2026-Q3 | Phase 3 dataset | 65% | Mission-specific |
 
@@ -735,9 +661,7 @@ def select_samples_for_annotation(predictions, budget=1000):
 
 - [perception_architecture.md](perception_architecture.md) - Pipeline architecture
 - [latency_requirements.md](latency_requirements.md) - Latency budgets
-
-- [target_acquisition.md](use_cases/target_acquisition.md) - Target acquisition requirements
 - [VisDrone Dataset](https://github.com/VisDrone/VisDrone-Dataset)
 - [DOTA Dataset](https://captain-whu.github.io/DOTA/)
 - [xView Dataset](http://xviewdataset.org/)
-- [Ultralytics Training Guide](https://docs.ultralytics.com/modes/train/)
+- [RF-DETR (Roboflow) GitHub](https://github.com/roboflow/rf-detr) - training/export code and docs
