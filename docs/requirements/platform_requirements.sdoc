@@ -428,6 +428,200 @@ RELATIONS:
 [[/SECTION]]
 
 [[SECTION]]
+TITLE: Functional — Pre-Mow Field Clearance (derived from STK-2)
+
+[REQUIREMENT]
+UID: CLR-1
+STATUS: Draft
+TAGS: autonomy, surveillance
+TITLE: Clearance Mission Type
+STATEMENT: >>>
+The mission manager shall accept a clearance mission specification (a set of
+named, operator-predefined area polygons plus surveillance altitude) and
+execute it as a mission of type "clearance".
+<<<
+RATIONALE: >>>
+Entry point of the capability: the farmer tasks the platform at the level of
+"clear these fields before I mow", not individual waypoints. Area polygons
+are defined once and reused per mowing cycle.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-2
+STATUS: Draft
+TAGS: perception, ml, surveillance
+TITLE: Clearance Detection Performance
+STATEMENT: >>>
+The onboard perception subsystem shall detect the clearance object classes
+(people, livestock, medium-and-larger wild animals, vehicles, and
+agricultural machinery) in RGB imagery captured at the surveillance operating
+point (20-40 m AGL, nadir to 45 degrees oblique), achieving on the held-out
+clearance evaluation set at that operating point: person recall >= 0.95,
+animal-class recall >= 0.85, at a false-finding rate <= 1 per surveyed
+hectare.
+<<<
+RATIONALE: >>>
+Misses are the costly failure mode (an undetected child or fawn defeats the
+capability), so the requirement is stated as recall at a bounded
+false-positive budget rather than mAP alone. Numbers are Draft — to be
+confirmed against the baseline evaluation of the COCO-pretrained model
+(CAP-002 WP-A) before approval. Runs within the existing COMP-3/PLAT-1
+latency budgets on the deployed rfdetr_node.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-3
+STATUS: Draft
+TAGS: perception, surveillance
+TITLE: Persistent Object Tracking
+STATEMENT: >>>
+The perception subsystem shall associate per-frame detections into tracks
+with persistent identifiers such that one physical object observed across
+multiple frames yields exactly one finding, within the COMP-4 per-frame
+tracking budget.
+<<<
+RATIONALE: >>>
+Without tracking, a single cow generates hundreds of per-frame findings and
+the report is unusable. Implements the ByteTrack integration already planned
+in docs/architecture/perception_architecture.md.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-4
+STATUS: Draft
+TAGS: perception, surveillance
+TITLE: Finding Geolocation
+STATEMENT: >>>
+Each finding shall be georeferenced to a WGS84 ground position with <= 5 m
+horizontal error at the surveillance operating point, and classified as
+inside or outside the mission's mow-area polygons.
+<<<
+RATIONALE: >>>
+The farmer must be able to walk to the finding; 5 m places it within visual
+range on open grassland. Projection uses camera intrinsics
+(/oak/rgb/camera_info) plus time-synchronized vehicle pose, reusing the
+synchronization approach proven in DES-004.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-5
+STATUS: Draft
+TAGS: surveillance, interface
+TITLE: Evidence Clip Capture
+STATEMENT: >>>
+For every finding located inside a mow-area polygon, the platform shall
+record onboard a video clip of at least 3 seconds (including at least 1
+second before the first detection) together with a structured finding record
+(class, confidence, track identifier, ground position, UTC time).
+<<<
+RATIONALE: >>>
+The farmer investigates from the clip, not the raw stream — evidence must be
+reviewable on a phone in seconds. Pre-roll requires a continuous rolling
+frame buffer in the recorder.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-6
+STATUS: Draft
+TAGS: surveillance, onboard
+TITLE: Clearance Report Generation
+STATEMENT: >>>
+Within 5 minutes of clearance mission completion, the companion computer
+shall produce, without manual intervention, a clearance report containing:
+a per-area verdict (CLEAR, or the number of findings), the finding records
+with evidence clips, a map overlay of finding positions, and an explicit
+statement of any mow-area regions not covered by surveillance imagery.
+<<<
+RATIONALE: >>>
+The verdict must be trustworthy: an area is only CLEAR if it was actually
+seen, so coverage holes are reported rather than silently ignored. Report
+states the RGB surface-visibility limitation (STK-2 phase scope).
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-7
+STATUS: Draft
+TAGS: comms, surveillance
+TITLE: Mobile Report Delivery
+STATEMENT: >>>
+The clearance report shall be delivered to the operator's registered mobile
+device over an available data link within 5 minutes of mission completion,
+with a notification announcing per-area verdicts.
+<<<
+RATIONALE: >>>
+The farmer is not at a ground station — delivery to the phone closes the
+mission loop. Transport selection (LTE upload + push notification preferred,
+local WiFi fallback) is a design decision recorded in the CAP-002 DES doc.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-8
+STATUS: Draft
+TAGS: navigation, surveillance, safety-critical
+TITLE: Surveillance Coverage Trajectory
+STATEMENT: >>>
+The navigation subsystem shall generate a surveillance trajectory that covers
+at least 95% of each mow-area polygon with imagery at the ground sampling
+distance required for person/medium-animal detection (<= 4 cm/px at the
+surveillance altitude).
+<<<
+RATIONALE: >>>
+Reuses the MAP-1 coverage (lawnmower) generator with detection-driven
+parameterization (altitude/GSD/overlap for detection rather than
+photogrammetric reconstruction). Residual uncovered area is reported per
+CLR-6, never silently dropped.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-9
+STATUS: Draft
+TAGS: ml, offboard
+TITLE: Training Data Provenance and Labeling Program
+STATEMENT: >>>
+Every dataset used to train or fine-tune the deployed clearance detection
+model shall have a license compatible with commercial deployment, recorded in
+a dataset provenance manifest; the domain fine-tuning set shall be produced
+under a documented labeling plan meeting the annotation quality standards of
+docs/architecture/perception_finetuning_plan.md.
+<<<
+RATIONALE: >>>
+The fine-tuned model is a shipped product component: academic-only datasets
+(VisDrone, DOTA class) may be used for prototyping but not in the deployed
+training set (perception_finetuning_plan.md section 2.1.1). The labeling plan
+is what makes the customer's domain (grassland, mow-height vegetation,
+regional wildlife, farm machinery) actually represented in the data.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: Safety
 
 [REQUIREMENT]
