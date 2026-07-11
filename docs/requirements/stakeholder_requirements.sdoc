@@ -46,3 +46,59 @@ Acceptance criteria (validation, see CAP-001):
 <<<
 
 [[/SECTION]]
+
+[[SECTION]]
+TITLE: Agricultural Field Operations
+
+[REQUIREMENT]
+UID: STK-2
+STATUS: Draft
+TAGS: capability, surveillance, agriculture
+TITLE: Pre-Mow Field Clearance Surveillance
+STATEMENT: >>>
+Ahead of a planned mowing operation, the UAV shall autonomously fly
+surveillance missions over a set of operator-predefined fields — an
+early-morning thermal sweep to detect warm-bodied animals concealed in the
+vegetation, and a daytime visual mission flown shortly before mowing as the
+final safety check — detect animals, people, and other obstructions present
+in those areas using onboard perception, capture video evidence of every
+finding, and deliver a clearance report to the operator's mobile device —
+with all collected mission intelligence processed by the machine, without a
+human interpreting raw mission data.
+<<<
+RATIONALE: >>>
+Mowing operations injure or kill animals concealed in grassland, endanger
+people (especially children) present in the area, and damage equipment on
+fixed obstructions. A pre-mow autonomous clearance flight gives the farmer a
+per-field verdict and reviewable evidence hours before mowing, without walking
+the fields. The value is the autonomy: the farmer receives findings, not a
+video stream to watch.
+<<<
+COMMENT: >>>
+Acceptance criteria (validation, see CAP-002):
+(a) surveillance imagery covers >= 95% of each predefined mow polygon at a
+    ground sampling distance sufficient for person/medium-animal detection;
+    uncovered regions are explicitly flagged in the report;
+(b) in the field validation, every surrogate target (person-analogue and
+    animal-analogue) placed inside a mow area produces exactly one finding —
+    no misses, no per-frame duplicates;
+(c) each finding carries a georeferenced position (<= 5 m horizontal error)
+    and a video clip (>= 3 s) showing the object;
+(d) the clearance report reaches the operator's registered mobile device
+    <= 5 minutes after mission completion;
+(e) no human interaction occurs between mission dispatch and report receipt
+    (a flight safety monitor may supervise the vehicle but is not part of
+    the intelligence path);
+(f) in the dawn thermal validation, every heated animal-surrogate placed in
+    a mow area — including fully grass-concealed placements — produces a
+    finding.
+Phase scope: two sensor modalities are mandatory — LWIR thermal for the dawn
+sweep (concealed animals) and RGB for the daytime final check. The v1 camera
+is fixed; findings are confirmed by autonomous craft repositioning (CLR-10);
+a gimbal + optical-zoom system is a recorded future extension.
+Detect-and-avoid and other airborne-safety automation are explicitly Phase 2
+(see CAP-002 future extensions); Phase 1 operates with a human flight safety
+monitor.
+<<<
+
+[[/SECTION]]
