@@ -30,12 +30,26 @@ containers:
     kind: external
     description: Vehicle pose (local + global) for finding geolocation
 
-  # New onboard perception module
+  # New external sensor (dawn thermal sweep) — registered in EXTERNAL_SYSTEMS by WP-G
+  - name: thermal_cam
+    kind: external
+    requirement: CLR-11
+    description: LWIR thermal camera driver (640x512 class, DES-007 D3)
+
+  # New onboard perception modules
   - name: tracker_node
     kind: node
     package: perception
     requirement: CLR-3
     description: ByteTrack association of /detections into persistent-ID tracks
+  - name: thermal_detector_node
+    kind: node
+    package: perception
+    requirement: CLR-12
+    description: >
+      Dawn-sweep detection on /thermal/image_raw (classical contrast/blob
+      baseline, ML fallback per DES-007 D4); publishes modality-agnostic
+      /detections
 
   # New onboard surveillance module
   - name: clearance_recorder_node
@@ -70,9 +84,13 @@ flows:
   # Tasking chain (already wired: DES-001; flown for real once DES-006 lands)
   - {from: autonomy_node, to: navigation_node, topic: /mission, requirement: CLR-1}
   - {from: navigation_node, to: control_node, topic: /trajectory, requirement: CLR-8}
-  # Detection chain
+  # Detection chain — day RGB profile
   - {from: oakd, to: rfdetr_node, topic: /oak/rgb/image_raw, requirement: CLR-2}
   - {from: rfdetr_node, to: tracker_node, topic: /detections, requirement: CLR-3}
+  # Detection chain — dawn thermal profile
+  - {from: thermal_cam, to: thermal_detector_node, topic: /thermal/image_raw, requirement: CLR-12}
+  - {from: thermal_detector_node, to: tracker_node, topic: /detections, requirement: CLR-12}
+  - {from: thermal_cam, to: clearance_recorder_node, topic: /thermal/image_raw, requirement: CLR-5}
   - {from: tracker_node, to: clearance_recorder_node, topic: /tracked_objects, requirement: CLR-4}
   # Evidence + geolocation inputs
   - {from: oakd, to: clearance_recorder_node, topic: /oak/rgb/image_raw, requirement: CLR-5}
@@ -97,6 +115,12 @@ behaviors:
   - name: Surveillance (detection-GSD) coverage parameterization in navigation
     requirement: CLR-8
     evidence: "Implements: CLR-8"
+  - name: Finding confirmation maneuver (descend + native-crop re-inference)
+    requirement: CLR-10
+    evidence: "Implements: CLR-10"
+  - name: Dawn-sweep thermal detection meets E-THERM gate
+    requirement: CLR-12
+    evidence: "Implements: CLR-12"
   - name: Finding geolocation (pixel -> WGS84, polygon containment)
     requirement: CLR-4
     evidence: "Implements: CLR-4"

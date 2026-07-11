@@ -437,8 +437,10 @@ TAGS: autonomy, surveillance
 TITLE: Clearance Mission Type
 STATEMENT: >>>
 The mission manager shall accept a clearance mission specification (a set of
-named, operator-predefined area polygons plus surveillance altitude) and
-execute it as a mission of type "clearance".
+named, operator-predefined area polygons, surveillance altitude, and a
+mission profile — dawn thermal sweep or daytime visual final check) and
+execute it as a mission of type "clearance", activating the profile's
+detection modality and coverage parameters.
 <<<
 RATIONALE: >>>
 Entry point of the capability: the farmer tasks the platform at the level of
@@ -455,21 +457,25 @@ STATUS: Draft
 TAGS: perception, ml, surveillance
 TITLE: Clearance Detection Performance
 STATEMENT: >>>
-The onboard perception subsystem shall detect the clearance object classes
-(people, livestock, medium-and-larger wild animals, vehicles, and
-agricultural machinery) in RGB imagery captured at the surveillance operating
-point (20-40 m AGL, nadir to 45 degrees oblique), achieving on the held-out
-clearance evaluation set at that operating point: person recall >= 0.95,
-animal-class recall >= 0.85, at a false-finding rate <= 1 per surveyed
-hectare.
+During the daytime visual final check, the onboard perception subsystem shall
+detect the clearance object classes (people, livestock, medium-and-larger
+wild animals of at least fawn size ~0.4 m, vehicles, and agricultural
+machinery) in RGB imagery at an effective ground sampling distance of
+<= 4 cm/px at the detector input (operating point per DES-007), for objects
+with vegetation occlusion up to grade O2 (<= 70%), achieving on the held-out
+clearance evaluation set, binned by range and occlusion grade: person recall
+>= 0.95, animal-class recall >= 0.85, at a false-finding rate <= 1 per
+surveyed hectare.
 <<<
 RATIONALE: >>>
 Misses are the costly failure mode (an undetected child or fawn defeats the
 capability), so the requirement is stated as recall at a bounded
-false-positive budget rather than mAP alone. Numbers are Draft — to be
-confirmed against the baseline evaluation of the COCO-pretrained model
-(CAP-002 WP-A) before approval. Runs within the existing COMP-3/PLAT-1
-latency budgets on the deployed rfdetr_node.
+false-positive budget rather than mAP alone. "Effective GSD at detector
+input" (not sensor-native GSD) is the binding quantity because the deployed
+node resizes frames to the 512x512 engine input — see the DES-007 range
+analysis. Fully concealed objects (grade O3) are out of RGB scope and
+covered by the thermal dawn sweep (CLR-12). Numbers are Draft — confirmed
+against the WP-A baseline evaluation before approval.
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -582,13 +588,14 @@ TAGS: navigation, surveillance, safety-critical
 TITLE: Surveillance Coverage Trajectory
 STATEMENT: >>>
 The navigation subsystem shall generate a surveillance trajectory that covers
-at least 95% of each mow-area polygon with imagery at the ground sampling
-distance required for person/medium-animal detection (<= 4 cm/px at the
-surveillance altitude).
+at least 95% of each mow-area polygon with imagery at the effective detection
+ground sampling distance of the active mission profile (daytime RGB check:
+<= 4 cm/px at detector input; dawn thermal sweep: <= 4.5 cm/px native), per
+the DES-007 operating points.
 <<<
 RATIONALE: >>>
-Reuses the MAP-1 coverage (lawnmower) generator with detection-driven
-parameterization (altitude/GSD/overlap for detection rather than
+Reuses the MAP-1 coverage (lawnmower) generator with detection-driven,
+per-profile parameterization (altitude/GSD/overlap for detection rather than
 photogrammetric reconstruction). Residual uncovered area is reported per
 CLR-6, never silently dropped.
 <<<
@@ -614,6 +621,77 @@ The fine-tuned model is a shipped product component: academic-only datasets
 training set (perception_finetuning_plan.md section 2.1.1). The labeling plan
 is what makes the customer's domain (grassland, mow-height vegetation,
 regional wildlife, farm machinery) actually represented in the data.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-10
+STATUS: Draft
+TAGS: autonomy, navigation, surveillance, safety-critical
+TITLE: Finding Confirmation Maneuver
+STATEMENT: >>>
+For candidate findings below the confirmation confidence threshold, the
+platform shall autonomously re-position over the finding location and
+re-image it at close range (descend and native-resolution crop inference per
+DES-007), confirming or dismissing the candidate; confirmations are bounded
+by a configurable per-mission budget, and candidates left over budget are
+reported as unconfirmed rather than dropped.
+<<<
+RATIONALE: >>>
+v1 flies a single fixed camera, so "localize then zoom" is implemented by
+craft movement: descending to ~10 m and running inference on a native-
+resolution crop is a ~5x effective-GSD improvement over the survey pass
+(DES-007 section 3.1). The maneuver is a normal waypoint insertion through
+the existing trajectory/bridge path, but altitude-floor validation and abort
+rules make the implementing packages safety-critical. A gimbal + optical
+zoom system replacing this maneuver is recorded future extension FE-1.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-11
+STATUS: Draft
+TAGS: perception, hardware, surveillance
+TITLE: Thermal Sensor Integration
+STATEMENT: >>>
+The platform shall integrate a LWIR thermal camera (640x512 class) as a ROS2
+image source time-synchronized with vehicle pose, selectable as the active
+detection modality for the dawn thermal sweep mission profile.
+<<<
+RATIONALE: >>>
+Concealed animals (occlusion grade O3, e.g. a fawn bedded in tall grass) are
+invisible to RGB at any resolution; dawn thermal contrast (overnight-cooled
+ground vs. warm body) is the established detection mechanism (fawn-rescue
+drone practice). Sensor candidates and selection criteria in DES-007
+section 4.1; final sensor purchase requires owner sign-off.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: STK-2
+
+[REQUIREMENT]
+UID: CLR-12
+STATUS: Draft
+TAGS: perception, ml, surveillance
+TITLE: Concealed-Animal Thermal Detection
+STATEMENT: >>>
+During a dawn thermal sweep, the perception subsystem shall detect
+warm-bodied animals of at least fawn size (~0.4 m) — including animals
+partially or fully concealed in vegetation (occlusion grades O0-O3) —
+achieving on the held-out thermal evaluation set, binned by range and
+occlusion grade: animal recall >= 0.90 at a false-finding rate <= 1 per
+surveyed hectare.
+<<<
+RATIONALE: >>>
+The thermal sweep exists precisely for the O3 cases RGB cannot claim
+(CLR-2). Detection approach is gated per DES-007 section 4.2: a classical
+contrast/blob baseline is evaluated first; a fine-tuned model is built only
+if the baseline fails the evaluation set. Residual risk under fully dense
+canopy is stated in the clearance report.
 <<<
 RELATIONS:
 - TYPE: Parent
