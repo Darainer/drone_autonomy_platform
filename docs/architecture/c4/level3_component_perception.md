@@ -1,27 +1,9 @@
 <!-- GENERATED FILE — do not edit by hand. Regenerate with: python scripts/generate_c4.py -->
 # C4 Level 3 — Component View: `src/perception`
 
-```mermaid
-C4Component
-    title Component View — src/perception
+![C4 Level 3 — Component View: `src/perception`](level3_component_perception.svg)
 
-    System_Ext(oakd, "OAK-D Camera Driver", "depthai-ros driver publishing RGB + stereo depth")
-    System_Ext(viz, "Operator Visualization", "rqt_image_view / GCS video overlay consumers")
-
-    Container_Boundary(perception, "src/perception") {
-        Component(detection_visualizer, "detection_visualizer", "ROS2 node (Python)", "1 pub / 2 sub")
-        Component(perception_node, "perception_node", "ROS2 node (C++)", "1 pub / 3 sub")
-        Component(rfdetr_node, "rfdetr_node", "ROS2 node (Python)", "1 pub / 1 sub")
-    }
-
-    Rel(rfdetr_node, detection_visualizer, "/detections", "Detection2DArray")
-    Rel(rfdetr_node, perception_node, "/detections", "Detection2DArray")
-    Rel(oakd, detection_visualizer, "/oak/rgb/image_raw", "Image")
-    Rel(oakd, perception_node, "/oak/rgb/image_raw", "sensor_msgs/Image")
-    Rel(oakd, rfdetr_node, "/oak/rgb/image_raw", "Image")
-    Rel(oakd, perception_node, "/oak/stereo/image_raw", "sensor_msgs/Image")
-    Rel(detection_visualizer, viz, "/visualization/detection_overlay", "Image")
-```
+Diagram source: [`level3_component_perception.puml`](level3_component_perception.puml) (C4-PlantUML, rendered with Graphviz).
 
 ## Interfaces
 

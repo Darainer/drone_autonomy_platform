@@ -1,13 +1,18 @@
 <!-- GENERATED FILE — do not edit by hand. Regenerate with: python scripts/generate_c4.py -->
 # C4 Architecture Views (generated)
 
-Generated from the ROS2 source by `scripts/generate_c4.py`. Regenerate after
-any change to nodes, topics, services, or launch remappings:
+Generated from the ROS2 source by `scripts/generate_c4.py` as C4-PlantUML
+(`.puml`) sources rendered to SVG with Graphviz and embedded in the Markdown
+pages. Regenerate after any change to nodes, topics, services, or launch
+remappings:
 
 ```bash
-python scripts/generate_c4.py          # regenerate
+python scripts/generate_c4.py          # regenerate views + SVGs
 python scripts/generate_c4.py --check  # verify views match the code (CI)
 ```
+
+Rendering needs Java + Graphviz + the PlantUML jar — see the docstring of
+`scripts/generate_c4.py` (or `.claude/skills/c4/SKILL.md`) for setup.
 
 - [Level 1 — System Context](level1_context.md)
 - [Level 2 — Container View (ROS2 nodes)](level2_container.md)

@@ -1,0 +1,21 @@
+' GENERATED FILE — do not edit by hand. Regenerate with: python scripts/generate_c4.py
+@startuml
+!include <C4/C4_Component>
+
+title Component View — src/communication
+
+AddRelTag("needs_remap", $lineStyle=DashedLine(), $legendText="needs remap (basename match only)")
+AddRelTag("service", $lineStyle=DottedLine(), $legendText="service call")
+
+Container(control_node, "control_node", "ROS2 node", "src/control")
+System_Ext(mavros, "MAVROS / PX4 Autopilot", "MAVLink bridge to the PX4 flight controller")
+
+Container_Boundary(communication, "src/communication") {
+    Component(communication_node, "communication_node", "ROS2 node (C++)", "0 pub / 2 sub")
+}
+
+Rel(control_node, communication_node, "/attitude_command", "drone_autonomy_msgs/AttitudeCommand")
+Rel(mavros, communication_node, "/mavros/state", "mavros_msgs/State")
+
+SHOW_LEGEND()
+@enduml

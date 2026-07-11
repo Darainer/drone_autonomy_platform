@@ -1,20 +1,9 @@
 <!-- GENERATED FILE — do not edit by hand. Regenerate with: python scripts/generate_c4.py -->
 # C4 Level 3 — Component View: `src/communication`
 
-```mermaid
-C4Component
-    title Component View — src/communication
+![C4 Level 3 — Component View: `src/communication`](level3_component_communication.svg)
 
-    Container(control_node, "control_node", "ROS2 node", "src/control")
-    System_Ext(mavros, "MAVROS / PX4 Autopilot", "MAVLink bridge to the PX4 flight controller")
-
-    Container_Boundary(communication, "src/communication") {
-        Component(communication_node, "communication_node", "ROS2 node (C++)", "0 pub / 2 sub")
-    }
-
-    Rel(control_node, communication_node, "/attitude_command", "drone_autonomy_msgs/AttitudeCommand")
-    Rel(mavros, communication_node, "/mavros/state", "mavros_msgs/State")
-```
+Diagram source: [`level3_component_communication.puml`](level3_component_communication.puml) (C4-PlantUML, rendered with Graphviz).
 
 ## Interfaces
 
