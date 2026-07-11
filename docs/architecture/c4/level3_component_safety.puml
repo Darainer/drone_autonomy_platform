@@ -1,0 +1,22 @@
+' GENERATED FILE — do not edit by hand. Regenerate with: python scripts/generate_c4.py
+@startuml
+!include <C4/C4_Component>
+
+title Component View — src/safety
+
+AddRelTag("needs_remap", $lineStyle=DashedLine(), $legendText="needs remap (basename match only)")
+AddRelTag("service", $lineStyle=DottedLine(), $legendText="service call")
+
+System_Ext(mavros, "MAVROS / PX4 Autopilot", "MAVLink bridge to the PX4 flight controller")
+
+Container_Boundary(safety, "src/safety") {
+    Component(battery_monitor, "battery_monitor", "ROS2 node (C++)", "0 pub / 1 sub / 1 srv client")
+    Component(safety_node, "safety_node", "ROS2 node (C++)", "0 pub / 1 sub")
+}
+
+Rel(mavros, battery_monitor, "/mavros/battery", "sensor_msgs/BatteryState")
+Rel(mavros, safety_node, "/mavros/state", "mavros_msgs/State")
+Rel(battery_monitor, mavros, "srv: /mavros/set_mode", "mavros_msgs/SetMode", $tags="service")
+
+SHOW_LEGEND()
+@enduml

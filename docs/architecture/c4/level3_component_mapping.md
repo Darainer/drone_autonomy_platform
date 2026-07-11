@@ -1,25 +1,9 @@
 <!-- GENERATED FILE — do not edit by hand. Regenerate with: python scripts/generate_c4.py -->
 # C4 Level 3 — Component View: `src/mapping`
 
-```mermaid
-C4Component
-    title Component View — src/mapping
+![C4 Level 3 — Component View: `src/mapping`](level3_component_mapping.svg)
 
-    Container(autonomy_node, "autonomy_node", "ROS2 node", "src/autonomy")
-    System_Ext(mavros, "MAVROS / PX4 Autopilot", "MAVLink bridge to the PX4 flight controller")
-    System_Ext(oakd, "OAK-D Camera Driver", "depthai-ros driver publishing RGB + stereo depth")
-
-    Container_Boundary(mapping, "src/mapping") {
-        Component(survey_recorder_node, "survey_recorder_node", "ROS2 node (C++)", "0 pub / 6 sub")
-    }
-
-    Rel(mavros, survey_recorder_node, "/mavros/global_position/global", "sensor_msgs/NavSatFix")
-    Rel(mavros, survey_recorder_node, "/mavros/local_position/pose", "geometry_msgs/PoseStamped")
-    Rel(autonomy_node, survey_recorder_node, "/mission", "drone_autonomy_msgs/Mission")
-    Rel(autonomy_node, survey_recorder_node, "/mission_status", "drone_autonomy_msgs/MissionStatus")
-    Rel(oakd, survey_recorder_node, "/oak/rgb/camera_info", "sensor_msgs/CameraInfo")
-    Rel(oakd, survey_recorder_node, "/oak/rgb/image_raw", "sensor_msgs/Image")
-```
+Diagram source: [`level3_component_mapping.puml`](level3_component_mapping.puml) (C4-PlantUML, rendered with Graphviz).
 
 ## Interfaces
 

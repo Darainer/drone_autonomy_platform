@@ -1,0 +1,22 @@
+' GENERATED FILE — do not edit by hand. Regenerate with: python scripts/generate_c4.py
+@startuml
+!include <C4/C4_Component>
+
+title Component View — src/autonomy
+
+AddRelTag("needs_remap", $lineStyle=DashedLine(), $legendText="needs remap (basename match only)")
+AddRelTag("service", $lineStyle=DottedLine(), $legendText="service call")
+
+Container(navigation_node, "navigation_node", "ROS2 node", "src/navigation")
+Container(survey_recorder_node, "survey_recorder_node", "ROS2 node", "src/mapping")
+
+Container_Boundary(autonomy, "src/autonomy") {
+    Component(autonomy_node, "autonomy_node", "ROS2 node (C++)", "2 pub / 1 sub")
+}
+
+Rel(autonomy_node, survey_recorder_node, "/mission", "drone_autonomy_msgs/Mission")
+Rel(autonomy_node, navigation_node, "/mission", "drone_autonomy_msgs/Mission")
+Rel(autonomy_node, survey_recorder_node, "/mission_status", "drone_autonomy_msgs/MissionStatus")
+
+SHOW_LEGEND()
+@enduml
