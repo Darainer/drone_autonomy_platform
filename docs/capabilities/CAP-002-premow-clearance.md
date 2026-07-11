@@ -6,7 +6,8 @@
 **Gap report:** [docs/reports/gap_CAP-002.md](../reports/gap_CAP-002.md) (generated — rerun `python scripts/check_architecture_gap.py`)
 **Sensing/model/data plan:** [DES-007](../design/DES-007-clearance-sensing-and-model.md) (written — ranges, occlusion, camera trade, thermal, collection & labeling)
 **Implementation plan:** [CAP-002-implementation-plan.md](CAP-002-implementation-plan.md) (WP → task breakdown)
-**Test plan:** TP-003 (reserved — authored with the remaining DES docs after plan approval)
+**Design docs:** [DES-007](../design/DES-007-clearance-sensing-and-model.md) · [DES-008](../design/DES-008-clearance-mission-and-confirmation.md) · [DES-009](../design/DES-009-tracker-node.md) · [DES-010](../design/DES-010-clearance-recorder.md) · [DES-011](../design/DES-011-clearance-report-and-delivery.md) (all written, per-task scoped)
+**Test plan:** [TP-003](../test_plans/TP-003-premow-clearance.md) (full test specs TS-01..TS-19)
 
 ## Stakeholder need
 
@@ -122,7 +123,7 @@ C4Container
 
 ## Gap to current architecture
 
-From the generated report: **9/37 present, 28 gaps.** What exists already:
+From the generated report: **9/38 present, 29 gaps.** What exists already:
 the tasking chain (`/mission`, `/trajectory`), the RGB camera/pose sources,
 the deployed RF-DETR detection front-end, and all four host nodes for the
 new behaviors. What's missing clusters into the work packages below: the
@@ -159,21 +160,20 @@ hardware purchase (DES-007 D3) requires owner sign-off.
 Ordered work packages; per-WP task tables, dataset candidates, and
 `submit_task.py` plans in
 [CAP-002-implementation-plan.md](CAP-002-implementation-plan.md).
-[DES-007](../design/DES-007-clearance-sensing-and-model.md) (sensing, model,
-data — the plan behind WP-A/G/H and the CLR-10 maneuver) is **written**;
-DES-008..011 are authored by the designer after this plan is approved,
-before their WPs execute.
+**All design docs are written and per-task scoped** (DES-007..DES-011 +
+TP-003) — executors implement resolved designs; a task needing a design
+change stops and returns to the designer.
 
 | WP | Scope | Design doc | Requirements | Agents / queue | Exit criteria |
 |---|---|---|---|---|---|
-| WP-A | **RGB clearance model**: dataset licensing, collection campaigns R1–R3, labeling, operating-point experiment (OP-1 vs OP-2), fine-tune, range/occlusion-binned eval, TensorRT deployment | [DES-007](../design/DES-007-clearance-sensing-and-model.md) §1–2, §5 | CLR-2, CLR-9 | `ml-pipeline` / `ml-pipeline` | CLR-2/CLR-9 lines ✅; E-RGB gate met; model card + provenance manifest |
-| WP-B | Clearance mission profiles + per-profile coverage + **confirmation maneuver** | DES-008 (to author; maneuver spec from DES-007 §3.1) | CLR-1, CLR-8, CLR-10 | `autonomy-dev`, `nav-dev` / `ros2-dev` — **safety_critical: true** | behaviors CLR-1, CLR-8, CLR-10 ✅; SITL: profile dispatch + maneuver insertion |
-| WP-C | `tracker_node` (ByteTrack, modality-agnostic, `src/perception`) | DES-009 (to author) | CLR-3 | `perception-dev` / `ros2-dev` | container + `/detections` flows ✅; replay: one track per object incl. tile-seam merge |
-| WP-D | `clearance_recorder_node` (new `src/surveillance`): geolocation, polygon filter, clips + findings store, `/findings` | DES-010 (to author) | CLR-4, CLR-5 | `infra` → `perception-dev` / `ros2-dev` | container + flows + CLR-4/5 behaviors ✅; replay: clip + record per injected track |
-| WP-E | `tools/clearance_report`: report build + mobile delivery; `/findings` downlink | DES-011 (to author) | CLR-6, CLR-7 | `ml-pipeline` + `comms-dev` | CLR-6/7 lines ✅; reference findings store → report on test device in budget |
-| WP-G | **Thermal integration**: sensor bring-up, driver/EXTERNAL_SYSTEMS, mount, sync, recorder thermal support | [DES-007](../design/DES-007-clearance-sensing-and-model.md) §4.1, §4.3 | CLR-11 | `infra`, `perception-dev` / `ros2-dev` | thermal_cam + `/thermal/image_raw` flows ✅ — **blocked on sensor purchase (owner)** |
-| WP-H | **Thermal detection**: classical baseline → E-THERM gate → (if needed) fine-tuned model; T1/T2 dawn campaigns | [DES-007](../design/DES-007-clearance-sensing-and-model.md) §4.2, §5 | CLR-12 | `ml-pipeline`, `perception-dev` | thermal_detector_node + CLR-12 behavior ✅; E-THERM gate met incl. O3 |
-| WP-F | Validation: SITL end-to-end both profiles + field trials (day surrogates, dawn heated decoys) | TP-003 (to author) | STK-2, CLR-* | Sonnet session + `run_simulation` stage | `Verifies:` markers land; STK-2 acceptance (a)–(f) demonstrated |
+| WP-A | **RGB clearance model**: dataset licensing, collection campaigns R1–R3, labeling, operating-point experiment (OP-1 vs OP-2), fine-tune, range/occlusion-binned eval, TensorRT deployment | [DES-007](../design/DES-007-clearance-sensing-and-model.md) §1–2, §5 | CLR-2, CLR-9 | `ml-pipeline` / `ml-pipeline` | CLR-2/CLR-9 lines ✅; TS-12/TS-13 green; model card + provenance manifest |
+| WP-B | Clearance mission profiles + per-profile coverage + **confirmation tour** | [DES-008](../design/DES-008-clearance-mission-and-confirmation.md) | CLR-1, CLR-8, CLR-10 | `autonomy-dev`, `nav-dev` / `ros2-dev` — **safety_critical: true** | behaviors CLR-1, CLR-8, CLR-10 ✅; TS-01..04, TS-11 green |
+| WP-C | `tracker_node` (vendored ByteTrack, modality-agnostic, `src/perception`) | [DES-009](../design/DES-009-tracker-node.md) | CLR-3 | `perception-dev` / `ros2-dev` | container + `/detections` flows ✅; TS-05 green |
+| WP-D | `clearance_recorder_node` (new `src/surveillance`): geolocation, polygon filter, clips + findings store, `/findings` | [DES-010](../design/DES-010-clearance-recorder.md) | CLR-4, CLR-5 | `infra` → `perception-dev` / `ros2-dev` | container + flows + CLR-4/5 behaviors ✅; TS-06..08 green |
+| WP-E | `tools/clearance_report`: report build + ntfy/upload delivery; `/findings` downlink | [DES-011](../design/DES-011-clearance-report-and-delivery.md) | CLR-6, CLR-7 | `ml-pipeline` + `comms-dev` | CLR-6/7 lines ✅; TS-09/TS-10 green |
+| WP-G | **Thermal integration**: sensor bring-up, driver/EXTERNAL_SYSTEMS, mount, sync, recorder thermal support | [DES-007](../design/DES-007-clearance-sensing-and-model.md) §4.1, §4.3 | CLR-11 | `infra`, `perception-dev` / `ros2-dev` | thermal_cam + `/thermal/image_raw` flows ✅; TS-14 green — **blocked on sensor purchase (owner)** |
+| WP-H | **Thermal detection**: classical baseline → E-THERM gate → (if needed) fine-tuned model; T1/T2 dawn campaigns | [DES-007](../design/DES-007-clearance-sensing-and-model.md) §4.2, §5 | CLR-12 | `ml-pipeline`, `perception-dev` | thermal_detector_node + CLR-12 behavior ✅; TS-15 green incl. O3 |
+| WP-F | Validation: SITL end-to-end both profiles + field trials (day surrogates, dawn heated decoys) | [TP-003](../test_plans/TP-003-premow-clearance.md) TS-16..19 | STK-2, CLR-* | Sonnet session + `run_simulation` stage | `Verifies:` markers land; STK-2 acceptance (a)–(f) demonstrated |
 
 WP-A is the long pole and starts immediately (dataset/licensing/campaign
 prep needs no ROS work). WP-H's dataset/baseline prep also starts early;
@@ -227,3 +227,15 @@ Mission-level (validates STK-2, not code units), captured as TP-003 with WP-F:
   protocol with occlusion/range binning. (3) Day RGB flight explicitly
   scoped as the final safety check. STK-2 statement + acceptance updated
   ((f) dawn concealed-decoy criterion).
+- v0.3 — handoff completed for agentic execution: DES-008 (mission
+  profiles, multi-area coverage, **post-pass confirmation tour** D4/D5 —
+  confirmation flies at 10 m full-frame, native-crop inference reserved),
+  DES-009 (vendored ByteTrack, `Detection2D.id` reuse, min_hits gate),
+  DES-010 (findings store `format_version: 1`, flat-ground ray-cast with
+  3 m RSS error budget, `track.csv` for coverage QA), DES-011 (self-
+  contained HTML report bundle, verdict rules incl. never-CLEAR-with-holes,
+  ntfy + upload delivery with landing-WiFi fallback) and TP-003
+  (TS-01..TS-19) written. Target spec gains the
+  `clearance_recorder_node → autonomy_node /findings` flow (CLR-10
+  confirmation queue); gap 9/38. WPs are now executable by Sonnet-class
+  sessions per the implementation plan.
