@@ -100,8 +100,9 @@ flows:
   # Mission lifecycle (arm/disarm recording, area polygons)
   - {from: autonomy_node, to: clearance_recorder_node, topic: /mission, requirement: CLR-5}
   - {from: autonomy_node, to: clearance_recorder_node, topic: /mission_status, requirement: CLR-5}
-  # Live findings to the GCS link
+  # Live findings to the GCS link and the confirmation queue (DES-008 D6)
   - {from: clearance_recorder_node, to: communication_node, topic: /findings, requirement: CLR-7}
+  - {from: clearance_recorder_node, to: autonomy_node, topic: /findings, requirement: CLR-10}
 
 behaviors:
   # Behavioral gaps inside existing containers / offboard modules — flip to

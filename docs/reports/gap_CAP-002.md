@@ -4,7 +4,7 @@
 
 Target spec: `docs/architecture/target/CAP-002-premow-clearance.yaml` · Stakeholder requirements: STK-2
 
-**9 / 37** target elements present — **28 gap(s) remain**
+**9 / 38** target elements present — **29 gap(s) remain**
 
 ## Containers
 
@@ -42,6 +42,7 @@ Target spec: `docs/architecture/target/CAP-002-premow-clearance.yaml` · Stakeho
 | autonomy_node → clearance_recorder_node | CLR-5 | ❌ missing | `/mission` — no such edge in current topic graph |
 | autonomy_node → clearance_recorder_node | CLR-5 | ❌ missing | `/mission_status` — no such edge in current topic graph |
 | clearance_recorder_node → communication_node | CLR-7 | ❌ missing | `/findings` — no such edge in current topic graph |
+| clearance_recorder_node → autonomy_node | CLR-10 | ❌ missing | `/findings` — no such edge in current topic graph |
 
 ## Behaviors
 
@@ -78,6 +79,7 @@ Target spec: `docs/architecture/target/CAP-002-premow-clearance.yaml` · Stakeho
 - [ ] autonomy_node → clearance_recorder_node (CLR-5)
 - [ ] autonomy_node → clearance_recorder_node (CLR-5)
 - [ ] clearance_recorder_node → communication_node (CLR-7)
+- [ ] clearance_recorder_node → autonomy_node (CLR-10)
 - [ ] Clearance mission type in mission manager (CLR-1)
 - [ ] Clearance-domain detection model deployed (label set + engine config) (CLR-2)
 - [ ] Surveillance (detection-GSD) coverage parameterization in navigation (CLR-8)

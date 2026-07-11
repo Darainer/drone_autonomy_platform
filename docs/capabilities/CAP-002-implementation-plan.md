@@ -1,11 +1,11 @@
 # CAP-002 Implementation Plan — Pre-Mow Field Clearance Surveillance
 
-**Status:** Proposed v1 (awaiting owner approval of the plan; no implementation started)
+**Status:** Proposed v2 — **execution-ready**: all DES docs + TP-003 written and per-task scoped
 **Capability doc:** [CAP-002-premow-clearance.md](CAP-002-premow-clearance.md)
 **Target spec:** [docs/architecture/target/CAP-002-premow-clearance.yaml](../architecture/target/CAP-002-premow-clearance.yaml)
-**Gap report:** [docs/reports/gap_CAP-002.md](../reports/gap_CAP-002.md) (baseline 9/37)
-**Design docs:** [DES-007](../design/DES-007-clearance-sensing-and-model.md) (sensing/model/data — **written**, owner review with this plan); DES-008..DES-011 reserved, authored by the designer after plan approval — no WP executes against an unwritten DES
-**Test plan:** TP-003 reserved (authored with the remaining DES docs)
+**Gap report:** [docs/reports/gap_CAP-002.md](../reports/gap_CAP-002.md) (baseline 9/38)
+**Design docs (written):** [DES-007](../design/DES-007-clearance-sensing-and-model.md) · [DES-008](../design/DES-008-clearance-mission-and-confirmation.md) · [DES-009](../design/DES-009-tracker-node.md) · [DES-010](../design/DES-010-clearance-recorder.md) · [DES-011](../design/DES-011-clearance-report-and-delivery.md)
+**Test plan:** [TP-003](../test_plans/TP-003-premow-clearance.md) (full test specs TS-01..TS-19)
 **Requirements:** STK-2, CLR-1..CLR-12
 
 ## Execution & review model
@@ -18,26 +18,26 @@ resolved designs; Opus reviews every task; unmarked code doesn't count; every
 task regenerates C4/gap/traceability artifacts. Harness constraints
 (PR-level human gates, no `sim-test` plan steps) also carry over unchanged.
 
-## Sequencing after plan approval
+## Sequencing (all DES docs written — WPs are dispatchable)
 
-1. [DES-007](../design/DES-007-clearance-sensing-and-model.md) is written
-   and reviewed with this plan. Designer authors DES-008..DES-011 + TP-003
-   (one PR, second WP-level human review — per the handoff contract these
-   fix every interface and design decision the executors need).
-2. WP-A starts immediately (long pole, no ROS dependency) in parallel with
+1. WP-A starts immediately (long pole, no ROS dependency) in parallel with
    WP-B/C/D; WP-H's dataset/baseline prep also starts immediately.
-3. **Owner decision needed early: thermal sensor purchase** (DES-007 D3) —
+   Interfaces between parallel WPs are fixed in the DES docs, not in each
+   other's code: `Finding.msg` and `/mission_status` semantics (DES-008),
+   `/tracked_objects` shape (DES-009), the findings-store
+   `format_version: 1` (DES-010).
+2. **Owner decision needed early: thermal sensor purchase** (DES-007 D3) —
    blocks WP-G and WP-H's hardware-dependent tasks (T1 dawn campaigns).
-4. WP-E after DES-010's findings-store format is approved (not after WP-D
-   code).
-5. WP-F after WP-A..E, WP-G/H merge **and** DES-006 (CAP-001 stream) has
+3. WP-E can start once WP-D's store fixture (F4) is checked in — it codes
+   against DES-010's format, not WP-D's node.
+4. WP-F after WP-A..E, WP-G/H merge **and** DES-006 (CAP-001 stream) has
    landed for the field portions; SITL needs only the merged WPs.
 
 ```
-plan approval (incl. DES-007) ─► DES-008..011 + TP-003 (designer)
+WP dispatch (this plan + DES-007..011 + TP-003 approved)
       ├─► WP-A (RGB clearance model; DES-007) ─────────────────┐
       ├─► WP-B (profiles + coverage + confirm; DES-008) ───────┤
-      ├─► WP-C (tracker_node; DES-009) ────────────────────────┼─► WP-F (SITL e2e + day + dawn field trials; TP-003)
+      ├─► WP-C (tracker_node; DES-009) ────────────────────────┼─► WP-F (SITL e2e + day + dawn field trials; TP-003 TS-16..19)
       ├─► WP-D (clearance recorder; DES-010) ──────────────────┤        ▲
       ├─► WP-E (report + delivery; DES-011) ───────────────────┤        └ external prereqs: DES-006 bridge merged;
       ├─► WP-G (thermal integration; DES-007 §4) ──────────────┤           thermal sensor purchased (owner)
@@ -135,17 +135,35 @@ DES-008 fixes the message/profile design and the confirmation-maneuver spec
 
 | Task | Executor | What | Markers |
 |---|---|---|---|
-| B1 | `infra` / `orchestrator` | `Mission.msg` clearance fields (area-set, altitude, **mission profile** `dawn_thermal_sweep`/`day_rgb_check`, confirmation budget) per DES-008; launch remaps | — |
+| B1 | `infra` / `orchestrator` | DES-008 "Message changes": `Mission.msg` clearance fields (areas + names, altitude, profile, confirm budget) **and new `Finding.msg`**; `/findings` launch remaps | — |
 | B2 | `autonomy-dev` / `ros2-dev` | Clearance mission type in `autonomy_node`: validation (named polygons, altitude bounds, profile), per-profile dispatch, `/mission_status` lifecycle reuse (DES-003 pattern) | `Implements: CLR-1` + tests `Verifies: CLR-1` |
 | B3 | `nav-dev` / `ros2-dev` | Per-profile parameterization of the MAP-1 coverage generator (DES-007 operating points: day RGB ≤4 cm/px effective, dawn thermal ≤4.5 cm/px native), ≥95% polygon coverage | `Implements: CLR-8` + tests `Verifies: CLR-8` |
 | B4 | `autonomy-dev`, `nav-dev` / `ros2-dev` | **Confirmation maneuver** per DES-008: candidate-triggered waypoint insertion (descend to confirmation altitude over finding, re-image, resume), altitude-floor validation, per-mission budget, over-budget → unconfirmed finding | `Implements: CLR-10` + tests `Verifies: CLR-10` |
 | B5 | `infra` / `orchestrator` | Regenerate C4/gap/traceability; commit artifacts | — |
 
-**WP PR gate:** behaviors CLR-1, CLR-8, CLR-10 ✅; SITL: dispatching each
-profile yields a `/trajectory` passing DES-008 geometry/GSD assertions, and
-an injected low-confidence candidate triggers exactly one bounded
-confirmation maneuver. Safety-critical diff attention on `src/navigation`
-and the maneuver's altitude/abort logic.
+**WP PR gate:** behaviors CLR-1, CLR-8, CLR-10 ✅; TS-01..04 + TS-11 green;
+safety-critical diff attention on `src/navigation` and the maneuver's
+altitude-floor/abort logic.
+
+```json
+{
+  "summary": "CAP-002 WP-B per DES-008. SITL check for run_simulation: TS-04 — dispatch REF-AREAS day-profile clearance, expect one /trajectory passing TS-03 geometry within 5 s; TS-11 — inject 3 sub-threshold /findings, expect one clearance_confirm mission with 3 waypoints at 10 m after coverage-complete",
+  "safety_critical": true,
+  "affected_packages": ["msgs", "src/autonomy", "src/navigation"],
+  "steps": [
+    {"agent": "infra", "task_queue": "orchestrator",
+     "action": "DES-008 message changes: clearance fields in Mission.msg, new Finding.msg, /findings remaps in both platform launch files; check in F1 REF-AREAS fixture", "depends_on": []},
+    {"agent": "autonomy-dev", "task_queue": "ros2-dev",
+     "action": "DES-008 autonomy_node behavior items 1-3 (clearance_request, clearance_validation.cpp, dispatch); mark Implements: CLR-1; author TS-01/TS-02 tests, mark Verifies: CLR-1", "depends_on": [0]},
+    {"agent": "nav-dev", "task_queue": "ros2-dev",
+     "action": "DES-008 navigation_node behavior: multi-area clearance planning with per-profile params + clearance_confirm pass-through with 8 m altitude floor; mark Implements: CLR-8; author TS-03 gtest suite, mark Verifies: CLR-8", "depends_on": [0]},
+    {"agent": "autonomy-dev", "task_queue": "ros2-dev",
+     "action": "DES-008 item 4 confirmation queue: /findings subscription, threshold/dedup/budget, nearest-neighbor tour dispatch as clearance_confirm, complete after tour; mark Implements: CLR-10; author TS-11 test, mark Verifies: CLR-10", "depends_on": [1, 2]},
+    {"agent": "infra", "task_queue": "orchestrator",
+     "action": "Regenerate C4 + gap + traceability, flip TP-003 CLR-1/8/10 rows to implemented, commit artifacts", "depends_on": [3]}
+  ]
+}
+```
 
 ---
 
@@ -159,7 +177,21 @@ and the maneuver's altitude/abort logic.
 | C2 | `infra` / `orchestrator` | Launch integration (`full_stack.launch.py`), regenerate C4/gap/traceability | — |
 
 **WP PR gate:** container `tracker_node` + flow `/detections`→tracker ✅;
-replay test green; measured per-frame budget within COMP-4.
+TS-05 green; measured per-frame budget within COMP-4.
+
+```json
+{
+  "summary": "CAP-002 WP-C per DES-009. SITL check for run_simulation: replay F5 through rfdetr stub -> tracker_node, assert 3 persistent ids, flicker suppressed, gap re-associated (TS-05)",
+  "safety_critical": false,
+  "affected_packages": ["src/perception"],
+  "steps": [
+    {"agent": "perception-dev", "task_queue": "ros2-dev",
+     "action": "DES-009 C1: vendored byte_tracker.py + tracker_node.py per D1-D5 (min_hits gate, majority class, input-header passthrough); mark Implements: CLR-3; author TS-05 unit+replay tests, mark Verifies: CLR-3; check in F5 fixture", "depends_on": []},
+    {"agent": "infra", "task_queue": "orchestrator",
+     "action": "DES-009 C2: add tracker_node to rfdetr/full_stack launch files + /tracked_objects remaps; regenerate C4 + gap + traceability, flip TP-003 CLR-3 row", "depends_on": [0]}
+  ]
+}
+```
 
 ---
 
@@ -169,14 +201,32 @@ replay test green; measured per-frame budget within COMP-4.
 
 | Task | Executor | What | Markers |
 |---|---|---|---|
-| D1 | `infra` / `orchestrator` | Scaffold `src/surveillance` (CMakeLists, package.xml, launch include); `/findings` message definition in `msgs/` per DES-010 | — |
+| D1 | `infra` / `orchestrator` | Scaffold `src/surveillance` (CMakeLists, package.xml, launch include); check in fixtures F5 (replay bag) and F6 (geolocation scenes) per TP-003 (`Finding.msg` lands in WP-B task B1) | — |
 | D2 | `perception-dev` / `ros2-dev` | Geolocation: `/tracked_objects` + `/oak/rgb/camera_info` + synced MAVROS pose (DES-004 sync approach) → WGS84 position; mow-polygon containment | `Implements: CLR-4` + tests `Verifies: CLR-4` |
 | D3 | `perception-dev` / `ros2-dev` | Evidence capture: rolling pre-roll frame buffer, per-finding clip writer, structured findings store (format fixed in DES-010 — WP-E's input contract), `/findings` publication, `/mission`-driven arm/disarm | `Implements: CLR-5` + replay tests `Verifies: CLR-5` |
 | D4 | `infra` / `orchestrator` | Regenerate C4/gap/traceability | — |
 
-**WP PR gate:** container + all 7 recorder flows + behaviors CLR-4/CLR-5 ✅;
-replay of a recorded detection sequence produces one clip + record per
-injected track, geolocated within tolerance.
+**WP PR gate:** container + recorder flows + behaviors CLR-4/CLR-5 ✅;
+TS-06..08 green (one clip + record per injected in-area track, geolocated
+within tolerance; schema + guards).
+
+```json
+{
+  "summary": "CAP-002 WP-D per DES-010. SITL check for run_simulation: replay F5 with an armed clearance mission, assert findings.jsonl has one in-area finding per object with lat/lon within tolerance and clips with 1 s pre-roll (TS-07)",
+  "safety_critical": false,
+  "affected_packages": ["src/surveillance"],
+  "steps": [
+    {"agent": "infra", "task_queue": "orchestrator",
+     "action": "Scaffold src/surveillance (CMakeLists, package.xml, launch include) per DES-010 D1; check in F6 geolocation fixtures", "depends_on": []},
+    {"agent": "perception-dev", "task_queue": "ros2-dev",
+     "action": "DES-010 geolocation: ray-cast per D2 + area containment, origin-fix pairing; mark Implements: CLR-4; author TS-06 gtest on F6, mark Verifies: CLR-4", "depends_on": [0]},
+    {"agent": "perception-dev", "task_queue": "ros2-dev",
+     "action": "DES-010 evidence pipeline: pre-roll ring buffer, clip writer, findings store format_version 1, track.csv, /findings publication, arm/disarm + storage guard per D3-D8; mark Implements: CLR-5; author TS-07/TS-08 tests, mark Verifies: CLR-5", "depends_on": [1]},
+    {"agent": "infra", "task_queue": "orchestrator",
+     "action": "Regenerate C4 + gap + traceability, flip TP-003 CLR-4/5 rows, commit artifacts", "depends_on": [2]}
+  ]
+}
+```
 
 ---
 
@@ -191,8 +241,24 @@ injected track, geolocated within tolerance.
 | E3 | `infra` / `orchestrator` | Regenerate C4/gap/traceability; operator docs (registering areas + phone) | — |
 
 **WP PR gate:** container `clearance_report_pipeline` + `/findings` flow +
-behaviors CLR-6/CLR-7 ✅; end-to-end: reference findings store → report
-rendered → delivered to a test device/endpoint inside the latency budget.
+behaviors CLR-6/CLR-7 ✅; TS-09/TS-10 green (reference store → report →
+test endpoint + ntfy inside the 5-min budget).
+
+```json
+{
+  "summary": "CAP-002 WP-E per DES-011. Validation: TS-09 build_report on fixture F4 (verdicts incl. never-CLEAR-with-holes) <= 4 min; TS-10 docker-compose delivery to local ntfy + ssh endpoint <= 5 min from complete",
+  "safety_critical": false,
+  "affected_packages": ["tools/clearance_report", "src/communication"],
+  "steps": [
+    {"agent": "ml-pipeline", "task_queue": "ml-pipeline",
+     "action": "DES-011 E1: tools/clearance_report package (build_report, coverage, verdicts, render, report_on_complete) per D1-D3, D5; check in F4 reference store fixture; mark Implements: CLR-6; author TS-09 tests, mark Verifies: CLR-6", "depends_on": []},
+    {"agent": "comms-dev", "task_queue": "ros2-dev",
+     "action": "DES-011 E2: communication_node /findings subscription + optional UDP JSON forward; deliver.py upload + ntfy push per D4/D6; mark Implements: CLR-7; author TS-10 compose test, mark Verifies: CLR-7", "depends_on": [0]},
+    {"agent": "infra", "task_queue": "orchestrator",
+     "action": "Regenerate C4 + gap + traceability, flip TP-003 CLR-6/7 rows; operator docs for area/phone registration (delivery.yaml)", "depends_on": [1]}
+  ]
+}
+```
 
 ---
 
@@ -248,16 +314,18 @@ field-trial reports filed.
 
 ---
 
-## Open decisions deferred to the remaining DES docs (designer, post-approval)
+## Design-decision status
 
-[DES-007](../design/DES-007-clearance-sensing-and-model.md) is written; its
-remaining open items (§7) are the thermal sensor purchase (owner), decoy
-inventory, partner-farm access, and the dawn/low-AGL regulatory check. The
-operating-point choice (D1) is decided by the A3 experiment and written back.
+All executor-facing decisions are **fixed** in DES-007..DES-011 (each doc's
+"Design decisions (fixed)" table). Remaining open items are owner/designer
+actions, not executor decisions:
 
-| DES | Decisions it must fix |
-|---|---|
-| DES-008 | clearance `Mission.msg` fields (profile enum, confirmation budget), area registry storage, confirmation-maneuver trigger/altitude-floor/abort rules (from DES-007 §3.1) |
-| DES-009 | `/tracked_objects` message shape, ByteTrack params, track-confirmation policy (frames before a finding), tile-seam duplicate merging (if OP-2 selected) |
-| DES-010 | findings-store format (versioned — WP-E contract), clip container/codec (RGB + colormapped thermal), pre-roll buffer sizing vs Orin memory, sync budget |
-| DES-011 | delivery transport (LTE push vs fallback), report package format (self-contained HTML vs PDF+GeoJSON), notification mechanism, device registration |
+- **Thermal sensor purchase** (DES-007 D3, §7) — owner; blocks WP-G and
+  WP-H's T1 campaigns.
+- Operating-point selection OP-1 vs OP-2 (DES-007 D1) — decided *by* WP-A
+  task A3's experiment, written back to DES-007 by the designer.
+- Decoy inventory, partner-farm access, dawn/low-AGL regulatory check
+  (DES-007 §7) — operational prep for the campaigns and trials.
+
+A task that cannot be completed without changing a fixed decision stops
+and returns to the designer (`capability` skill) — it does not improvise.
