@@ -30,7 +30,18 @@ LLM backend (Anthropic API  or  local Ollama)
 /workspace (read/write files, colcon build, run tests, git)
 ```
 
-⚠️ = safety-critical path (triggers DO-178C review + human approval gate)
+⚠️ = safety-critical path (`src/control/`, `src/safety/`, `src/navigation/`).
+A DO-178C review + mandatory human approval gate for these paths is **planned,
+not implemented**: the Temporal gate above keys on a `safety_critical` boolean
+an LLM fills in from a prompt, not on path detection, either way it's launched.
+Whether the gate actually waits depends on the entry point: the documented one,
+`scripts/task.sh` → `scripts/submit_task.py`, hardcodes `auto_approve=True`
+with no override, so the gate never waits for plans submitted that way.
+Starting the workflow directly via `python -m agents.cli feature` leaves
+`auto_approve` at its default of `False`, so a `safety_critical: true` plan
+launched that way does wait — release it with `agents/cli.py approve
+<workflow-id>`. The one thing that does run today regardless of entry point is
+the advisory `safety-path-warning` CI job — see `CONTRIBUTING.md`.
 
 ## My Role
 
@@ -130,7 +141,7 @@ Steps execute in order. `depends_on` is informational only (not enforced by Temp
 
 **Rules:**
 - Docs, launch files, CMakeLists, READMEs → always `infra` on `orchestrator`
-- `src/control/` or `src/safety/` changes → set `safety_critical: true`
+- `src/control/`, `src/safety/` or `src/navigation/` changes → set `safety_critical: true`
 - Do NOT use `deploy` as an agent in feature plans — deployment is a separate workflow triggered manually
 - New message types → add an `infra` step first to define the `.msg` file
 

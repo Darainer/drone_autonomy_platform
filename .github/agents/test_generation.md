@@ -1,5 +1,8 @@
 # Test Generation Agent
 
+> **Status: inert.** No workflow in `.github/workflows/` implements this file's
+> trigger. This document describes an intended agent that does not run today.
+
 **Purpose:** This agent generates test cases for new features.
 
 **Trigger:** This agent is triggered when a pull request is marked as "feature ready".
