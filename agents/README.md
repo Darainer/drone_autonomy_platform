@@ -1,5 +1,11 @@
 # Agent System
 
+> **Status (as of 2026-08): untested prototype, not part of the working
+> development loop.** This Temporal-based multi-agent workforce is real code
+> that runs, but no feature has been implemented end-to-end through it and it
+> is not what Claude Code sessions use day to day. Treat everything below as
+> describing a prototype to evaluate, not a system to depend on.
+
 Multi-agent orchestration for `drone_autonomy_platform` using Temporal + Claude API (or a local LLM via Ollama).
 
 ## Architecture
@@ -25,6 +31,18 @@ LLM backend (Anthropic API  or  local Ollama)
 ```
 
 ⚠️ = safety-critical path (triggers DO-178C review + human approval gate)
+
+## My Role
+
+*(How Claude Code is meant to drive this prototype. Moved here from CLAUDE.md,
+with the entry point corrected to `scripts/task.sh`.)*
+
+I am the orchestrator. When the user describes a task:
+1. Analyze the request and form a plan (JSON, see Plan Schema below)
+2. Submit it to the agent workforce via `scripts/task.sh`
+3. Review the results — if tests fail or the goal is not met, revise the plan and resubmit with `--rework`
+
+The domain agents (running on a local LLM or the Anthropic API) do the actual file editing, building, and testing.
 
 ## Prerequisites
 
@@ -52,8 +70,11 @@ open http://localhost:8080
 
 ## Submitting Tasks
 
-Tasks are submitted from the host via `scripts/task.sh`, which runs inside the
-orchestrator container where all dependencies are installed.
+Tasks are submitted from the host via `scripts/task.sh`, which runs inside
+the orchestrator container where all dependencies are installed. This is the
+entry point — `agents/orchestrator`'s `scripts/submit_task.py` is what
+`task.sh` invokes via `docker compose exec`; it is not meant to be called
+directly from the host.
 
 ```bash
 # Let Claude Code form the plan and call this:
@@ -68,15 +89,64 @@ scripts/task.sh "description" --plan '...' --rework "tests failed: missing inclu
 
 Claude Code acts as the orchestrator — it analyzes your request, forms a plan,
 calls `task.sh`, reviews results, and resubmits with `--rework` if needed.
+`task.sh` exits `0` on success, `1` if code review failed — use this to
+decide whether to rework.
 
-## LLM Backends
+## Plan Schema
+
+```json
+{
+  "summary": "one-line description of what will be done",
+  "safety_critical": false,
+  "affected_packages": ["src/perception"],
+  "steps": [
+    {
+      "agent": "perception-dev",
+      "task_queue": "ros2-dev",
+      "action": "concise description of what this agent should do",
+      "depends_on": []
+    }
+  ]
+}
+```
+
+Steps execute in order. `depends_on` is informational only (not enforced by Temporal yet).
+
+## Agents and Task Queues
+
+| Agent | Queue | Worker | Use for |
+|---|---|---|---|
+| `perception-dev` | `ros2-dev` | ros2-worker | Camera, depth, detection, Isaac ROS nodes |
+| `nav-dev` | `ros2-dev` | ros2-worker | Path planning, costmaps, Nav2 config |
+| `control-dev` | `ros2-dev` | ros2-worker | PX4 bridge, attitude/position controllers |
+| `autonomy-dev` | `ros2-dev` | ros2-worker | Mission logic, state machines, BT |
+| `comms-dev` | `ros2-dev` | ros2-worker | MAVLink, telemetry, GCS interface |
+| `safety-dev` | `ros2-dev` | ros2-worker | Geofence, failsafe, watchdog nodes |
+| `infra` | `orchestrator` | orchestrator | CMakeLists, launch files, READMEs, msgs/ |
+| `code-review` | `orchestrator` | orchestrator | Review + lint only, no edits |
+| `sim-test` | `simulation` | sim-worker | SITL scenarios, unit tests |
+| `ml-pipeline` | `ml-pipeline` | ml-worker | Model training, export, TensorRT |
+| `deploy` | `deployment` | deploy-worker | `DeployWorkflow` only — manual trigger, separate from feature plans |
+
+**Rules:**
+- Docs, launch files, CMakeLists, READMEs → always `infra` on `orchestrator`
+- `src/control/` or `src/safety/` changes → set `safety_critical: true`
+- Do NOT use `deploy` as an agent in feature plans — deployment is a separate workflow triggered manually
+- New message types → add an `infra` step first to define the `.msg` file
+
+## LLM Backend
 
 Set via env vars in `docker/.env` or your shell:
 
-| `LLM_BACKEND` | Required vars | Example model |
-|---|---|---|
-| `anthropic` (default) | `ANTHROPIC_API_KEY` | `claude-sonnet-4-6` |
-| `openai_compat` | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | `qwen2.5-coder:14b` (Ollama), `kimi-k2` (Moonshot) |
+| Var | Backend | Default | Notes |
+|---|---|---|---|
+| `LLM_BACKEND` | both | `anthropic` | `anthropic` or `openai_compat` |
+| `ANTHROPIC_API_KEY` | `anthropic` | — | required when `LLM_BACKEND=anthropic` |
+| *(model)* | `anthropic` | `claude-sonnet-4-6` | hardcoded in `agents/shared/llm_client.py`, not env-configurable |
+| `LLM_BASE_URL` | `openai_compat` | — | e.g. `http://localhost:11434/v1` (Ollama) |
+| `LLM_API_KEY` | `openai_compat` | — | e.g. `none` (Ollama), real key (Moonshot) |
+| `LLM_MODEL` | `openai_compat` | `kimi-k2` | e.g. `qwen2.5-coder:14b` (Ollama), `kimi-k2` (Moonshot) |
+| `AGENT_MOCK` | both | `false` | `true` skips all LLM calls |
 
 **Local Ollama:**
 ```bash
@@ -97,15 +167,15 @@ docker compose up -d
 AGENT_MOCK=true docker compose up -d
 ```
 
-## Task Queues
+## Rework Loop
 
-| Queue | Worker | Agents |
-|---|---|---|
-| `orchestrator` | orchestrator | infra, code-review |
-| `ros2-dev` | ros2-worker | perception-dev, nav-dev, control-dev, autonomy-dev, comms-dev, safety-dev |
-| `simulation` | sim-worker | sim-test |
-| `ml-pipeline` | ml-worker | ml-pipeline |
-| `deployment` | deploy-worker | deploy |
+After `task.sh` returns results, check:
+- `result.review.passed` — did code review pass?
+- `result.sim_results.result` — did tests pass?
+- `result.results[*].result` — what did each agent actually do?
+
+If any step failed, call `task.sh` again with `--rework "specific feedback"`.
+Keep rework focused — identify the exact file/function that failed rather than re-running the full plan.
 
 ## File Ownership
 
@@ -148,7 +218,7 @@ scripts/
 ├── task.sh                   # Host-side task submission (runs inside container)
 └── submit_task.py            # Called by task.sh via docker compose exec
 
-CLAUDE.md                     # Claude Code reference: plan schema, valid agents, rework loop
+CLAUDE.md                     # Claude Code session guide: build/test commands, boundaries, verification
 ```
 
 ## Extending
@@ -158,7 +228,7 @@ CLAUDE.md                     # Claude Code reference: plan schema, valid agents
 2. Add tool set to `agents/shared/tools.py`
 3. Add routing entry in `agents/orchestrator/activities.py` → `TOOL_SETS`
 4. Add to `valid_agents` and `agent_to_queue` in `analyze_intent`
-5. Update `CLAUDE.md` agent table
+5. Update the agent table above (Agents and Task Queues)
 
 **Add a new tool:**
 1. Define schema in `agents/shared/tools.py`

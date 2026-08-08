@@ -1,86 +1,44 @@
 # Drone Autonomy Platform — Claude Code Reference
 
-## My Role
+Session guide for Claude Code working directly in this repo. The Temporal
+multi-agent workforce prototype under `agents/` is a separate, untested
+system as of 2026-08 — see `agents/README.md`. Don't route work through it
+unless a task explicitly asks you to exercise that prototype.
 
-I am the orchestrator. When the user describes a task:
-1. Analyze the request and form a plan (JSON, see schema below)
-2. Submit it to the agent workforce via `scripts/submit_task.py`
-3. Review the results — if tests fail or the goal is not met, revise the plan and resubmit with `--rework`
-
-The domain agents (running on a local LLM) do the actual file editing, building, and testing.
-
----
-
-## Submitting a Task
+## Build
 
 ```bash
-# With a pre-formed plan (preferred — skips the LLM analyze_intent call)
-python scripts/submit_task.py "description" --plan '{"summary":...}'
+# x86, in-repo Docker build (all packages except perception Jetson runtime deps)
+docker build -t drone_autonomy_platform .
 
-# Let the agent LLM form its own plan
-python scripts/submit_task.py "description"
+# Jetson Orin dev container (Isaac ROS)
+docker build -f docker/Dockerfile.dev -t drone_dev .
 
-# Rework after a failed attempt
-python scripts/submit_task.py "description" --plan '{"summary":...}' --rework "tests failed: missing include in perception_node.cpp"
+# Inside either container: colcon build as documented in README.md
+cd /ws && colcon build --merge-install \
+  --base-paths src/drone_autonomy_platform/msgs src/drone_autonomy_platform/src \
+  --packages-ignore common \
+  --cmake-args -DBUILD_TESTING=OFF
 ```
 
-Exits `0` on success, `1` if code review failed — use this to decide whether to rework.
+## Test and lint reality — do not invent commands beyond these
 
----
+- The only automated test run anywhere is `pytest agents/tests/`, run by CI
+  (`.github/workflows/ci.yml`) with `AGENT_MOCK=true`.
+- `-DBUILD_TESTING=OFF` — in the build above and in every Dockerfile
+  (`Dockerfile`, `docker/Dockerfile.dev`, `docker/Dockerfile.orin`) — means no
+  C++ test under `src/**/tests/` ever compiles.
+- `pyproject.toml` pins `testpaths = ["agents/tests"]`, so pytest never
+  collects `tools/photogrammetry/tests/` or `src/mapping/tests/*.py`.
+- `ruff` is configured in `pyproject.toml` but invoked nowhere in the repo.
+- "I ran the tests" almost always means nothing was verified here. Say
+  plainly which of the above you ran, and paste the real output.
 
-## Plan Schema
+## Three Nested Loops
 
-```json
-{
-  "summary": "one-line description of what will be done",
-  "safety_critical": false,
-  "affected_packages": ["src/perception"],
-  "steps": [
-    {
-      "agent": "perception-dev",
-      "task_queue": "ros2-dev",
-      "action": "concise description of what this agent should do",
-      "depends_on": []
-    }
-  ]
-}
-```
-
-Steps execute in order. `depends_on` is informational only (not enforced by Temporal yet).
-
----
-
-## Valid Agents and Task Queues
-
-| Agent | Queue | Use for |
-|---|---|---|
-| `perception-dev` | `ros2-dev` | Camera, depth, detection, Isaac ROS nodes |
-| `nav-dev` | `ros2-dev` | Path planning, costmaps, Nav2 config |
-| `control-dev` | `ros2-dev` | PX4 bridge, attitude/position controllers |
-| `autonomy-dev` | `ros2-dev` | Mission logic, state machines, BT |
-| `comms-dev` | `ros2-dev` | MAVLink, telemetry, GCS interface |
-| `safety-dev` | `ros2-dev` | Geofence, failsafe, watchdog nodes |
-| `infra` | `orchestrator` | CMakeLists, launch files, READMEs, msgs/ |
-| `code-review` | `orchestrator` | Review + lint only, no edits |
-| `sim-test` | `simulation` | SITL scenarios, unit tests |
-| `ml-pipeline` | `ml-pipeline` | Model training, export, TensorRT |
-
-**Rules:**
-- Docs, launch files, CMakeLists, READMEs → always `infra` on `orchestrator`
-- `src/control/` or `src/safety/` changes → set `safety_critical: true`
-- Do NOT use `deploy` as an agent in feature plans — deployment is a separate workflow triggered manually
-- New message types → add an `infra` step first to define the `.msg` file
-
----
-
-## Standardized Workflows (Skills)
-
-Repo workflows are standardized as skills in `.claude/skills/`. Invoke the
-matching skill before doing the work:
-
-Three nested loops: **capability** (stakeholder task → target architecture →
-gap, designer-owned) → **system** (requirements/design/test-plan) →
-**implementation** (agent workforce / Claude Code sessions).
+**capability** (stakeholder task → target architecture → gap, designer-owned)
+→ **system** (requirements/design/test-plan) → **implementation** (agent
+workforce / Claude Code sessions).
 
 | Skill | Use for | Key artifact |
 |---|---|---|
@@ -103,7 +61,11 @@ gap, designer-owned) → **system** (requirements/design/test-plan) →
 - Implementation sessions never edit `docs/architecture/target/*.yaml` or
   capability docs — target changes go back to the designer (`capability` skill).
 
----
+## Boundaries and verification
+
+- Never edit `docs/architecture/target/**` or `docs/capabilities/**` — designer-owned.
+- Verify by evidence, not assertion: run the real command, paste its real
+  output and exit code — see "Test and lint reality" above.
 
 ## Workspace Structure
 
@@ -111,38 +73,25 @@ gap, designer-owned) → **system** (requirements/design/test-plan) →
 src/
   autonomy/        navigation/      safety/
   communication/   perception/
-  control/
+  control/         mapping/
 msgs/              — custom ROS2 message definitions
 launch/            — top-level launch files
 docker/            — dev + agent containers
   local-agent/     — Ollama local LLM stack
-scripts/           — submit_task.py and utilities
+scripts/           — generate_c4.py, check_traceability.py, check_architecture_gap.py, task.sh
 docs/              — architecture, requirements (.sdoc), design, test_plans, reports
 ```
 
----
+## Adding a New Node
 
-## LLM Backend
-
-Current backend is set via env vars in `docker/.env` or shell:
-
-| Var | Default | Options |
-|---|---|---|
-| `LLM_BACKEND` | `anthropic` | `anthropic`, `openai_compat` |
-| `LLM_BASE_URL` | — | `http://localhost:11434/v1` (Ollama) |
-| `LLM_MODEL` | — | `qwen2.5-coder:14b`, `kimi-k2` |
-| `AGENT_MOCK` | `false` | `true` to skip all LLM calls |
-
-For local Ollama: start `docker/local-agent/` first, then `docker/`.
-
----
-
-## Rework Loop
-
-After `submit_task.py` returns results, check:
-- `result.review.passed` — did code review pass?
-- `result.sim_results.result` — did tests pass?
-- `result.results[*].result` — what did each agent actually do?
-
-If any step failed, call `submit_task.py` again with `--rework "specific feedback"`.
-Keep rework focused — identify the exact file/function that failed rather than re-running the full plan.
+1. Confirm it belongs in the target architecture (`capability` skill) if it's
+   a new mission-level capability.
+2. Write/update a design doc (`design` skill) before writing code.
+3. Add requirements if verifiable (`requirements` skill); new `.msg` types go
+   in `msgs/` first.
+4. Implement under `src/<package>/`, wiring into that package's
+   `CMakeLists.txt` and the relevant `launch/` file.
+5. Run `generate_c4.py` / `check_traceability.py` as needed (Standing rules
+   above) and commit the regenerated artifacts.
+6. Build it with the commands above and show the real output — see "Test and
+   lint reality" for what verification honestly means right now.
