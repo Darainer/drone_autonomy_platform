@@ -1,6 +1,7 @@
 ---
 name: requirements
 description: Author, change, or decompose platform requirements in StrictDoc (.sdoc) format under docs/requirements/. Use when adding a requirement, assigning a requirement UID, changing a latency/safety/functional requirement, reviewing requirement quality, or migrating requirements out of narrative docs.
+model: opus
 ---
 
 # Requirements Workflow (StrictDoc)

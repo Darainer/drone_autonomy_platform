@@ -50,22 +50,15 @@ workforce / Claude Code sessions).
 | `report` | Status, traceability, verification reports | `docs/reports/*.md` |
 | `c4` | Generate C4 architecture views from code | `docs/architecture/c4/*.md` |
 
-**Standing rules:** as of WP-W4, `.claude/settings.json` hooks enforce most of
-what used to be prose here — see that file's `_comment` keys for exactly what
-each hook does and why. What hooks do *not* cover still needs stating:
-- After any change to requirements, test plans, or `Implements:`/`Verifies:`
-  markers: run `python scripts/check_traceability.py`. The Stop hook runs this
-  automatically but only advisory (no `--strict` — 17 Approved requirements
-  have no verifying test yet; see `docs/workflow/README.md`), so a green Stop
-  does not mean the matrix reflects your change — check the output yourself.
-- Requirement UIDs are defined only in `docs/requirements/*.sdoc`. No hook
-  checks this.
-
-## Boundaries and verification
-
-- Never edit `docs/architecture/target/**` or `docs/capabilities/**` — designer-owned.
-- Verify by evidence, not assertion: run the real command, paste its real
-  output and exit code — see "Test and lint reality" above.
+**Standing rules:** `.claude/settings.json` hooks and the skills above now own
+most of what used to be prose here (see the hooks' `_comment` keys and each
+skill's doc). See [`docs/workflow/README.md`](docs/workflow/README.md) for
+model routing and session habits. One rule no skill owns, since a plain code
+edit can trigger it without invoking any skill: after changing requirements,
+test plans, or an `Implements:`/`Verifies:` marker, run
+`python scripts/check_traceability.py` yourself and commit the matrix — the
+Stop hook runs it too but only advisory (no `--strict`), so a green Stop
+doesn't mean the matrix reflects your change.
 
 ## Workspace Structure
 
@@ -92,6 +85,5 @@ docs/              — architecture, requirements (.sdoc), design, test_plans, r
 4. Implement under `src/<package>/`, wiring into that package's
    `CMakeLists.txt` and the relevant `launch/` file.
 5. Run `generate_c4.py` / `check_traceability.py` as needed (Standing rules
-   above) and commit the regenerated artifacts.
-6. Build it with the commands above and show the real output — see "Test and
-   lint reality" for what verification honestly means right now.
+   above), commit the regenerated artifacts, and build with the commands
+   above — see "Test and lint reality" for what verification honestly means.

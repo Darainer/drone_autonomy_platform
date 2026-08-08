@@ -5,7 +5,7 @@
     "PreToolUse": [
       {
         "matcher": "Edit|Write|NotebookEdit",
-        "_comment": "Zero-exception rule, so it is a hook, not a sentence: docs/architecture/target/** and docs/capabilities/** are designer-owned (capability skill); implementation sessions must never edit them (CLAUDE.md, .claude/agents/wp-implementer.md). The matcher only filters by tool name — Claude Code hook matchers match tool_name, not paths — so .claude/hooks/guard_designer_paths.py reads tool_input.file_path itself and exits 2 (blocking) only for those two prefixes, exiting 0 for everything else. NotebookEdit is listed alongside Edit|Write deliberately: matchers are exact tool-name matches, so omitting it would leave designer-owned paths writable through that one tool — the guard already reads notebook_path for this reason.",
+        "_comment": "Zero-exception rule, so it is a hook, not a sentence: docs/architecture/target/** and docs/capabilities/** are designer-owned (capability skill); implementation sessions must never edit them (.claude/agents/wp-implementer.md; CLAUDE.md deliberately no longer restates it, since this hook is now the single home for the rule). The matcher only filters by tool name — Claude Code hook matchers match tool_name, not paths — so .claude/hooks/guard_designer_paths.py reads tool_input.file_path itself and exits 2 (blocking) only for those two prefixes, exiting 0 for everything else. NotebookEdit is listed alongside Edit|Write deliberately: matchers are exact tool-name matches, so omitting it would leave designer-owned paths writable through that one tool — the guard already reads notebook_path for this reason.",
         "hooks": [
           {
             "type": "command",

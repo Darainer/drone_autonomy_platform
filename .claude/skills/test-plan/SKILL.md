@@ -1,6 +1,7 @@
 ---
 name: test-plan
 description: Create or update a test plan under docs/test_plans/ and link tests to requirement UIDs with Verifies markers. Use when planning verification for requirements or a design, when writing tests that verify requirements, or when a traceability matrix row shows a requirement as uncovered.
+model: opus
 ---
 
 # Test Planning & Requirement Linkage

@@ -13,12 +13,12 @@ Source: [2026-08-08 workflow review](../reports/2026-08-08-claude-code-workflow-
 | WP | Finding | Status |
 |---|---|---|
 | WP-W0 | Loop scaffolding — reviewer/implementer agents, `/work-package` driver, this page | done |
-| WP-W1 | F1 — CLAUDE.md is not the workforce manual | pending |
-| WP-W2 | F2 — safety gate: warn-only CI, PR template, honest docs | pending |
-| WP-W3 | F3a — gap checker failure output is not actionable | pending |
-| WP-W6 | C4 render toolchain is not provisioned | pending |
-| WP-W4 | F3b — hooks + `.claude/settings.json` | pending |
-| WP-W5 | F7/F6 — skill hygiene and model routing | pending |
+| WP-W1 | F1 — CLAUDE.md is not the workforce manual | done |
+| WP-W2 | F2 — safety gate: warn-only CI, PR template, honest docs | done |
+| WP-W3 | F3a — gap checker failure output is not actionable | done |
+| WP-W6 | C4 render toolchain is not provisioned | done |
+| WP-W4 | F3b — hooks + `.claude/settings.json` | done |
+| WP-W5 | F7/F6 — skill hygiene and model routing | done |
 
 Order matters twice: **W3 before W4** (a Stop hook is only useful if its failure
 output says what to fix), and **W6 before W4** (the C4 hook should gate on a real
