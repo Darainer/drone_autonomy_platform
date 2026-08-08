@@ -39,6 +39,13 @@ Reference example: CAP-001 (photogrammetry/survey mapping).
    Target architecture (Mermaid C4 container view — target, not current) ·
    Gap to current · Requirements derived · Implementation handoff ·
    Validation plan · Designer iteration log.
+
+   `.claude/hooks/guard_designer_paths.py` blocks Edit/Write on
+   `docs/capabilities/**` and `docs/architecture/target/**` by default (it
+   has no other way to tell a designer session from an implementation
+   session). Launch your session with `DAP_DESIGNER_SESSION=1 claude` to
+   write these files — a session cannot grant itself this exemption
+   mid-task, it has to be set at launch.
 3. **Encode the target architecture** as YAML so the gap is machine-checked:
    - `containers`: `kind: node` (checked against parsed ROS2 nodes),
      `kind: offboard` (+ `path:`, checked for existence),

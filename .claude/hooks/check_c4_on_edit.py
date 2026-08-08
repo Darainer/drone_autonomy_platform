@@ -5,13 +5,34 @@ cause it, for fast feedback instead of waiting for the Stop hook.
 
 Reads the PostToolUse hook JSON payload from stdin, looks at
 tool_input.file_path, and — only if it falls under one of the paths that
-feed scripts/generate_c4.py (src/**/*.cpp, src/**/*.hpp, launch/**,
-msgs/**) — runs `python scripts/generate_c4.py --check` from the repo
-root ($CLAUDE_PROJECT_DIR, not the process cwd: see
+feed scripts/generate_c4.py — runs `python scripts/generate_c4.py --check`
+from the repo root ($CLAUDE_PROJECT_DIR, not the process cwd: see
 .claude/agents/wp-implementer.md / docs/workflow/README.md on
 check_architecture_gap.py's sys.path[0] import needing repo-root cwd; the
 same discipline is kept here for consistency and because generate_c4.py
 also assumes repo-relative paths like src/, docs/architecture/c4/).
+
+WP-W7: `should_check` tracks generate_c4.py's actual inputs, verified
+against its source, not a guess at its shape. generate_c4.py is the
+source of truth for this list — if its globs change, update should_check
+to match, or the two will drift silently:
+  - `parse_launch_remappings` (generate_c4.py ~line 123) globs
+    `SRC_DIR.glob("*/launch/*.py")` (package-local launch files, e.g.
+    src/foo/launch/foo.launch.py) plus `(REPO/"launch").glob("*.py")`
+    (top-level launch/*.py) — so BOTH matter, not just top-level launch/.
+  - `parse_sources` (generate_c4.py ~lines 178-179) walks
+    `SRC_DIR.rglob("*")` and parses any file whose suffix is `.cpp` OR
+    `.py`, EXCLUDING anything with "/launch/" in its path (those are
+    handled by parse_launch_remappings above, not parsed as node
+    sources). So `src/foo/foo_node.py` is a real trigger and `.hpp` is
+    NOT — generate_c4.py never parses header files, so a `.hpp`-only
+    edit cannot itself cause C4 drift; `.hpp` was dropped from the
+    trigger list for that reason (a header change that also touches a
+    .cpp file still triggers via the .cpp edit).
+  - `msgs/**` is kept as a trigger though generate_c4.py does not read
+    msgs/*.msg files directly (message type names come from the
+    C++/Python source, not the .msg definitions) — kept per WP-W7 spec
+    as a conservative signal for message-definition changes.
 
 generate_c4.py prints staleness to stdout; we exit 2 (blocking — message
 surfaced from stderr) on failure so the model sees it immediately, so we
@@ -25,8 +46,12 @@ import os
 import subprocess
 import sys
 
-TRIGGER_EXTS = (".cpp", ".hpp")
-TRIGGER_DIR_PREFIXES = ("launch/", "msgs/")
+# Kept in sync with scripts/generate_c4.py's own inputs — see the module
+# docstring above for the exact line references. NOT `.hpp`: generate_c4.py
+# never parses header files, only .cpp and .py.
+TRIGGER_SRC_EXTS = (".cpp", ".py")
+TRIGGER_LAUNCH_PREFIX = "launch/"
+TRIGGER_MSGS_PREFIX = "msgs/"
 TRIGGER_SRC_PREFIX = "src/"
 
 
@@ -50,9 +75,21 @@ def normalized_relative_path(file_path: str, root: str) -> str | None:
 
 
 def should_check(rel: str) -> bool:
-    if rel.startswith(TRIGGER_DIR_PREFIXES):
+    # msgs/** — see module docstring: kept conservatively even though
+    # generate_c4.py doesn't glob it directly.
+    if rel.startswith(TRIGGER_MSGS_PREFIX):
         return True
-    if rel.startswith(TRIGGER_SRC_PREFIX) and rel.endswith(TRIGGER_EXTS):
+    # launch/*.py — top-level launch files, read by parse_launch_remappings
+    # via (REPO/"launch").glob("*.py").
+    if rel.startswith(TRIGGER_LAUNCH_PREFIX) and rel.endswith(".py"):
+        return True
+    # src/**/*.cpp or src/**/*.py — every .cpp/.py anywhere under src/,
+    # whether it's a node source parsed by parse_sources (which excludes
+    # "/launch/" paths) or a package-local launch file matched by
+    # parse_launch_remappings' `SRC_DIR.glob("*/launch/*.py")` (which is
+    # exactly the "/launch/" paths parse_sources excludes) — between the
+    # two, every .cpp/.py under src/ is read by one or the other.
+    if rel.startswith(TRIGGER_SRC_PREFIX) and rel.endswith(TRIGGER_SRC_EXTS):
         return True
     return False
 

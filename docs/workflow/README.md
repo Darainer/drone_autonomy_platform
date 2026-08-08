@@ -19,6 +19,7 @@ Source: [2026-08-08 workflow review](../reports/2026-08-08-claude-code-workflow-
 | WP-W6 | C4 render toolchain is not provisioned | done |
 | WP-W4 | F3b — hooks + `.claude/settings.json` | done |
 | WP-W5 | F7/F6 — skill hygiene and model routing | done |
+| WP-W7 | PR #30 review — guard exemption, advisory gap check, PostToolUse predicate | done |
 
 Order matters twice: **W3 before W4** (a Stop hook is only useful if its failure
 output says what to fix), and **W6 before W4** (the C4 hook should gate on a real
@@ -199,6 +200,38 @@ The repo has no `.claude/settings.json` today: no hooks, no permissions allowlis
   this page — never two.
 
 ---
+
+### WP-W7 — fix three findings against the WP-W4 hooks
+
+An automated review of PR #30 (the WP-W4 hooks) found three confirmed problems.
+
+- **The guard blocked the workflow that owns designer paths.**
+  `guard_designer_paths.py` blocked Edit/Write on `docs/architecture/target/**`
+  and `docs/capabilities/**` in every session, with no way to tell a designer
+  session (`capability/SKILL.md` steps 2-3, which instructs writing exactly
+  those files) from an implementation session. Fix: the environment variable
+  `DAP_DESIGNER_SESSION` (`1`/`true`/`yes`, case-insensitive) exempts a
+  session, set only at launch — a running session cannot grant itself the
+  exemption mid-task. The guard prints a stand-down note to stderr whenever
+  it fires, and the block message now names the escape hatch. Documented in
+  `capability/SKILL.md` next to step 2.
+- **The Stop hook blocked on architecture gaps, which are the expected state
+  during capability design.** `check_architecture_gap.py --strict` was
+  BLOCKING; `capability/SKILL.md` step 4 says to iterate and change the
+  target freely — gaps measure that iteration, they are not drift. Fix: the
+  gap check is now advisory, exactly like the traceability check — it still
+  runs and prints in the Stop hook for visibility, but its exit code passes
+  through untranslated and can never reach blocking exit 2.
+  `generate_c4.py --check` stays BLOCKING; stale generated views are a real
+  error, not a planned state.
+- **The PostToolUse predicate missed real generator inputs.** It matched
+  `src/**/*.{cpp,hpp}`, `launch/**`, `msgs/**`, but `generate_c4.py` also
+  reads package-local launch files (`src/*/launch/*.py`) and Python ROS
+  nodes (`src/**/*.py`), and never parses `.hpp` at all. Fix:
+  `check_c4_on_edit.py`'s `should_check` now tracks `generate_c4.py`'s
+  actual globs (named in a comment as the source of truth), drops `.hpp`,
+  and adds `src/**/*.py` and `launch/*.py` including package-local launch
+  dirs.
 
 ## Routing
 
