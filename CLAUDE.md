@@ -50,16 +50,16 @@ workforce / Claude Code sessions).
 | `report` | Status, traceability, verification reports | `docs/reports/*.md` |
 | `c4` | Generate C4 architecture views from code | `docs/architecture/c4/*.md` |
 
-**Standing rules:**
-- After any change to nodes/topics/services: `python scripts/generate_c4.py`
-  and commit the regenerated views (`--check` = drift gate).
+**Standing rules:** as of WP-W4, `.claude/settings.json` hooks enforce most of
+what used to be prose here — see that file's `_comment` keys for exactly what
+each hook does and why. What hooks do *not* cover still needs stating:
 - After any change to requirements, test plans, or `Implements:`/`Verifies:`
-  markers: `python scripts/check_traceability.py` and commit the matrix.
-- After merging capability work packages (or editing a target spec):
-  `python scripts/check_architecture_gap.py` and commit the gap reports.
-- Requirement UIDs are defined only in `docs/requirements/*.sdoc`.
-- Implementation sessions never edit `docs/architecture/target/*.yaml` or
-  capability docs — target changes go back to the designer (`capability` skill).
+  markers: run `python scripts/check_traceability.py`. The Stop hook runs this
+  automatically but only advisory (no `--strict` — 17 Approved requirements
+  have no verifying test yet; see `docs/workflow/README.md`), so a green Stop
+  does not mean the matrix reflects your change — check the output yourself.
+- Requirement UIDs are defined only in `docs/requirements/*.sdoc`. No hook
+  checks this.
 
 ## Boundaries and verification
 

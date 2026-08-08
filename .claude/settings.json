@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "WP-W4 (docs/workflow/README.md) / F3b (docs/reports/2026-08-08-claude-code-workflow-review.md). Converts remembered CLAUDE.md rules into gates: designer-owned paths are unwritable, C4 drift is caught right after the edit that causes it, and the three checker scripts run at Stop. JSON has no comment syntax, so rationale that needs to survive lives in these '_comment' keys (ignored by the settings schema, kept for humans) instead of code comments.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "_comment": "Zero-exception rule, so it is a hook, not a sentence: docs/architecture/target/** and docs/capabilities/** are designer-owned (capability skill); implementation sessions must never edit them (CLAUDE.md, .claude/agents/wp-implementer.md). The matcher only filters by tool name — Claude Code hook matchers match tool_name, not paths — so .claude/hooks/guard_designer_paths.py reads tool_input.file_path itself and exits 2 (blocking) only for those two prefixes, exiting 0 for everything else. NotebookEdit is listed alongside Edit|Write deliberately: matchers are exact tool-name matches, so omitting it would leave designer-owned paths writable through that one tool — the guard already reads notebook_path for this reason.",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_designer_paths.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "_comment": "Fast feedback right after the edit that caused C4 drift, instead of waiting for Stop. .claude/hooks/check_c4_on_edit.py filters to src/**/*.cpp, src/**/*.hpp, launch/**, msgs/** (the inputs generate_c4.py actually parses) and only then runs `python scripts/generate_c4.py --check` from the repo root.",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_c4_on_edit.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "_comment": "Three commands, run in the order below. generate_c4.py prints staleness to stdout; check_architecture_gap.py and check_traceability.py print their --strict/summary diagnostics to stderr — every command redirects 2>&1 so the wrapper captures whichever stream the script actually used (losing one stream loses half the diagnostics). Claude Code only treats hook exit code 2 as blocking (0 = pass, anything else = visible-but-non-blocking); the checker scripts themselves use the 0/1 vocabulary, so the two blocking commands translate a nonzero script exit into exit 2 explicitly. Also: check_architecture_gap.py and check_traceability.py both rewrite their own report files (docs/reports/gap_*.md, docs/reports/traceability_matrix.md) as a side effect of merely checking, so a Stop that ends all-green can still leave the working tree dirty — `git status --short` after a clean Stop is not redundant.",
+        "hooks": [
+          {
+            "type": "command",
+            "_comment": "BLOCKING. Green today: 'C4 views are up to date.' (see verified baselines in the 2026-08-08 workflow review). Must be read as: any nonzero exit here means committed docs/architecture/c4/** views no longer match src/**, launch/**, msgs/** — regenerate with `python scripts/generate_c4.py` and commit.",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && OUT=$(python scripts/generate_c4.py --check 2>&1); RC=$?; if [ $RC -ne 0 ]; then echo \"$OUT\" >&2; exit 2; else echo \"$OUT\"; exit 0; fi"
+          },
+          {
+            "type": "command",
+            "_comment": "BLOCKING. Green today: 'CAP-001: 18/18 present' (WP-W3 baseline). Must run with the repo root as cwd — check_architecture_gap.py imports generate_c4 via sys.path[0], so running it from elsewhere breaks the import, not just the paths.",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && OUT=$(python scripts/check_architecture_gap.py --strict 2>&1); RC=$?; if [ $RC -ne 0 ]; then echo \"$OUT\" >&2; exit 2; else echo \"$OUT\"; exit 0; fi"
+          },
+          {
+            "type": "command",
+            "_comment": "ADVISORY — deliberately run WITHOUT --strict, and its exit code is passed through untranslated (unlike the two hooks above) so it can never reach the blocking exit code 2. Reason: `check_traceability.py --strict` exits 1 today on 17 Approved requirements with no verifying test — COMP-1..9, E2E-1..3, PLAT-1..3, SAF-1, SAF-2 — and the work to add that coverage is out of scope for this WP (see F4 in the 2026-08-08 workflow review: -DBUILD_TESTING=OFF means no C++ test ever builds, so SAF-1/SAF-2 can't be verified yet either). A hook that can never pass is a hook that gets disabled, so this one stays advisory until those requirements get tests — revisit then and consider promoting it to blocking with --strict.",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && python scripts/check_traceability.py 2>&1"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "_comment": "Every checker invocation used to prompt for permission (F3b). Bash permission rules match the whole command string; 'X:*' is a prefix match (command.startsWith(X)), not a glob, so 'python scripts/*.py' from the WP spec's prose is expressed here as a directory prefix ('python scripts/:*') rather than typed literally — a literal '*.py' rule would require the command to end in '.py', which none of these do once a flag like --check/--strict is appended. Note the prefix is a directory, not a file pattern, so it also covers non-.py targets under scripts/ — the grant is 'run this repo's own scripts', which is what the checkers need. The git entries are read-only (status, diff, log, show).",
+    "allow": [
+      "Bash(python scripts/:*)",
+      "Bash(bash scripts/:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ]
+  }
+}
