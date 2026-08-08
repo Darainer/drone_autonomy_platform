@@ -106,7 +106,41 @@ jobs:
 
           test -f launch/ci-test.md || { echo "ERROR: launch/ci-test.md was not created"; exit 1; }
 
-  # ── 4. Safety-path warning (warn-only, advisory) ──
+  # ── 4. C4 diagram drift gate ───────────────────
+  #    Installs the render toolchain (Graphviz + headless JRE + the pinned
+  #    PlantUML jar, via scripts/setup_c4_tooling.sh) and full-renders the C4
+  #    views, byte-comparing them against what's committed under
+  #    docs/architecture/c4/. Unlike safety-path-warning below, this is a real
+  #    gate — it fails the build on drift, it does not just warn.
+  #
+  #    Known limitation: only PlantUML is version-pinned. SVG layout
+  #    coordinates come from Graphviz, which is whatever the runner image
+  #    ships. If this job reports drift on views that are semantically
+  #    correct, suspect a Graphviz version difference first — compare
+  #    `dot -V` here against the machine that last regenerated the views.
+  c4-drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache PlantUML jar
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/plantuml
+          key: plantuml-jar-${{ hashFiles('scripts/setup_c4_tooling.sh') }}
+
+      - name: Install C4 render toolchain (Graphviz + JRE + PlantUML jar)
+        run: bash scripts/setup_c4_tooling.sh
+
+      - name: Check C4 views for drift (full render, byte-compare)
+        run: python scripts/generate_c4.py --check
+
+  # ── 5. Safety-path warning (warn-only, advisory) ──
   #    Runs on pull_request only (no-op/skipped on push). Diffs the PR against
   #    its base ref; if any changed path is under src/control/, src/safety/, or
   #    src/navigation/ and the PR does not carry the `safety-reviewed` label,

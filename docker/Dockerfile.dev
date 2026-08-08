@@ -23,6 +23,19 @@ RUN apt-get update && apt-get install -y \
     libusb-1.0-0-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Install the C4 diagram rendering toolchain (scripts/generate_c4.py):
+# Graphviz + a headless JRE + the pinned PlantUML jar. Keep PLANTUML_VERSION
+# in sync with scripts/setup_c4_tooling.sh — do not let the two drift.
+ENV PLANTUML_VERSION=1.2025.4
+ENV PLANTUML_JAR=/opt/plantuml/plantuml.jar
+RUN apt-get update && apt-get install -y \
+    graphviz \
+    default-jre-headless \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p "$(dirname "$PLANTUML_JAR")" \
+    && wget -q -O "$PLANTUML_JAR" \
+        "https://repo1.maven.org/maven2/net/sourceforge/plantuml/plantuml/${PLANTUML_VERSION}/plantuml-${PLANTUML_VERSION}.jar"
+
 RUN pip3 install -U empy==3.3.4 pyros-genmsg setuptools packaging pymavlink transforms3d && \
     pip3 install 'numpy<2' pycuda rfdetr onnx onnxsim onnxruntime polygraphy onnx-graphsurgeon
 

@@ -140,6 +140,13 @@ byte-compares the SVGs, and without one it only checks that they exist.
 - `python scripts/generate_c4.py` with no flags succeeds.
 - `--check` with a renderer present exits 0 on a clean tree.
 
+**Known limitation, carried forward.** Only PlantUML is version-pinned. SVG
+layout coordinates come from Graphviz, which is whatever the runner image
+ships, so `c4-drift-check` could in principle report drift on views that are
+semantically correct. Verified locally against Graphviz 2.43.0 with the
+committed SVGs byte-matching; not verifiable on a GitHub runner from here. If
+the gate proves flaky, pin Graphviz or render inside the dev image.
+
 ---
 
 ### WP-W4 — hooks and `.claude/settings.json`
