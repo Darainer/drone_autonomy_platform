@@ -75,7 +75,8 @@ def main() -> int:
                 "docs/architecture/target/** and docs/capabilities/** are never "
                 "edited by implementation sessions — target/capability changes "
                 "go back to the designer via the `capability` skill. "
-                "See CLAUDE.md and .claude/agents/wp-implementer.md.",
+                "See .claude/skills/capability/SKILL.md and "
+                ".claude/agents/wp-implementer.md.",
                 file=sys.stderr,
             )
             return 2  # blocking
