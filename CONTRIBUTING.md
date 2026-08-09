@@ -11,6 +11,87 @@ docker compose up -d
 
 See `agents/README.md` for full agent system setup including local LLM backends.
 
+## Development workflow
+
+### The three nested loops
+
+Work in this repo is engineered through three nested loops: **capability**
+(stakeholder task → target architecture → gap, designer-owned) → **system**
+(requirements/design/test-plan) → **implementation** (agent workforce /
+Claude Code sessions). Each loop's artifacts are inputs to the next.
+
+| Skill | Use for |
+|---|---|
+| `capability` | Stakeholder tasks, target architecture, gap analysis, WP handoff |
+| `requirements` | Add/change requirements (StrictDoc) |
+| `design` | Feature/change design docs before implementation |
+| `architecture` | Subsystem/use-case architecture docs |
+| `test-plan` | Verification planning + test↔requirement linkage |
+| `report` | Status, traceability, verification reports |
+| `c4` | Generate C4 architecture views from code |
+
+[`CLAUDE.md`](CLAUDE.md)'s skill table is the authoritative one — it also
+lists the artifact path(s) each skill owns; look there rather than here.
+
+See [`docs/workflow/README.md`](docs/workflow/README.md) for how work is
+routed to each loop and for session habits. See `docs/capabilities/` for
+worked examples of a capability moving through all three loops.
+
+### Working with Claude Code in this repo
+
+If you use Claude Code (or the agent workforce) against this repo, here is
+what you will actually run into:
+
+- Edits to `docs/architecture/target/**` and `docs/capabilities/**` are
+  **refused** by a `PreToolUse` hook — those paths are designer-owned.
+  Designer sessions are launched with `DAP_DESIGNER_SESSION=1` to lift the
+  block; there is no way to grant the exemption mid-session.
+- C4 drift is checked in three places: right after a source edit
+  (`PostToolUse`), again when the session ends (`Stop`), and again in CI
+  (`c4-drift-check`).
+- The session-end (`Stop`) hook also runs the gap and traceability checkers,
+  but **advisory-only** — only the C4 drift check blocks. This is the
+  repo's most load-bearing non-obvious decision, in short: a gate that can
+  never pass is a gate that gets disabled. Today, `check_traceability.py
+  --strict` fails on approved requirements that don't have a verifying test
+  yet; `check_architecture_gap.py --strict` currently passes (no gaps on the
+  one target spec that exists), but stays advisory because gaps are the
+  *expected* state while a capability is mid-iteration, not an error. Full
+  reasoning lives in `.claude/settings.json` and `docs/workflow/README.md` —
+  read those before assuming either checker should be made blocking.
+- The three checker scripts do not share a flag vocabulary — passing the
+  wrong one exits 2:
+  ```bash
+  python scripts/generate_c4.py --check              # exit 1 if C4 views are stale
+  python scripts/check_architecture_gap.py --strict  # exit 1 if gaps remain
+  python scripts/check_traceability.py               # --strict exits 1 if an Approved requirement lacks a verifying test
+  ```
+- `scripts/setup_c4_tooling.sh` installs the Java/Graphviz/PlantUML toolchain
+  and must be run once before `generate_c4.py` will render SVGs; without it,
+  pass `--no-render`.
+
+### The work-package approval loop
+
+Implementation work packages (`docs/workflow/README.md`) run through
+`/work-package <WP-ID>`: a fresh implementer subagent writes the change
+against the WP's spec, a fresh reviewer subagent gates the diff against that
+same spec's exit criteria with no knowledge of how the work was done, and
+only an `APPROVE` verdict gets committed — capped at three rounds before a
+human has to look. See `docs/workflow/README.md` for the full loop and the
+session habits around it (naming, `/clear`, worktrees).
+
+### What "verified" means here
+
+Say plainly which command you ran and paste its real output and exit
+code — "tests pass" is not a result, the command and its exit code are. The
+honest state, so you do not invent commands that don't exist:
+
+- The only automated test run anywhere is `pytest agents/tests/`, run by CI
+  with `AGENT_MOCK=true`.
+- `-DBUILD_TESTING=OFF` (every Dockerfile, every documented build) means no
+  C++ test under `src/**/tests/` ever compiles.
+- `ruff` is configured in `pyproject.toml` but invoked nowhere in the repo.
+
 ## Safety-Critical Code Paths
 
 Changes to the following packages require a safety review before merge:

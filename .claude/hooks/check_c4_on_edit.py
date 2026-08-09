@@ -6,11 +6,9 @@ cause it, for fast feedback instead of waiting for the Stop hook.
 Reads the PostToolUse hook JSON payload from stdin, looks at
 tool_input.file_path, and — only if it falls under one of the paths that
 feed scripts/generate_c4.py — runs `python scripts/generate_c4.py --check`
-from the repo root ($CLAUDE_PROJECT_DIR, not the process cwd: see
-.claude/agents/wp-implementer.md / docs/workflow/README.md on
-check_architecture_gap.py's sys.path[0] import needing repo-root cwd; the
-same discipline is kept here for consistency and because generate_c4.py
-also assumes repo-relative paths like src/, docs/architecture/c4/).
+from the repo root ($CLAUDE_PROJECT_DIR, not the process cwd, because
+generate_c4.py resolves repo-relative paths like src/ and
+docs/architecture/c4/ against where it is run from).
 
 WP-W7: `should_check` tracks generate_c4.py's actual inputs, verified
 against its source, not a guess at its shape. generate_c4.py is the

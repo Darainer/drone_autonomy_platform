@@ -32,9 +32,6 @@ whole of your assignment.
 
 - Repo-relative paths, and the repo root, are `/home/user/drone_autonomy_platform`
   unless told otherwise.
-- `scripts/check_architecture_gap.py` must be invoked as
-  `python scripts/check_architecture_gap.py` from the repo root — it imports
-  `generate_c4` via `sys.path[0]`.
 - The three checker scripts do not share a flag vocabulary:
   `generate_c4.py` takes `--check` / `--no-render`; `check_traceability.py` and
   `check_architecture_gap.py` take `--strict`. Passing the wrong one exits 2.

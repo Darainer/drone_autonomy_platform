@@ -20,6 +20,7 @@ Source: [2026-08-08 workflow review](../reports/2026-08-08-claude-code-workflow-
 | WP-W4 | F3b — hooks + `.claude/settings.json` | done |
 | WP-W5 | F7/F6 — skill hygiene and model routing | done |
 | WP-W7 | PR #30 review — guard exemption, advisory gap check, PostToolUse predicate | done |
+| WP-W8 | `CONTRIBUTING.md` has no route to the Claude Code workflow for humans | done |
 
 Order matters twice: **W3 before W4** (a Stop hook is only useful if its failure
 output says what to fix), and **W6 before W4** (the C4 hook should gate on a real
@@ -232,6 +233,53 @@ An automated review of PR #30 (the WP-W4 hooks) found three confirmed problems.
   actual globs (named in a comment as the source of truth), drops `.hpp`,
   and adds `src/**/*.py` and `launch/*.py` including package-local launch
   dirs.
+
+### WP-W8 — document the workflow for humans in CONTRIBUTING.md
+
+`CONTRIBUTING.md` had zero mentions of Claude Code, skills, hooks, or the
+three-loop process, and this page was linked only from files an agent reads
+(`CLAUDE.md`, the workflow review report, `.claude/` skill and agent files).
+A human contributor had no route to any of it from `README.md`.
+
+- Added a "Development workflow" section to `CONTRIBUTING.md`, after `##
+  Setup` and before `## Safety-Critical Code Paths`: the three nested loops,
+  a skill table trimmed to `Skill`/`Use for` (the `Key artifact` column is
+  dropped as the most drift-prone and least useful cell to a human choosing
+  a skill; `CLAUDE.md`'s table is named as the authoritative one for
+  artifact paths), what a contributor hits from the Claude Code hooks in
+  practice, the `/work-package` approval loop, and the test/lint state.
+- Added a `CONTRIBUTING.md` link next to the `CLAUDE.md` reference in
+  `README.md`'s Capabilities & Roadmap section.
+- Added this row and section.
+- Round 2 (post-review): genuinely trimmed the skill table instead of
+  copying `CLAUDE.md`'s verbatim; corrected the checker-status sentence
+  (traceability `--strict` fails today, the gap checker currently passes
+  and is advisory because gaps are the expected mid-iteration state, not
+  because it fails); and removed a false claim, present in four places,
+  that `check_architecture_gap.py` must run with the repo root as cwd
+  because it imports `generate_c4` via `sys.path[0]` — `REPO` in that
+  script resolves from `__file__`, not cwd, and `sys.path[0]` is the
+  script's own directory, so the import works from anywhere. Removed from
+  `CONTRIBUTING.md`, `.claude/settings.json`'s gap-check `_comment`,
+  `.claude/agents/wp-implementer.md`, and (this paragraph) recorded here.
+  `docs/reports/2026-08-08-claude-code-workflow-review.md`, if it repeats
+  the claim, is left as-is — it records what was believed at the time.
+
+**Exit criteria**
+- `python scripts/generate_c4.py --check`, `python
+  scripts/check_architecture_gap.py --strict`, and `python
+  scripts/check_traceability.py` all exit 0.
+- Every command written into `CONTRIBUTING.md`'s new section runs as
+  written and exits as documented.
+- The skill table in `CONTRIBUTING.md` is genuinely trimmed (differs from
+  `CLAUDE.md`'s, drops the artifact-path column, and points to `CLAUDE.md`
+  for those paths) rather than copied; the three test/lint bullets restated
+  near-verbatim from `CLAUDE.md` are a deliberate, disclosed exception — a
+  contributor needs those facts inline to avoid inventing commands, and
+  they change only with deliberate infrastructure work. Every other rule
+  lives in exactly one place, linked from here.
+
+---
 
 ## Routing
 
