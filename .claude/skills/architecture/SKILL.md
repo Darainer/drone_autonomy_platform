@@ -1,6 +1,7 @@
 ---
 name: architecture
 description: Create or update architecture documentation under docs/architecture/ — subsystem architectures, use cases, hardware/integration docs — and keep generated C4 views consistent with the code. Use when documenting a subsystem, adding a use case, or when architecture docs have drifted from the source.
+model: opus
 ---
 
 # Architecture Documentation Workflow
@@ -37,15 +38,12 @@ description: Create or update architecture documentation under docs/architecture
 
 ## When code changes
 
-Any change to nodes, topics, services, or launch remappings:
+Any change to nodes, topics, services, or launch remappings means the C4 views
+need regenerating. That rule and its commands live in the **`c4` skill** — use
+it rather than a copy kept here, so the two cannot drift apart.
 
-```bash
-python scripts/generate_c4.py          # regenerate views
-python scripts/generate_c4.py --check  # CI/drift check — must pass before merge
-```
-
-Commit regenerated views together with the code change. Check
-`c4/topics.md` afterwards — new **remap warnings** or **dangling interfaces**
+One thing to read afterwards, specific to architecture work: check
+`c4/topics.md` for new **remap warnings** or **dangling interfaces**. They
 usually mean a launch file is missing a remapping, not that the diagram is wrong.
 
 ## Agent workforce note

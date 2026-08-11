@@ -1,5 +1,8 @@
 # Issue Triage Agent
 
+> **Status: inert.** No workflow in `.github/workflows/` implements this file's
+> trigger. This document describes an intended agent that does not run today.
+
 **Purpose:** This agent automatically categorizes and routes new issues to the appropriate team members.
 
 **Trigger:** This agent is triggered when a new issue is created in the repository.

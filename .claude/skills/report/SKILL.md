@@ -1,6 +1,8 @@
 ---
 name: report
 description: Generate project status, traceability, and verification reports under docs/reports/. Use when asked for a status report, requirements coverage, traceability matrix, verification evidence, milestone summary, or architecture drift check.
+model: sonnet
+disable-model-invocation: true
 ---
 
 # Reporting Workflow

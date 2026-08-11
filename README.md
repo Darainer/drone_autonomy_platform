@@ -146,10 +146,10 @@ Message definitions: [`msgs/ros2`](msgs/ros2) (`drone_autonomy_msgs`)
 ## Capabilities & Roadmap
 
 Mission-level capabilities are engineered through three nested loops
-(capability → system → implementation) documented in [CLAUDE.md](CLAUDE.md)
-and `.claude/skills/`. Each capability has a stakeholder requirement,
-a target architecture with a machine-checked gap report, and a work-package
-implementation plan.
+(capability → system → implementation) documented in [CLAUDE.md](CLAUDE.md),
+[CONTRIBUTING.md](CONTRIBUTING.md), and `.claude/skills/`. Each capability
+has a stakeholder requirement, a target architecture with a machine-checked
+gap report, and a work-package implementation plan.
 
 | Capability | Stakeholder req | Status | Artifacts |
 |---|---|---|---|

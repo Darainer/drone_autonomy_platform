@@ -1,6 +1,7 @@
 ---
 name: design
 description: Write or update a feature/change design document under docs/design/ before implementation. Use when planning a new node, algorithm, interface, or refactor; when the user asks for a design, RFC, or proposal; or before submitting a multi-step implementation plan to the agent workforce.
+model: opus
 ---
 
 # Design Document Workflow

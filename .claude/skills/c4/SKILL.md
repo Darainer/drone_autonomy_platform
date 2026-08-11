@@ -1,6 +1,8 @@
 ---
 name: c4
 description: Generate or refresh C4-model architecture views (context, container, component, topic inventory) from the ROS2 source code using scripts/generate_c4.py. Use when asked for architecture diagrams or C4 views, after adding/removing nodes or topics, when diagrams have drifted from code, or to inspect the topic graph.
+model: sonnet
+disable-model-invocation: true
 ---
 
 # C4 Architecture Views from Code
@@ -32,10 +34,19 @@ Central). One-time setup per machine/container:
 bash scripts/setup_c4_tooling.sh   # installs graphviz + plantuml jar
 ```
 
+As of WP-W6 this is provisioned in `docker/Dockerfile.dev` and in CI, so
+`python scripts/generate_c4.py` with no flags works there out of the box.
+On a bare/clean machine it does not: without a renderer on PATH the script
+hard-exits with an error rather than silently skipping SVGs — run
+`bash scripts/setup_c4_tooling.sh` first (it installs Graphviz + a headless
+JRE + the pinned PlantUML jar, no root needed for the jar itself). Don't
+tell someone to run bare `generate_c4.py` without mentioning this; if
+rendering truly isn't available, use `--no-render` instead.
+
 The jar is just a file, so it's fetched to a user-writable location
-(`~/.local/share/plantuml/plantuml.jar`, no root needed). Only
-`apt-get install graphviz` needs sudo, and only if `dot` isn't already on
-PATH. The generator finds PlantUML via, in order: `$PLANTUML_JAR`,
+(`~/.local/share/plantuml/plantuml.jar`, no root needed). The apt installs
+need sudo — graphviz, and a headless JRE when `java` isn't present — and each
+is skipped if the tool is already on PATH. The generator finds PlantUML via, in order: `$PLANTUML_JAR`,
 `plantuml` on PATH, the user-writable default, `/opt/plantuml/plantuml.jar`
 (legacy fallback for prebuilt container images). SVGs are rendered with
 `-nometadata`, so output is byte-stable for a given PlantUML + Graphviz

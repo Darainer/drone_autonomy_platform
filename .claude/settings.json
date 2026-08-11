@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "WP-W4 (docs/workflow/README.md) / F3b (docs/reports/2026-08-08-claude-code-workflow-review.md), hardened by WP-W7. Converts remembered CLAUDE.md rules into gates: designer-owned paths are unwritable outside an explicit DAP_DESIGNER_SESSION exemption, C4 drift is caught right after the edit that causes it, and the three checker scripts run at Stop (only the C4 drift check blocks; the gap and traceability checks are advisory). JSON has no comment syntax, so rationale that needs to survive lives in these '_comment' keys (ignored by the settings schema, kept for humans) instead of code comments.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "_comment": "Zero-exception rule, so it is a hook, not a sentence: docs/architecture/target/** and docs/capabilities/** are designer-owned (capability skill); implementation sessions must never edit them (.claude/agents/wp-implementer.md; CLAUDE.md deliberately no longer restates it, since this hook is now the single home for the rule). The matcher only filters by tool name — Claude Code hook matchers match tool_name, not paths — so .claude/hooks/guard_designer_paths.py reads tool_input.file_path itself and exits 2 (blocking) only for those two prefixes, exiting 0 for everything else. NotebookEdit is listed alongside Edit|Write deliberately: matchers are exact tool-name matches, so omitting it would leave designer-owned paths writable through that one tool — the guard already reads notebook_path for this reason. WP-W7: the guard has one exemption, the environment variable DAP_DESIGNER_SESSION (1/true/yes, case-insensitive) — without it the guard has no way to distinguish the `capability` skill's designer session (which is instructed to write exactly these two prefixes, per .claude/skills/capability/SKILL.md steps 2-3) from an implementation session, and would block the workflow that owns the paths. A session cannot set its own environment after the fact, so the exemption requires a deliberate human act at launch (`DAP_DESIGNER_SESSION=1 claude`), not something a model grants itself mid-task. The guard prints a stand-down note to stderr whenever the exemption fires, so the deviation is never silent.",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_designer_paths.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "_comment": "Fast feedback right after the edit that caused C4 drift, instead of waiting for Stop. .claude/hooks/check_c4_on_edit.py filters to src/**/*.cpp, src/**/*.py, launch/*.py, msgs/** — matched against generate_c4.py's actual glob/parse inputs (WP-W7; the previous src/**/*.hpp, launch/** predicate missed package-local launch files and Python nodes, and .hpp is never parsed there at all) — and only then runs `python scripts/generate_c4.py --check` from the repo root.",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_c4_on_edit.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "_comment": "Three commands, run in the order below. generate_c4.py prints staleness to stdout; check_architecture_gap.py and check_traceability.py print their --strict/summary diagnostics to stderr — every command redirects 2>&1 so the wrapper captures whichever stream the script actually used (losing one stream loses half the diagnostics). Claude Code only treats hook exit code 2 as blocking (0 = pass, anything else = visible-but-non-blocking); the checker scripts themselves use the 0/1 vocabulary, so only the drift check below translates a nonzero script exit into exit 2 explicitly — as of WP-W7 it is the ONLY blocking command here (check_architecture_gap.py was blocking under WP-W4; see its own _comment for why that was wrong and was changed). Also: check_architecture_gap.py and check_traceability.py both rewrite their own report files (docs/reports/gap_*.md, docs/reports/traceability_matrix.md) as a side effect of merely checking, so a Stop that ends all-green can still leave the working tree dirty — `git status --short` after a clean Stop is not redundant.",
+        "hooks": [
+          {
+            "type": "command",
+            "_comment": "BLOCKING. Green today: 'C4 views are up to date.' (see verified baselines in the 2026-08-08 workflow review). Must be read as: any nonzero exit here means committed docs/architecture/c4/** views no longer match src/**, launch/**, msgs/** — regenerate with `python scripts/generate_c4.py` and commit.",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && OUT=$(python scripts/generate_c4.py --check 2>&1); RC=$?; if [ $RC -ne 0 ]; then echo \"$OUT\" >&2; exit 2; else echo \"$OUT\"; exit 0; fi"
+          },
+          {
+            "type": "command",
+            "_comment": "ADVISORY (WP-W7 — was BLOCKING under WP-W4; changed here). Run with --strict for the actionable per-element output (WP-W3), but the exit code is passed through untranslated, exactly like the traceability check below, so it can never reach the blocking exit code 2. Reason: gaps are the EXPECTED state during capability design, not an error — `capability/SKILL.md` step 4 says to iterate and 'change the target freely at this stage — that's the point of the loop', and step 7 only asks for N/N present once the capability is actually complete. The check was green ('CAP-001: 18/18 present', WP-W3 baseline) only because no CAP-002 target spec existed yet at WP-W4 time; CAP-002 work is now in flight and will show real gaps while it iterates. A gap checker that measures intentional, in-progress gaps must not block on finding them — that inverts the tool from 'catch drift' to 'forbid design work'. Blocking here is exactly the F3b mistake corrected for the traceability check below, just discovered one WP later. Kept in the Stop hook regardless: visibility on the gap count is still worth having every turn, it just must not wedge the session. `generate_c4.py --check` above stays BLOCKING and is unaffected — stale generated views are a genuine drift error, not a planned state, and are unrelated to capability iteration.",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && python scripts/check_architecture_gap.py --strict 2>&1"
+          },
+          {
+            "type": "command",
+            "_comment": "ADVISORY — deliberately run WITHOUT --strict, and its exit code is passed through untranslated (unlike generate_c4.py --check above) so it can never reach the blocking exit code 2. Reason: `check_traceability.py --strict` exits 1 today on 17 Approved requirements with no verifying test — COMP-1..9, E2E-1..3, PLAT-1..3, SAF-1, SAF-2 — and the work to add that coverage is out of scope for this WP (see F4 in the 2026-08-08 workflow review: -DBUILD_TESTING=OFF means no C++ test ever builds, so SAF-1/SAF-2 can't be verified yet either). A hook that can never pass is a hook that gets disabled, so this one stays advisory until those requirements get tests — revisit then and consider promoting it to blocking with --strict.",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && python scripts/check_traceability.py 2>&1"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "_comment": "Every checker invocation used to prompt for permission (F3b). Bash permission rules match the whole command string; 'X:*' is a prefix match (command.startsWith(X)), not a glob, so 'python scripts/*.py' from the WP spec's prose is expressed here as a directory prefix ('python scripts/:*') rather than typed literally — a literal '*.py' rule would require the command to end in '.py', which none of these do once a flag like --check/--strict is appended. Note the prefix is a directory, not a file pattern, so it also covers non-.py targets under scripts/ — the grant is 'run this repo's own scripts', which is what the checkers need. The git entries are read-only (status, diff, log, show).",
+    "allow": [
+      "Bash(python scripts/:*)",
+      "Bash(bash scripts/:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ]
+  }
+}

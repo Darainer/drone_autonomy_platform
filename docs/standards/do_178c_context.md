@@ -10,4 +10,9 @@ This document provides context on DO-178C, "Software Considerations in Airborne 
 
 ## Relevance to this Project:
 
-Given that this is a drone autonomy platform, the principles of DO-178C are directly applicable to the safety-critical components. The Safety Review agent will apply these principles when reviewing any pull requests that modify the `src/control` and `src/safety` directories. Changes will be assessed for their impact on system safety and reliability, guided by the rigorous, objective-based approach of DO-178C.
+Given that this is a drone autonomy platform, the principles of DO-178C are directly applicable to the safety-critical components. The Safety Review agent will apply these principles when reviewing any pull requests that modify the `src/control`, `src/safety`, and `src/navigation` directories. Changes will be assessed for their impact on system safety and reliability, guided by the rigorous, objective-based approach of DO-178C.
+
+**Status:** the Safety Review agent described above does not run today — see
+`.github/agents/safety_review.md`. The one automated signal currently in
+place is the advisory `safety-path-warning` CI job (`.github/workflows/ci.yml`),
+which warns but does not block; see `CONTRIBUTING.md`.

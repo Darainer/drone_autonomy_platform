@@ -1,8 +1,14 @@
 # Safety Review Agent
 
+> **Status: inert.** No workflow in `.github/workflows/` implements this file's
+> trigger. This document describes an intended agent that does not run today;
+> the only thing that actually fires on safety-critical path changes is the
+> advisory `safety-path-warning` CI job in `.github/workflows/ci.yml` (see
+> `CONTRIBUTING.md`). Treat everything below as planned, not live.
+
 **Purpose:** This agent analyzes safety-critical code to identify potential issues.
 
-**Trigger:** This agent is triggered when a pull request is opened that modifies code in the `src/control` or `src/safety` directories.
+**Trigger:** This agent is triggered when a pull request is opened that modifies code in the `src/control`, `src/safety`, or `src/navigation` directories.
 
 **Actions:**
 

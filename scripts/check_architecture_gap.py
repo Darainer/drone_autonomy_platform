@@ -161,18 +161,25 @@ def main() -> int:
 
     node_names, edge_keys, externals = load_current_model()
     total_gaps = 0
+    gap_summaries = []  # (cap, report path, missing rows) for --strict stderr output
     for spec_path in spec_paths:
         spec, cap, rows = check_capability(spec_path.resolve(), node_names, edge_keys, externals)
         report = render_report(spec, cap, rows, spec_path.resolve())
         out = REPORT_DIR / f"gap_{cap}.md"
         REPORT_DIR.mkdir(parents=True, exist_ok=True)
         out.write_text(report)
-        gaps = sum(1 for r in rows if not r[3])
-        total_gaps += gaps
-        print(f"{cap}: {len(rows) - gaps}/{len(rows)} present -> {out.relative_to(REPO)}")
+        gaps = [r for r in rows if not r[3]]
+        total_gaps += len(gaps)
+        print(f"{cap}: {len(rows) - len(gaps)}/{len(rows)} present -> {out.relative_to(REPO)}")
+        if gaps:
+            gap_summaries.append((cap, out.relative_to(REPO), gaps))
 
     if args.strict and total_gaps:
         print(f"strict mode: {total_gaps} gap(s) remain", file=sys.stderr)
+        for cap, report_path, gaps in gap_summaries:
+            print(f"{cap}: {report_path}", file=sys.stderr)
+            for _s, name, req, _p, _d in gaps:
+                print(f"  - {name} ({req})", file=sys.stderr)
         return 1
     return 0
 

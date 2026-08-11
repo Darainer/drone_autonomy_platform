@@ -1,6 +1,7 @@
 ---
 name: capability
 description: Stakeholder-level capability engineering — capture what task the platform must accomplish (STK requirements), define the target architecture, measure the gap to the current code, and hand off work packages to the detailed implementation loop. Use when asked "can/should the platform do X", for new mission-level capabilities, ConOps, gap analysis, target vs current architecture, or capability status.
+model: opus
 ---
 
 # Capability Loop (Stakeholder → Target Architecture → Gap → Handoff)
@@ -38,6 +39,13 @@ Reference example: CAP-001 (photogrammetry/survey mapping).
    Target architecture (Mermaid C4 container view — target, not current) ·
    Gap to current · Requirements derived · Implementation handoff ·
    Validation plan · Designer iteration log.
+
+   `.claude/hooks/guard_designer_paths.py` blocks Edit/Write on
+   `docs/capabilities/**` and `docs/architecture/target/**` by default (it
+   has no other way to tell a designer session from an implementation
+   session). Launch your session with `DAP_DESIGNER_SESSION=1 claude` to
+   write these files — a session cannot grant itself this exemption
+   mid-task, it has to be set at launch.
 3. **Encode the target architecture** as YAML so the gap is machine-checked:
    - `containers`: `kind: node` (checked against parsed ROS2 nodes),
      `kind: offboard` (+ `path:`, checked for existence),
@@ -57,9 +65,12 @@ Reference example: CAP-001 (photogrammetry/survey mapping).
 6. **Decompose into work packages** in the capability doc's handoff table:
    each WP = one design doc + one implementation session, with agents/queue
    and machine-checkable exit criteria ("these gap lines flip to ✅").
-7. **Approve & hand off** (see below). Rerun the gap check after every
-   implementation merge; the capability is **complete when the gap report
-   reads N/N present** and the validation plan has passed.
+7. **Approve & hand off** (see below). Rerun `python scripts/check_architecture_gap.py --strict`
+   after every implementation merge (or after editing a target spec) — since
+   WP-W3, `--strict` failure output names the specific missing
+   containers/flows/behaviours, not just a count, so a failing run tells you
+   what to fix. The capability is **complete when the gap report reads N/N
+   present** and the validation plan has passed.
 
 ## Handoff contract (to the detailed loop)
 

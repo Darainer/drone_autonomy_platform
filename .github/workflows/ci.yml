@@ -105,3 +105,98 @@ jobs:
           docker compose -f docker/docker-compose.yml down
 
           test -f launch/ci-test.md || { echo "ERROR: launch/ci-test.md was not created"; exit 1; }
+
+  # ── 4. C4 diagram drift gate ───────────────────
+  #    Installs the render toolchain (Graphviz + headless JRE + the pinned
+  #    PlantUML jar, via scripts/setup_c4_tooling.sh) and full-renders the C4
+  #    views, byte-comparing them against what's committed under
+  #    docs/architecture/c4/. Unlike safety-path-warning below, this is a real
+  #    gate — it fails the build on drift, it does not just warn.
+  #
+  #    Known limitation: only PlantUML is version-pinned. SVG layout
+  #    coordinates come from Graphviz, which is whatever the runner image
+  #    ships. If this job reports drift on views that are semantically
+  #    correct, suspect a Graphviz version difference first — compare
+  #    `dot -V` here against the machine that last regenerated the views.
+  c4-drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache PlantUML jar
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/plantuml
+          key: plantuml-jar-${{ hashFiles('scripts/setup_c4_tooling.sh') }}
+
+      - name: Install C4 render toolchain (Graphviz + JRE + PlantUML jar)
+        run: bash scripts/setup_c4_tooling.sh
+
+      - name: Check C4 views for drift (full render, byte-compare)
+        run: python scripts/generate_c4.py --check
+
+  # ── 5. Safety-path warning (warn-only, advisory) ──
+  #    Runs on pull_request only (no-op/skipped on push). Diffs the PR against
+  #    its base ref; if any changed path is under src/control/, src/safety/, or
+  #    src/navigation/ and the PR does not carry the `safety-reviewed` label,
+  #    writes a warning naming the changed files to the job summary. This is
+  #    advisory only and always exits 0 — nothing here blocks a merge. Making
+  #    this check required is a branch-protection setting a human still needs
+  #    to configure; the `safety-reviewed` label also needs to be created by a
+  #    human before it can be applied to PRs.
+  safety-path-warning:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Warn on unreviewed safety-critical path changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'safety-reviewed') }}
+        run: |
+          CHANGED_FILES=$(git diff --name-only "${BASE_SHA}...HEAD" 2>/dev/null || true)
+
+          SAFETY_FILES=$(printf '%s\n' "$CHANGED_FILES" | grep -E '^(src/control/|src/safety/|src/navigation/)' || true)
+
+          if [ -z "$SAFETY_FILES" ]; then
+            echo "No changes under \`src/control/\`, \`src/safety/\`, or \`src/navigation/\` in this PR." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ "$HAS_LABEL" = "true" ]; then
+            {
+              echo "### Safety-critical path changed — \`safety-reviewed\` label present"
+              echo
+              echo "This PR changes files under a safety-critical path, and carries the \`safety-reviewed\` label:"
+              echo
+              echo '```'
+              printf '%s\n' "$SAFETY_FILES"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "### :warning: Safety-critical path changed — no \`safety-reviewed\` label"
+            echo
+            echo "This PR changes files under \`src/control/\`, \`src/safety/\`, and/or \`src/navigation/\`:"
+            echo
+            echo '```'
+            printf '%s\n' "$SAFETY_FILES"
+            echo '```'
+            echo
+            echo "This is advisory only — nothing here blocks the merge. Fill in the DO-178C"
+            echo "checklist section of the PR template and add the \`safety-reviewed\` label once"
+            echo "a human has reviewed these changes. (Requiring this check via branch protection"
+            echo "is a follow-up a human still needs to configure — see CONTRIBUTING.md.)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit 0
