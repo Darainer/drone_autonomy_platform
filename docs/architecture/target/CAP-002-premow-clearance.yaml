@@ -1,0 +1,138 @@
+# Target architecture spec for CAP-002 — Pre-Mow Field Clearance Surveillance.
+# Owned by the designer; iterated together with docs/capabilities/CAP-002-premow-clearance.md.
+# Checked against the code with: python scripts/check_architecture_gap.py
+capability: CAP-002
+title: Pre-Mow Field Clearance Surveillance
+stakeholder_requirements: [STK-2]
+
+containers:
+  # Existing nodes the capability builds on
+  - name: autonomy_node
+    kind: node
+    requirement: CLR-1
+    description: Mission manager — gains "clearance" mission type (area set + altitude)
+  - name: navigation_node
+    kind: node
+    requirement: CLR-8
+    description: Coverage generator (MAP-1) gains detection-driven surveillance parameterization
+  - name: rfdetr_node
+    kind: node
+    requirement: CLR-2
+    description: Deployed detector — gains the fine-tuned clearance-domain engine + label set
+  - name: communication_node
+    kind: node
+    requirement: CLR-7
+    description: GCS link — gains live findings downlink
+  - name: oakd
+    kind: external
+    description: RGB + camera-info source for detection, evidence clips, and geolocation
+  - name: mavros
+    kind: external
+    description: Vehicle pose (local + global) for finding geolocation
+
+  # New external sensor (dawn thermal sweep) — registered in EXTERNAL_SYSTEMS by WP-G
+  - name: thermal_cam
+    kind: external
+    requirement: CLR-11
+    description: LWIR thermal camera driver (640x512 class, DES-007 D3)
+
+  # New onboard perception modules
+  - name: tracker_node
+    kind: node
+    package: perception
+    requirement: CLR-3
+    description: ByteTrack association of /detections into persistent-ID tracks
+  - name: thermal_detector_node
+    kind: node
+    package: perception
+    requirement: CLR-12
+    description: >
+      Dawn-sweep detection on /thermal/image_raw (classical contrast/blob
+      baseline, ML fallback per DES-007 D4); publishes modality-agnostic
+      /detections
+
+  # New onboard surveillance module
+  - name: clearance_recorder_node
+    kind: node
+    package: surveillance
+    requirement: CLR-5
+    description: >
+      Geolocates tracks (CLR-4), filters to mow-area polygons, records
+      evidence clips with pre-roll plus structured finding records, publishes
+      live /findings
+
+  # New offboard/companion post-flight module (report built on the companion,
+  # delivered to the operator's mobile device — MAP-7/MAP-8 execution pattern)
+  - name: clearance_report_pipeline
+    kind: offboard
+    path: tools/clearance_report
+    requirement: CLR-6
+    description: >
+      Findings store -> per-area clearance report (verdicts, clips, map
+      overlay, coverage holes) + mobile delivery (CLR-7)
+
+  # New offboard ML module (training-side; runs on workstation GPU, not the vehicle)
+  - name: clearance_model_pipeline
+    kind: offboard
+    path: tools/clearance_model
+    requirement: CLR-9
+    description: >
+      Dataset ingest/remap, provenance manifest, labeling plan, RF-DETR
+      fine-tune + evaluation harness, ONNX/TensorRT export for rfdetr_node
+
+flows:
+  # Tasking chain (already wired: DES-001; flown for real once DES-006 lands)
+  - {from: autonomy_node, to: navigation_node, topic: /mission, requirement: CLR-1}
+  - {from: navigation_node, to: control_node, topic: /trajectory, requirement: CLR-8}
+  # Detection chain — day RGB profile
+  - {from: oakd, to: rfdetr_node, topic: /oak/rgb/image_raw, requirement: CLR-2}
+  - {from: rfdetr_node, to: tracker_node, topic: /detections, requirement: CLR-3}
+  # Detection chain — dawn thermal profile
+  - {from: thermal_cam, to: thermal_detector_node, topic: /thermal/image_raw, requirement: CLR-12}
+  - {from: thermal_detector_node, to: tracker_node, topic: /detections, requirement: CLR-12}
+  - {from: thermal_cam, to: clearance_recorder_node, topic: /thermal/image_raw, requirement: CLR-5}
+  - {from: tracker_node, to: clearance_recorder_node, topic: /tracked_objects, requirement: CLR-4}
+  # Evidence + geolocation inputs
+  - {from: oakd, to: clearance_recorder_node, topic: /oak/rgb/image_raw, requirement: CLR-5}
+  - {from: oakd, to: clearance_recorder_node, topic: /oak/rgb/camera_info, requirement: CLR-4}
+  - {from: mavros, to: clearance_recorder_node, topic: /mavros/local_position/pose, requirement: CLR-4}
+  - {from: mavros, to: clearance_recorder_node, topic: /mavros/global_position/global, requirement: CLR-4}
+  # Mission lifecycle (arm/disarm recording, area polygons)
+  - {from: autonomy_node, to: clearance_recorder_node, topic: /mission, requirement: CLR-5}
+  - {from: autonomy_node, to: clearance_recorder_node, topic: /mission_status, requirement: CLR-5}
+  # Live findings to the GCS link
+  - {from: clearance_recorder_node, to: communication_node, topic: /findings, requirement: CLR-7}
+
+behaviors:
+  # Behavioral gaps inside existing containers / offboard modules — flip to
+  # present when the implementing code lands with its Implements: marker.
+  - name: Clearance mission type in mission manager
+    requirement: CLR-1
+    evidence: "Implements: CLR-1"
+  - name: Clearance-domain detection model deployed (label set + engine config)
+    requirement: CLR-2
+    evidence: "Implements: CLR-2"
+  - name: Surveillance (detection-GSD) coverage parameterization in navigation
+    requirement: CLR-8
+    evidence: "Implements: CLR-8"
+  - name: Finding confirmation maneuver (descend + native-crop re-inference)
+    requirement: CLR-10
+    evidence: "Implements: CLR-10"
+  - name: Dawn-sweep thermal detection meets E-THERM gate
+    requirement: CLR-12
+    evidence: "Implements: CLR-12"
+  - name: Finding geolocation (pixel -> WGS84, polygon containment)
+    requirement: CLR-4
+    evidence: "Implements: CLR-4"
+  - name: Evidence clip capture with pre-roll + finding records
+    requirement: CLR-5
+    evidence: "Implements: CLR-5"
+  - name: Per-area clearance report generation (verdicts, coverage holes)
+    requirement: CLR-6
+    evidence: "Implements: CLR-6"
+  - name: Report delivery to registered mobile device
+    requirement: CLR-7
+    evidence: "Implements: CLR-7"
+  - name: License-vetted dataset provenance manifest + labeling program
+    requirement: CLR-9
+    evidence: "Implements: CLR-9"
